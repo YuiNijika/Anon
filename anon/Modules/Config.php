@@ -66,14 +66,13 @@ class Anon_Config
             error_log("Registering system routes...");
         }
         
-        // 注册Common路由
-        self::addRoute('/anon/common/system-info', function() {
+        self::addRoute('/anon/common/system', function() {
             Anon_Common::Header();
-            echo json_encode(Anon_Common::SystemInfo());
+            Anon_ResponseHelper::success(Anon_Common::SystemInfo(), '获取系统信息成功');
         });
-        self::addRoute('/anon/common/get-client-ip', function() {
+        self::addRoute('/anon/common/client-ip', function() {
             Anon_Common::Header();
-            echo json_encode(Anon_Common::GetClientIp());
+            Anon_ResponseHelper::success(Anon_Common::GetClientIp(), '获取客户端IP成功');
         });
 
         // 注册Install路由
