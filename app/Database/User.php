@@ -248,11 +248,16 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     private function buildAvatar($email = null, $size = 640)
     {
+        $avatarUrl = 'https://www.cravatar.cn/avatar';
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $avatarUrl = Anon_Env::get('app.avatar', $avatarUrl);
+        }
+        
         if (!$email) {
-            return "https://www.cravatar.cn/avatar/?s={$size}&d=retro";
+            return "{$avatarUrl}/?s={$size}&d=retro";
         }
         $trimmedEmail = trim(strtolower($email));
         $hash = md5($trimmedEmail);
-        return "https://www.cravatar.cn/avatar/{$hash}?s={$size}&d=retro";
+        return "{$avatarUrl}/{$hash}?s={$size}&d=retro";
     }
 }

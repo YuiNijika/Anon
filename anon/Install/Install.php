@@ -333,6 +333,9 @@ class Anon_Install
         if (!isset($config['app']['debug']['global'])) {
             $config['app']['debug']['global'] = false;
         }
+        if (!isset($config['app']['avatar'])) {
+            $config['app']['avatar'] = 'https://www.cravatar.cn/avatar';
+        }
         
         // 生成配置文件内容
         $content = "<?php\n";

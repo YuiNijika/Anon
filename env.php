@@ -13,12 +13,13 @@ return [
             'database' => 'puxt', // 数据库名称
             'charset' => 'utf8mb4', // 数据库字符集
         ],
-        'installed' => false, // 是否安装程序
+        'installed' => true, // 是否安装程序
     ],
     'app' => [
         'debug' => [
             'global' => false, // 全局调试
             'router' => false, // 路由调试
         ],
+        'avatar' => 'https://www.cravatar.cn/avatar', // 头像源URL
     ],
 ];
