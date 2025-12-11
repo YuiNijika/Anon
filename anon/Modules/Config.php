@@ -76,16 +76,6 @@ class Anon_Config
             echo json_encode(Anon_Common::GetClientIp());
         });
 
-        // 注册Debug路由
-        self::addRoute('/anon/debug/info', [Anon_Debug::class, 'debugInfo']);
-        self::addRoute('/anon/debug/performance', [Anon_Debug::class, 'performanceApi']);
-        self::addRoute('/anon/debug/logs', [Anon_Debug::class, 'logs']);
-        self::addRoute('/anon/debug/errors', [Anon_Debug::class, 'errors']);
-        self::addRoute('/anon/debug/hooks', [Anon_Debug::class, 'hooks']);
-        self::addRoute('/anon/debug/tools', [Anon_Debug::class, 'tools']);
-        self::addRoute('/anon/debug/clear', [Anon_Debug::class, 'clearData']);
-        self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
-
         // 注册Install路由
         self::addRoute('/anon/install', [Anon_Install::class, 'index']);
         // 注册anon路由
@@ -107,6 +97,34 @@ class Anon_Config
         // 调试输出已注册的路由
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
+        }
+    }
+
+    /**
+     * 初始化应用路由
+     */
+    public static function initAppRoutes()
+    {
+        // 调试输出路由注册信息
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log("Registering app routes...");
+        }
+
+        // 注册Debug路由
+        if (class_exists('Anon_Debug')) {
+            self::addRoute('/anon/debug/info', [Anon_Debug::class, 'debugInfo']);
+            self::addRoute('/anon/debug/performance', [Anon_Debug::class, 'performanceApi']);
+            self::addRoute('/anon/debug/logs', [Anon_Debug::class, 'logs']);
+            self::addRoute('/anon/debug/errors', [Anon_Debug::class, 'errors']);
+            self::addRoute('/anon/debug/hooks', [Anon_Debug::class, 'hooks']);
+            self::addRoute('/anon/debug/tools', [Anon_Debug::class, 'tools']);
+            self::addRoute('/anon/debug/clear', [Anon_Debug::class, 'clearData']);
+            self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
+        }
+
+        // 调试输出已注册的路由
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log("Registered app routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
     }
 }

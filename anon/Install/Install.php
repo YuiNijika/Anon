@@ -73,8 +73,9 @@ class Anon_Install
 
             // 获取并验证数据库连接信息
             $db_host = self::validateInput($_POST['db_host']);
+            $db_port = isset($_POST['db_port']) ? (int)$_POST['db_port'] : 3306;
             $db_user = self::validateInput($_POST['db_user']);
-            $db_pass = self::validateInput($_POST['db_pass']);
+            $db_pass = self::validateInput($_POST['db_pass'] ?? '');
             $db_name = self::validateInput($_POST['db_name']);
             $db_prefix = self::validateInput($_POST['db_prefix']);
 
@@ -83,10 +84,13 @@ class Anon_Install
             }
 
             // 更新配置文件
-            self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix);
+            self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
 
             // 重新加载配置文件
-            require_once self::envfile;
+            $envConfig = require self::envfile;
+            if (class_exists('Anon_Env')) {
+                Anon_Env::init($envConfig);
+            }
 
             // 连接到数据库
             $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -134,13 +138,35 @@ class Anon_Install
      */
     private static function renderInstallPage()
     {
-        // 读取配置
-        $db_host = defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost';
-        $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
-        $db_user = defined('ANON_DB_USER') ? ANON_DB_USER : 'root';
-        $db_pass = defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '';
-        $db_name = defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '';
-        $db_prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : 'anon_';
+        // 读取配置（优先从常量读取，如果未定义则从配置文件读取）
+        if (defined('ANON_DB_HOST')) {
+            $db_host = ANON_DB_HOST;
+            $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
+            $db_user = ANON_DB_USER;
+            $db_pass = defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '';
+            $db_name = ANON_DB_DATABASE;
+            $db_prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : 'anon_';
+        } else {
+            // 如果常量未定义，尝试从配置文件读取
+            $configFile = self::envfile;
+            if (file_exists($configFile)) {
+                $config = require $configFile;
+                $db_host = $config['system']['db']['host'] ?? 'localhost';
+                $db_port = $config['system']['db']['port'] ?? 3306;
+                $db_user = $config['system']['db']['user'] ?? 'root';
+                $db_pass = $config['system']['db']['password'] ?? '';
+                $db_name = $config['system']['db']['database'] ?? '';
+                $db_prefix = $config['system']['db']['prefix'] ?? 'anon_';
+            } else {
+                // 默认值
+                $db_host = 'localhost';
+                $db_port = 3306;
+                $db_user = 'root';
+                $db_pass = '';
+                $db_name = '';
+                $db_prefix = 'anon_';
+            }
+        }
 
         $csrf = htmlspecialchars($_SESSION['install_csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
         $db_host_h = htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8');
@@ -264,28 +290,62 @@ class Anon_Install
     /**
      * 更新配置文件
      */
-    private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix)
+    private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
     {
         $configFile = self::envfile;
-        $content = file_get_contents($configFile);
-
-        // 更新数据库配置
-        $content = preg_replace("/define\('ANON_DB_HOST', '[^']*'\)/", "define('ANON_DB_HOST', '$dbHost')", $content);
-        $content = preg_replace("/define\('ANON_DB_USER', '[^']*'\)/", "define('ANON_DB_USER', '$dbUser')", $content);
-        $content = preg_replace("/define\('ANON_DB_PASSWORD', '[^']*'\)/", "define('ANON_DB_PASSWORD', '$dbPass')", $content);
-        $content = preg_replace("/define\('ANON_DB_DATABASE', '[^']*'\)/", "define('ANON_DB_DATABASE', '$dbName')", $content);
-
-        // 新增前缀更新
-        $content = preg_replace("/define\('ANON_DB_PREFIX', '[^']*'\)/", "define('ANON_DB_PREFIX', '$dbPrefix')", $content);
-
-        // 更新安装状态
-        $content = preg_replace("/define\('ANON_INSTALLED', [^;]*\);/", "define('ANON_INSTALLED', true);", $content);
-
+        
+        // 读取现有配置
+        $config = [];
+        if (file_exists($configFile)) {
+            try {
+                $config = require $configFile;
+            } catch (Exception $e) {
+                // 如果读取失败，使用默认配置
+                $config = [];
+            }
+        }
+        
+        // 初始化 system 配置
+        if (!isset($config['system'])) {
+            $config['system'] = [];
+        }
+        
+        $config['system']['db'] = [
+            'host' => $dbHost,
+            'port' => $dbPort,
+            'prefix' => $dbPrefix,
+            'user' => $dbUser,
+            'password' => $dbPass,
+            'database' => $dbName,
+            'charset' => $config['system']['db']['charset'] ?? 'utf8mb4',
+        ];
+        $config['system']['installed'] = true;
+        
+        if (!isset($config['app'])) {
+            $config['app'] = [];
+        }
+        if (!isset($config['app']['debug'])) {
+            $config['app']['debug'] = [];
+        }
+        if (!isset($config['app']['debug']['router'])) {
+            $config['app']['debug']['router'] = true;
+        }
+        if (!isset($config['app']['debug']['global'])) {
+            $config['app']['debug']['global'] = false;
+        }
+        
+        // 生成配置文件内容
+        $content = "<?php\n";
+        $content .= "/**\n";
+        $content .= " * Anon环境配置\n";
+        $content .= " */\n";
+        $content .= "return " . var_export($config, true) . ";\n";
+        
         file_put_contents($configFile, $content);
     }
 
     /**
-     * 执行 SQL 内容（从独立文件读取）
+     * 读取执行SQL
      */
     private static function executeSqlContent($conn, $tablePrefix)
     {

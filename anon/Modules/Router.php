@@ -3,6 +3,7 @@
 /**
  * 路由处理
  */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Router
@@ -34,9 +35,15 @@ class Anon_Router
     public static function init(): void
     {
         try {
+            // 如果是 OPTIONS 预检请求，直接返回
+            if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+                Anon_Common::Header(200, false, true);
+                exit;
+            }
+            
             // 执行路由初始化前钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_before_init');
+                Anon_Hook::do_action('router_before_init');
             }
             
             // 记录路由系统启动
@@ -53,7 +60,7 @@ class Anon_Router
             
             // 执行配置加载后钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_config_loaded', self::$routes, self::$errorHandlers);
+                Anon_Hook::do_action('router_config_loaded', self::$routes, self::$errorHandlers);
             }
             
             self::handleRequest();
@@ -66,12 +73,12 @@ class Anon_Router
             
             // 执行路由初始化完成钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_after_init');
+                Anon_Hook::do_action('router_after_init');
             }
         } catch (RuntimeException $e) {
             // 执行路由错误钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_init_error', $e);
+                Anon_Hook::do_action('router_init_error', $e);
             }
             
             // 记录错误到调试系统
@@ -134,7 +141,7 @@ class Anon_Router
 
                 // 注册前钩子
                 if (class_exists('Anon_Hook')) {
-                    do_action('app_before_register_route', $currentPath, $view, $useLoginCheck);
+                    Anon_Hook::do_action('app_before_register_route', $currentPath, $view, $useLoginCheck);
                 }
 
                 // 生成处理器
@@ -143,13 +150,13 @@ class Anon_Router
                     if ($useLoginCheck) {
                         // 前置钩子
                         if (class_exists('Anon_Hook')) {
-                            do_action('app_before_login_check', $currentPath);
+                            Anon_Hook::do_action('app_before_login_check', $currentPath);
                         }
 
                         if (!Anon_Check::isLoggedIn()) {
                             // 失败钩子
                             if (class_exists('Anon_Hook')) {
-                                do_action('app_login_check_failed', $currentPath);
+                                Anon_Hook::do_action('app_login_check_failed', $currentPath);
                             }
 
                             Anon_Common::Header();
@@ -162,7 +169,7 @@ class Anon_Router
 
                         // 成功钩子
                         if (class_exists('Anon_Hook')) {
-                            do_action('app_login_check_success', $currentPath);
+                            Anon_Hook::do_action('app_login_check_success', $currentPath);
                         }
                     }
 
@@ -175,7 +182,7 @@ class Anon_Router
 
                 // 注册后钩子
                 if (class_exists('Anon_Hook')) {
-                    do_action('app_after_register_route', $currentPath, $view, $useLoginCheck);
+                    Anon_Hook::do_action('app_after_register_route', $currentPath, $view, $useLoginCheck);
                 }
             } else {
                 // 递归子节点
@@ -184,13 +191,14 @@ class Anon_Router
         }
     }
 
+
     /**
      * 是否启用调试模式
      * @return bool
      */
     private static function isDebugEnabled(): bool
     {
-        return defined('ANON_DEBUG') && ANON_DEBUG;
+        return defined('ANON_ROUTER_DEBUG') && ANON_ROUTER_DEBUG;
     }
 
     /**
@@ -273,8 +281,8 @@ class Anon_Router
             
             // 执行请求处理前钩子
             if (class_exists('Anon_Hook')) {
-                $requestPath = apply_filters('router_request_path', $requestPath);
-                do_action('router_before_request', $requestPath);
+                $requestPath = Anon_Hook::apply_filters('router_request_path', $requestPath);
+                Anon_Hook::do_action('router_before_request', $requestPath);
             }
             
             // 记录请求信息到调试系统
@@ -302,7 +310,7 @@ class Anon_Router
                 
                 // 执行路由匹配钩子
                 if (class_exists('Anon_Hook')) {
-                    do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
+                    Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
                 }
                 
                 self::dispatch($requestPath);
@@ -321,7 +329,7 @@ class Anon_Router
                     
                     // 执行参数路由匹配钩子
                     if (class_exists('Anon_Hook')) {
-                        do_action('router_param_route_matched', $matchedRoute['route'], $matchedRoute['params']);
+                        Anon_Hook::do_action('router_param_route_matched', $matchedRoute['route'], $matchedRoute['params']);
                     }
                     
                     self::dispatchWithParams($matchedRoute['route'], $matchedRoute['params']);
@@ -339,7 +347,7 @@ class Anon_Router
                     
                     // 执行路由未匹配钩子
                     if (class_exists('Anon_Hook')) {
-                        do_action('router_no_match', $requestPath);
+                        Anon_Hook::do_action('router_no_match', $requestPath);
                     }
                     
                     self::handleError(404);
@@ -348,7 +356,7 @@ class Anon_Router
         } catch (Throwable $e) {
             // 执行请求处理错误钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_request_error', $e, $requestPath ?? '');
+                Anon_Hook::do_action('router_request_error', $e, $requestPath ?? '');
             }
             
             if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
@@ -387,7 +395,7 @@ class Anon_Router
         try {
             // 执行路由执行前钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_before_dispatch', $routeKey, $handler);
+                Anon_Hook::do_action('router_before_dispatch', $routeKey, $handler);
             }
             
             // 开始执行性能监控
@@ -405,12 +413,12 @@ class Anon_Router
             
             // 执行路由执行后钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_after_dispatch', $routeKey, $handler);
+                Anon_Hook::do_action('router_after_dispatch', $routeKey, $handler);
             }
         } catch (Throwable $e) {
             // 执行路由执行错误钩子
             if (class_exists('Anon_Hook')) {
-                do_action('router_dispatch_error', $e, $routeKey, $handler);
+                Anon_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
             }
             
             if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
@@ -439,6 +447,11 @@ class Anon_Router
         
         // 去掉查询参数，但保留前导斜杠
         $path = strstr($path, '?', true) ?: $path;
+        
+        // 去除前端代理的 /apiService 前缀（前端代理会将 /apiService 转发到后端）
+        if (strpos($path, '/apiService') === 0) {
+            $path = substr($path, strlen('/apiService'));
+        }
         
         // 确保路径以 / 开头
         if (strpos($path, '/') !== 0) {

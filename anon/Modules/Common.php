@@ -9,17 +9,82 @@ if (!Anon_Config::isInstalled()) {
 class Anon_Common
 {
     /**
-     * 通用Header
+     * 从 Anon_Env 读取配置并定义常量
+     * 如果 Anon_Env 已初始化，使用其配置；否则使用默认值
      */
-    public static function Header($code = 200, $response = true): void
+    public static function defineConstantsFromEnv(): void
+    {
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            self::defineIfNotExists('ANON_DB_HOST', Anon_Env::get('system.db.host', 'localhost'));
+            self::defineIfNotExists('ANON_DB_PORT', Anon_Env::get('system.db.port', 3306));
+            self::defineIfNotExists('ANON_DB_PREFIX', Anon_Env::get('system.db.prefix', ''));
+            self::defineIfNotExists('ANON_DB_USER', Anon_Env::get('system.db.user', 'root'));
+            self::defineIfNotExists('ANON_DB_PASSWORD', Anon_Env::get('system.db.password', ''));
+            self::defineIfNotExists('ANON_DB_DATABASE', Anon_Env::get('system.db.database', ''));
+            self::defineIfNotExists('ANON_DB_CHARSET', Anon_Env::get('system.db.charset', 'utf8mb4'));
+            self::defineIfNotExists('ANON_INSTALLED', Anon_Env::get('system.installed', false));
+            self::defineIfNotExists('ANON_DEBUG', Anon_Env::get('app.debug.global', false));
+            self::defineIfNotExists('ANON_ROUTER_DEBUG', Anon_Env::get('app.debug.router', false));
+        } else {
+            // 如果 Anon_Env 未初始化，使用默认值
+            self::defineIfNotExists('ANON_DB_HOST', 'localhost');
+            self::defineIfNotExists('ANON_DB_PORT', 3306);
+            self::defineIfNotExists('ANON_DB_PREFIX', '');
+            self::defineIfNotExists('ANON_DB_USER', 'root');
+            self::defineIfNotExists('ANON_DB_PASSWORD', '');
+            self::defineIfNotExists('ANON_DB_DATABASE', '');
+            self::defineIfNotExists('ANON_DB_CHARSET', 'utf8mb4');
+            self::defineIfNotExists('ANON_INSTALLED', false);
+            self::defineIfNotExists('ANON_ROUTER_DEBUG', false);
+            self::defineIfNotExists('ANON_DEBUG', false);
+        }
+
+        // 站点配置
+        self::defineIfNotExists('ANON_SITE_HTTPS', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
+    }
+
+    /**
+     * 如果未定义，则定义常量
+     * @param string $name 常量名
+     * @param mixed $value 常量值
+     */
+    private static function defineIfNotExists(string $name, $value): void
+    {
+        if (!defined($name)) {
+            define($name, $value);
+        }
+    }
+    /**
+     * 通用Header
+     * @param int $code HTTP状态码
+     * @param bool $response 是否设置JSON响应头
+     * @param bool $cors 是否设置CORS头
+     */
+    public static function Header($code = 200, $response = true, $cors = true): void
     {
         http_response_code($code);
+        
+        if ($cors) {
+            self::setCorsHeaders();
+        }
+        
         if ($response) {
-            header("Access-Control-Allow-Origin: *");
-            header("Access-Control-Allow-Methods: *");
-            header("Access-Control-Allow-Headers: Content-Type, Authorization");
             header('Content-Type: application/json; charset=utf-8');
         }
+    }
+
+    /**
+     * 设置 CORS 头
+     */
+    private static function setCorsHeaders(): void
+    {
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+        
+        header("Access-Control-Allow-Origin: " . $origin);
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+        header("Access-Control-Max-Age: 3600");
     }
 
     /**
@@ -114,7 +179,7 @@ class Anon_Check
         // 清空会话数据
         $_SESSION = [];
 
-        // 重置会话数组
+        // 重置会话 Cookie
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
@@ -143,11 +208,27 @@ class Anon_Check
      */
     public static function setAuthCookies(int $userId, string $username, bool $rememberMe = false): void
     {
+        // 检测是否为跨域请求
+        $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
+                        parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
+        
+        $isHttps = defined('ANON_SITE_HTTPS') && ANON_SITE_HTTPS;
+        
+        // 跨域且 HTTPS 时使用 None，否则使用 Lax
+        // SameSite=None 必须配合 Secure=true，只能在 HTTPS 下工作
+        if ($isCrossOrigin && $isHttps) {
+            $sameSite = 'None';
+            $secure = true;
+        } else {
+            $sameSite = 'Lax';
+            $secure = $isHttps;
+        }
+        
         $cookieOptions = [
             'path'     => '/',
             'httponly' => true,
-            'secure'   => AnonSite['HTTPS'] ?? false,
-            'samesite' => 'Lax'
+            'secure'   => $secure,
+            'samesite' => $sameSite
         ];
 
         // 根据"记住我"选项设置cookie过期时间
@@ -166,13 +247,13 @@ class Anon_Check
     /**
      * 清除认证Cookie
      */
-    private static function clearAuthCookies(): void
+    public static function clearAuthCookies(): void
     {
         $cookieOptions = [
             'expires'  => time() - 3600,
             'path'     => '/',
             'httponly' => true,
-            'secure'   => AnonSite['HTTPS'] ?? false,
+            'secure'   => defined('ANON_SITE_HTTPS') ? ANON_SITE_HTTPS : false,
             'samesite' => 'Lax'
         ];
 
@@ -209,13 +290,28 @@ class Anon_Check
     /**
      * 如果会话未启动，则启动会话
      */
-    private static function startSessionIfNotStarted(): void
+    public static function startSessionIfNotStarted(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
+            // 检测是否为跨域请求
+            $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
+                             parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
+            
+            $isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
+            
+            // 跨域且 HTTPS 时使用 None，否则使用 Lax
+            if ($isCrossOrigin && $isHttps) {
+                $sameSite = 'None';
+                $secure = true;
+            } else {
+                $sameSite = 'Lax';
+                $secure = $isHttps;
+            }
+            
             session_start([
                 'cookie_httponly' => true,
-                'cookie_secure'   => $_SERVER['HTTPS'] ?? false,
-                'cookie_samesite' => 'Lax'
+                'cookie_secure'   => $secure,
+                'cookie_samesite' => $sameSite
             ]);
         }
     }

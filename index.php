@@ -1,4 +1,5 @@
-<?php 
+<?php
 define('ANON_ALLOWED_ACCESS', true);
-// 引入核心文件
-require_once __DIR__ . '/env.php';
+
+// 引入主程序
+require_once __DIR__ . '/anon/Main.php';

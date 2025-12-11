@@ -1,7 +1,7 @@
 <?php
 
 /**
- * 用户数据仓库
+ * 用户数据库
  */
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;

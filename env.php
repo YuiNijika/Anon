@@ -1,24 +1,24 @@
 <?php
 /**
- * Anon配置
+ * Anon环境配置
  */
-if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-// 数据库配置
-define('ANON_DB_HOST', 'localhost');
-define('ANON_DB_PORT', 3306);
-define('ANON_DB_PREFIX', 'puxt_');
-define('ANON_DB_USER', 'root');
-define('ANON_DB_PASSWORD', 'root');
-define('ANON_DB_DATABASE', 'puxt');
-define('ANON_DB_CHARSET', 'utf8mb4');
-
-// 是否安装程序
-define('ANON_INSTALLED', true);
-// Debug
-define('ANON_ROUTER_DEBUG', true);
-const AnonSite = [
-    'HTTPS' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+return [
+    'system' => [
+        'db' => [
+            'host' => 'localhost', // 数据库主机    
+            'port' => 3306, // 数据库端口
+            'prefix' => 'puxt_', // 数据库表前缀
+            'user' => 'root', // 数据库用户
+            'password' => 'root', // 数据库密码
+            'database' => 'puxt', // 数据库名称
+            'charset' => 'utf8mb4', // 数据库字符集
+        ],
+        'installed' => true, // 是否安装程序
+    ],
+    'app' => [
+        'debug' => [
+            'global' => false, // 全局调试
+            'router' => true, // 路由调试
+        ],
+    ],
 ];
-
-require_once __DIR__ . '/anon/Main.php';

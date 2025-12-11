@@ -1,41 +1,45 @@
 <?php
-
-/**
- * Anon配置
- */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Main
 {
+    /**
+     * 启动应用
+     */
     public static function run()
     {
         $App  = __DIR__ . '/../app/';
         $Widget = __DIR__ . '/Widget/';
         $Modules = __DIR__ . '/Modules/';
+        $Root = __DIR__ . '/../';
         
-        // 加载核心模块
+        $envConfig = require $Root . 'env.php';
+        require_once $Modules . 'Env.php';
+        Anon_Env::init($envConfig);
         require_once $Modules . 'Config.php';
         require_once $Modules  . 'Common.php';
+        Anon_Common::defineConstantsFromEnv();
+        
         require_once $Widget  . 'Connection.php';
         require_once $Modules  . 'Database.php';
+        require_once $Modules  . '../Install/Install.php';
+        
         require_once $Modules  . 'ResponseHelper.php';
-        
-        // 加载调试系统
+        require_once $Modules  . 'RequestHelper.php';
         require_once $Modules . 'Debug.php';
+        require_once $Modules . 'Hook.php';
         
-        // 加载模块类
-        require_once $Modules . '../Install/Install.php';
-        
-        // 初始化调试系统
         Anon_Debug::init();
-        
-        // 初始化系统路由
         Anon_Config::initSystemRoutes();
+        Anon_Config::initAppRoutes();
         
-        // 加载路由
+        $codeFile = $App . 'Code.php';
+        if (file_exists($codeFile)) {
+            require_once $codeFile;
+        }
+        
         require_once $Modules . 'Router.php';
         
-        // 记录应用启动
         Anon_Debug::info('Application started', [
             'php_version' => PHP_VERSION,
             'memory_limit' => ini_get('memory_limit'),
