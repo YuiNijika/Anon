@@ -351,10 +351,11 @@ class Anon_Install
     {
         $sqlContent = str_replace('{prefix}', $tablePrefix, self::getSqlContent());
 
-        $queries = array_filter(array_map('trim', explode(';', $sqlContent)));
+            $queries = array_filter(array_map('trim', explode(';', $sqlContent)));
         foreach ($queries as $query) {
             if (!empty($query) && !$conn->query($query)) {
-                die("SQL 执行错误: " . $conn->error);
+                error_log("SQL 执行错误: " . $conn->error);
+                throw new RuntimeException("SQL 执行错误");
             }
         }
     }
@@ -367,7 +368,8 @@ class Anon_Install
         $tableName = $tablePrefix . 'users';
         $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`) VALUES (?, ?, ?, ?)");
         if (!$stmt) {
-            die("SQL 语句错误: " . $conn->error);
+            error_log("SQL 语句错误: " . $conn->error);
+            throw new RuntimeException("SQL 语句错误");
         }
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
         $stmt->bind_param("ssss", $username, $hashedPassword, $email, $group);

@@ -26,7 +26,7 @@ class Anon_ResponseHelper {
             $response['data'] = $data;
         }
         
-        echo json_encode($response, JSON_UNESCAPED_UNICODE);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;
     }
     
@@ -49,7 +49,7 @@ class Anon_ResponseHelper {
             $response['data'] = $data;
         }
         
-        echo json_encode($response, JSON_UNESCAPED_UNICODE);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;
     }
     
@@ -70,7 +70,7 @@ class Anon_ResponseHelper {
             'pagination' => $pagination
         ];
         
-        echo json_encode($response, JSON_UNESCAPED_UNICODE);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;
     }
     

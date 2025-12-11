@@ -5,25 +5,41 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 const DatabaseDir = __DIR__ . '/../../app/Database';
 
 /**
- * 递归引入 Database
+ * 递归引入 Database 文件
  */
 function anon_require_all_database_files($baseDir)
 {
-    $connectionFile = realpath($baseDir . '/Connection.php');
-    foreach (glob($baseDir . '/*.php') as $phpFile) {
-        if (realpath($phpFile) !== $connectionFile) {
-            require_once $phpFile;
-        }
+    static $loadedFiles = [];
+    
+    if (!is_dir($baseDir)) {
+        return;
     }
+    
+    $connectionFile = realpath($baseDir . '/Connection.php');
+    
     $it = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS)
+        new RecursiveDirectoryIterator($baseDir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
     );
+    
     foreach ($it as $fileInfo) {
         if ($fileInfo->isFile() && strtolower($fileInfo->getExtension()) === 'php') {
-            $path = $fileInfo->getPathname();
-            if (realpath($path) !== $connectionFile) {
-                require_once $path;
+            $path = $fileInfo->getRealPath();
+            
+            if (!$path) {
+                continue;
             }
+            
+            if ($path === $connectionFile) {
+                continue;
+            }
+            
+            if (isset($loadedFiles[$path])) {
+                continue;
+            }
+            
+            $loadedFiles[$path] = true;
+            require_once $path;
         }
     }
 }
@@ -33,7 +49,8 @@ anon_require_all_database_files(DatabaseDir);
 class Anon_Database
 {
     /**
-     * 动态实例容器（包含 Repository/Service 实例）
+     * 动态实例容器
+     * 包含 Repository/Service 实例
      * 不再使用固定 private 属性
      */
     protected $instances = [];
@@ -46,25 +63,53 @@ class Anon_Database
         $this->bootstrapInstances();
     }
 
+    private static $bootstrapedClasses = [];
+    private static $bootstraped = false;
+
     /**
      * 自动发现并实例化匹配类Anon_Database_*Repository / *Service
      */
     protected function bootstrapInstances()
     {
+        if (self::$bootstraped) {
+            $this->instances = self::$bootstrapedClasses;
+            return;
+        }
+        
+        $classesToCheck = [];
         foreach (get_declared_classes() as $class) {
             if (preg_match('/^Anon_Database_([A-Za-z0-9_]+)(Repository|Service)$/', $class, $m)) {
-                // 避免重复实例化
-                if (!isset($this->instances[$class])) {
-                    $obj = new $class();
-                    $this->instances[$class] = $obj;
-                    // 兼容不同访问方式的键名
-                    $short = $m[1] . $m[2];           // e.g. UserRepository
-                    $camel = lcfirst($short);         // e.g. userRepository
-                    $this->instances[$short] = $obj;
-                    $this->instances[$camel] = $obj;
-                }
+                $classesToCheck[] = ['class' => $class, 'matches' => $m];
             }
         }
+        
+        foreach ($classesToCheck as $item) {
+            $class = $item['class'];
+            $m = $item['matches'];
+            
+            if (!isset(self::$bootstrapedClasses[$class])) {
+                $obj = new $class();
+                $short = $m[1] . $m[2];
+                $camel = lcfirst($short);
+                
+                self::$bootstrapedClasses[$class] = $obj;
+                self::$bootstrapedClasses[$short] = $obj;
+                self::$bootstrapedClasses[$camel] = $obj;
+            }
+        }
+        
+        $this->instances = self::$bootstrapedClasses;
+        self::$bootstraped = true;
+    }
+
+    private static $connection = null;
+
+    private function getConnection()
+    {
+        if (self::$connection === null) {
+            self::$connection = Anon_Database_Connection::getInstance();
+        }
+        return self::$connection;
     }
 
     /**
@@ -72,7 +117,7 @@ class Anon_Database
      */
     public function db($table)
     {
-        return (new Anon_Database_Connection())->db($table);
+        return $this->getConnection()->db($table);
     }
 
     /**
@@ -80,7 +125,7 @@ class Anon_Database
      */
     public function query($sql)
     {
-        return (new Anon_Database_Connection())->query($sql);
+        return $this->getConnection()->query($sql);
     }
 
     /**
@@ -88,11 +133,12 @@ class Anon_Database
      */
     public function prepare($sql, $params = [])
     {
-        return (new Anon_Database_Connection())->prepare($sql);
+        return $this->getConnection()->prepare($sql, $params);
     }
 
     /**
-     * 动态属性访问（兼容访问 userRepository / avatarService 等）
+     * 动态属性访问
+     * 兼容访问 userRepository / avatarService 等
      */
     public function __get($name)
     {
@@ -105,8 +151,8 @@ class Anon_Database
     }
 
     /**
-     * 动态方法转发：自动导出仓库与服务的方法
-     * - 保持现有显式方法兼容（已移除显式导出，不再需要）
+     * 动态方法转发自动导出数据库与服务的方法
+     * - 保持现有显式方法兼容
      * - 新增方法无需在此类重复导出
      */
     public function __call($name, $arguments)
@@ -115,7 +161,7 @@ class Anon_Database
         if ($target && method_exists($target, $name)) {
             return call_user_func_array([$target, $name], $arguments);
         }
-        // 回退：遍历已发现的所有实例，若存在同名方法则调用
+        // 回退遍历已发现的所有实例，若存在同名方法则调用
         foreach ($this->uniqueInstances() as $repo) {
             if ($repo && method_exists($repo, $name)) {
                 return call_user_func_array([$repo, $name], $arguments);
@@ -129,7 +175,8 @@ class Anon_Database
      */
     private function resolveForwardTarget($method)
     {
-        // 根据方法名前缀解析目标（如 getUser -> UserRepository / UserService）
+        // 根据方法名前缀解析目标
+        // 如 getUser -> UserRepository / UserService
         if (preg_match('/^(get|is|add|update|delete)([A-Z][A-Za-z0-9_]*)/', $method, $m)) {
             $subject = $m[2];
             $candidates = [
@@ -150,7 +197,7 @@ class Anon_Database
     }
 
     /**
-     * 返回唯一实例列表（去重）
+     * 去重并返回唯一实例列表
      */
     protected function uniqueInstances()
     {

@@ -5,28 +5,45 @@ class Anon_Database_Connection
 {
     protected $conn;
 
-    public function __construct()
+    private static $instance = null;
+    private static $connInstance = null;
+
+    protected function __construct()
     {
-        $this->conn = new mysqli(
-            ANON_DB_HOST,
-            ANON_DB_USER,
-            ANON_DB_PASSWORD,
-            ANON_DB_DATABASE,
-            ANON_DB_PORT
-        );
+        if (self::$connInstance === null) {
+            self::$connInstance = new mysqli(
+                ANON_DB_HOST,
+                ANON_DB_USER,
+                ANON_DB_PASSWORD,
+                ANON_DB_DATABASE,
+                ANON_DB_PORT
+            );
 
-        if ($this->conn->connect_error) {
-            die("数据库连接失败: " . $this->conn->connect_error);
+            if (self::$connInstance->connect_error) {
+                error_log("数据库连接失败: " . self::$connInstance->connect_error);
+                throw new RuntimeException("数据库连接失败");
+            }
+
+            self::$connInstance->set_charset(ANON_DB_CHARSET);
         }
+        
+        $this->conn = self::$connInstance;
+    }
 
-        $this->conn->set_charset(ANON_DB_CHARSET);
+    public static function getInstance()
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
     }
 
     public function query($sql)
     {
         $result = $this->conn->query($sql);
         if (!$result) {
-            die("SQL 查询错误: " . $this->conn->error);
+            error_log("SQL 查询错误: " . $this->conn->error);
+            throw new RuntimeException("SQL 查询错误");
         }
 
         if ($result instanceof mysqli_result) {
@@ -44,7 +61,8 @@ class Anon_Database_Connection
     {
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
-            die("SQL 预处理错误: " . $this->conn->error);
+            error_log("SQL 预处理错误: " . $this->conn->error);
+            throw new RuntimeException("SQL 预处理错误");
         }
 
         if (!empty($params)) {
@@ -66,15 +84,12 @@ class Anon_Database_Connection
 
     public function db($table)
     {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("无效的表名: {$table}");
+        }
         return new Anon_Database_QueryBuilder($this->conn, ANON_DB_PREFIX . $table);
     }
 
-    public function __destruct()
-    {
-        if ($this->conn) {
-            $this->conn->close();
-        }
-    }
 }
 
 class Anon_Database_QueryBuilder
@@ -100,6 +115,11 @@ class Anon_Database_QueryBuilder
     {
         $this->type = 'select';
         $this->columns = is_array($cols) ? $cols : [$cols];
+        foreach ($this->columns as $col) {
+            if (!preg_match('/^[a-zA-Z0-9_`*]+$/', $col)) {
+                throw new InvalidArgumentException("无效的列名: {$col}");
+            }
+        }
         return $this;
     }
 
@@ -137,6 +157,13 @@ class Anon_Database_QueryBuilder
 
     public function where($col, $op, $val = null)
     {
+        if (!preg_match('/^[a-zA-Z0-9_`]+$/', $col)) {
+            throw new InvalidArgumentException("无效的列名: {$col}");
+        }
+        $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'IN', 'IS', 'IS NOT'];
+        if ($val !== null && !in_array(strtoupper($op), $allowedOps)) {
+            throw new InvalidArgumentException("无效的操作符: {$op}");
+        }
         if ($val === null) {
             if ($op === '=' || strtoupper($op) === 'IS') {
                 $this->where[] = [$col, 'IS NULL', null];
@@ -157,6 +184,9 @@ class Anon_Database_QueryBuilder
 
     public function orderBy($col, $dir = 'ASC')
     {
+        if (!preg_match('/^[a-zA-Z0-9_`]+$/', $col)) {
+            throw new InvalidArgumentException("无效的列名: {$col}");
+        }
         $this->order[] = [$col, strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC'];
         return $this;
     }
@@ -170,6 +200,12 @@ class Anon_Database_QueryBuilder
 
     public function join($table, $on, $type = 'INNER')
     {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("无效的表名: {$table}");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_`.=\s]+$/', $on)) {
+            throw new InvalidArgumentException("无效的 JOIN 条件: {$on}");
+        }
         $this->joins[] = [ANON_DB_PREFIX . $table, $on, strtoupper($type)];
         return $this;
     }
@@ -194,6 +230,11 @@ class Anon_Database_QueryBuilder
             $sql = 'SELECT 1 FROM ' . $this->table;
         } elseif ($this->type === 'insert') {
             $cols = array_keys($this->data);
+            foreach ($cols as $col) {
+                if (!preg_match('/^[a-zA-Z0-9_`]+$/', $col)) {
+                    throw new InvalidArgumentException("无效的列名: {$col}");
+                }
+            }
             $ph = implode(',', array_fill(0, count($cols), '?'));
             $sql = 'INSERT INTO ' . $this->table . ' (' . implode(',', $cols) . ') VALUES (' . $ph . ')';
             foreach ($this->data as $v) {
@@ -203,6 +244,9 @@ class Anon_Database_QueryBuilder
         } elseif ($this->type === 'update') {
             $sets = [];
             foreach ($this->data as $k => $v) {
+                if (!preg_match('/^[a-zA-Z0-9_`]+$/', $k)) {
+                    throw new InvalidArgumentException("无效的列名: {$k}");
+                }
                 $sets[] = "$k = ?";
                 $p[] = $v;
                 $ty .= $this->t($v);
@@ -217,6 +261,9 @@ class Anon_Database_QueryBuilder
         if (!empty($this->where)) {
             $ws = [];
             foreach ($this->where as $w) {
+                if (!preg_match('/^[a-zA-Z0-9_`]+$/', $w[0])) {
+                    throw new InvalidArgumentException("无效的 WHERE 列名: {$w[0]}");
+                }
                 if ($w[1] === 'IS NULL' || $w[1] === 'IS NOT NULL') {
                     $ws[] = $w[0] . ' ' . $w[1];
                 } elseif ($w[1] === 'IN' && is_array($w[2])) {
@@ -238,6 +285,9 @@ class Anon_Database_QueryBuilder
             if (!empty($this->order)) {
                 $ords = [];
                 foreach ($this->order as $o) {
+                    if (!preg_match('/^[a-zA-Z0-9_`]+$/', $o[0])) {
+                        throw new InvalidArgumentException("无效的排序列名: {$o[0]}");
+                    }
                     $ords[] = $o[0] . ' ' . $o[1];
                 }
                 $sql .= ' ORDER BY ' . implode(', ', $ords);

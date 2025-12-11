@@ -115,10 +115,19 @@ class Anon_Router
      */
     public static function View(string $fileView): void
     {
-        $filePath = realpath(__DIR__ . '/../../app/Router/' . $fileView . '.php');
+        if (strpos($fileView, '..') !== false || strpos($fileView, '/') === 0) {
+            throw new RuntimeException("无效的视图路径: {$fileView}");
+        }
+        
+        $baseDir = realpath(__DIR__ . '/../../app/Router');
+        $filePath = realpath($baseDir . '/' . $fileView . '.php');
 
         if (!$filePath || !file_exists($filePath)) {
             throw new RuntimeException("Router view file not found: {$fileView}");
+        }
+        
+        if (strpos($filePath, $baseDir) !== 0) {
+            throw new RuntimeException("路径遍历攻击检测: {$fileView}");
         }
 
         require $filePath;

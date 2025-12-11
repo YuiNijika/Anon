@@ -33,7 +33,16 @@ class Anon_RequestHelper
     public static function getInput(): array
     {
         $input = file_get_contents('php://input');
+        
+        if (strlen($input) > 10485760) {
+            throw new RuntimeException("请求体过大，最大允许 10MB");
+        }
+        
         $data = json_decode($input, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $data = null;
+        }
         
         if (!$data) {
             $data = $_POST;
