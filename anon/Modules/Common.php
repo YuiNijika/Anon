@@ -93,11 +93,19 @@ class Anon_Common
     public static function SystemInfo(): array
     {
         return [
-            'PHP_VERSION' => PHP_VERSION,
-            'SERVER_SOFTWARE' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
-            'SERVER_NAME' => $_SERVER['SERVER_NAME'] ?? 'Unknown',
-            'SERVER_PORT' => $_SERVER['SERVER_PORT'] ?? 'Unknown',
-            'SERVER_PROTOCOL' => $_SERVER['SERVER_PROTOCOL'] ?? 'Unknown',
+            'system' => [
+                'PHP_VERSION' => PHP_VERSION,
+                'SERVER_SOFTWARE' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
+                'SERVER_NAME' => $_SERVER['SERVER_NAME'] ?? 'Unknown',
+                'SERVER_PORT' => $_SERVER['SERVER_PORT'] ?? 'Unknown',
+                'SERVER_PROTOCOL' => $_SERVER['SERVER_PROTOCOL'] ?? 'Unknown',
+            ],
+            'copyright' => [
+                'name' => 'Anon API Framework',
+                'version' => '1.0.0',
+                'author' => '鼠子(YuiNijika)',
+                'github' => 'https://github.com/YuiNijika/Anon',
+            ],
         ];
     }
 
