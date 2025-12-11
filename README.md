@@ -22,11 +22,14 @@ return [
             'global' => false,
             'router' => true,
         ],
+        'avatar' => 'https://www.cravatar.cn/avatar',
     ],
 ];
 ```
 
 ## 数据库操作
+
+### 基本使用
 
 ```php
 $db = new Anon_Database();
@@ -37,6 +40,134 @@ $db->getUserInfo(1);
 $db->getUserInfoByName('admin');
 $db->isUserAdmin(1);
 $db->updateUserGroup(1, 'admin');
+```
+
+### 数据库类命名规则
+
+#### Repository 类
+
+- **类名格式**：`Anon_Database_{Name}Repository`
+- **文件位置**：`server/app/Database/{Name}.php`
+- **必须继承**：`Anon_Database_Connection`
+
+示例：
+
+```php
+// server/app/Database/User.php
+class Anon_Database_UserRepository extends Anon_Database_Connection
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+    
+    public function getUserInfo($uid)
+    {
+        return $this->db('users')
+            ->select(['uid', 'name', 'email'])
+            ->where('uid', '=', (int)$uid)
+            ->first();
+    }
+}
+```
+
+#### Service 类
+
+- **类名格式**：`Anon_Database_{Name}Service`
+- **文件位置**：`server/app/Database/{Name}.php`
+- **必须继承**：`Anon_Database_Connection`
+
+示例：
+
+```php
+// server/app/Database/Avatar.php
+class Anon_Database_AvatarService extends Anon_Database_Connection
+{
+    public function __construct()
+    {
+        parent::__construct();
+    }
+    
+    public function buildAvatar($email)
+    {
+        $hash = md5(strtolower(trim($email)));
+        return "https://www.cravatar.cn/avatar/{$hash}?s=640&d=retro";
+    }
+}
+```
+
+#### 访问方式
+
+系统会自动发现并实例化所有 Repository 和 Service 类，支持多种访问方式：
+
+```php
+$db = new Anon_Database();
+
+// 方式1：属性访问（推荐）
+$db->userRepository->getUserInfo(1);
+$db->avatarService->buildAvatar('user@example.com');
+
+// 方式2：大驼峰命名
+$db->UserRepository->getUserInfo(1);
+
+// 方式3：完整类名
+$db->Anon_Database_UserRepository->getUserInfo(1);
+
+// 方式4：方法自动转发（推荐）
+// 方法名以 get/is/add/update/delete 开头时，自动解析到对应的 Repository 或 Service
+$db->getUserInfo(1);  // 自动转发到 UserRepository::getUserInfo()
+$db->isUserAdmin(1);  // 自动转发到 UserRepository::isUserAdmin()
+```
+
+#### QueryBuilder 使用
+
+```php
+// 查询
+$users = $db->db('users')
+    ->select(['uid', 'name', 'email'])
+    ->where('uid', '>', 10)
+    ->orderBy('uid', 'DESC')
+    ->limit(10)
+    ->get();
+
+// 单条查询
+$user = $db->db('users')
+    ->select(['uid', 'name'])
+    ->where('uid', '=', 1)
+    ->first();
+
+// 插入
+$id = $db->db('users')
+    ->insert([
+        'name' => 'admin',
+        'email' => 'admin@example.com',
+        'password' => password_hash('password', PASSWORD_BCRYPT)
+    ])
+    ->execute();
+
+// 更新
+$affected = $db->db('users')
+    ->update(['email' => 'new@example.com'])
+    ->where('uid', '=', 1)
+    ->execute();
+
+// 删除
+$affected = $db->db('users')
+    ->delete()
+    ->where('uid', '=', 1)
+    ->execute();
+
+// 计数
+$count = $db->db('users')
+    ->count()
+    ->where('`group`', '=', 'admin')
+    ->scalar();
+
+// 存在检查
+$exists = $db->db('users')
+    ->exists()
+    ->where('email', '=', 'user@example.com')
+    ->scalar();
 ```
 
 ## 路由
