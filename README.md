@@ -76,8 +76,6 @@ GET    http://localhost:8080/user/info
 
 ```php
 // server/app/Router/Auth/Login.php
-Anon_Common::Header();
-
 try {
     Anon_RequestHelper::requireMethod('POST');
     $data = Anon_RequestHelper::validate([
@@ -107,6 +105,48 @@ try {
 }
 ```
 
+## 通用方法
+
+```php
+// 设置 HTTP 响应头
+Anon_Common::Header(); // 默认：200, JSON响应, CORS
+Anon_Common::Header(404); // 404错误，JSON响应，CORS
+Anon_Common::Header(200, false); // 200，不设置JSON响应头，CORS
+Anon_Common::Header(200, true, false); // 200，JSON响应，不设置CORS
+
+// 获取系统信息
+$systemInfo = Anon_Common::SystemInfo();
+
+// 获取客户端IP
+$clientIp = Anon_Common::GetClientIp();
+```
+
+## 响应处理
+
+```php
+// 成功响应
+Anon_ResponseHelper::success($data, '操作成功');
+Anon_ResponseHelper::success($data, '操作成功', 201); // 自定义HTTP状态码
+
+// 失败响应
+Anon_ResponseHelper::error('错误消息');
+Anon_ResponseHelper::error('错误消息', $data, 400);
+
+// 分页响应
+Anon_ResponseHelper::paginated($data, $pagination, '获取数据成功');
+
+// 状态码响应
+Anon_ResponseHelper::unauthorized('未授权访问');
+Anon_ResponseHelper::forbidden('禁止访问');
+Anon_ResponseHelper::notFound('资源未找到');
+Anon_ResponseHelper::serverError('服务器内部错误');
+Anon_ResponseHelper::methodNotAllowed('GET, POST');
+Anon_ResponseHelper::validationError('参数验证失败', $errors);
+
+// 处理异常
+Anon_ResponseHelper::handleException($e, '自定义错误消息');
+```
+
 ## 请求处理
 
 ```php
@@ -125,22 +165,6 @@ $data = Anon_RequestHelper::validate([
 
 // 要求登录
 $userInfo = Anon_RequestHelper::requireAuth();
-```
-
-## 响应处理
-
-```php
-// 成功响应
-Anon_ResponseHelper::success($data, '操作成功');
-
-// 错误响应
-Anon_ResponseHelper::error('错误消息', null, 400);
-Anon_ResponseHelper::unauthorized('未授权');
-Anon_ResponseHelper::validationError('参数验证失败');
-Anon_ResponseHelper::notFound('资源未找到');
-
-// 处理异常
-Anon_ResponseHelper::handleException($e, '自定义错误消息');
 ```
 
 ## 认证
