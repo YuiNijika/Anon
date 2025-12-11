@@ -1,5 +1,0 @@
-[2025-12-11 21:58:29] [DEBUG] Request path: /user/info
-[2025-12-11 21:58:29] [DEBUG] Matched route: /user/info
-[2025-12-11 21:58:29] [DEBUG] Dispatching route: /user/info
-[2025-12-11 21:58:31] [DEBUG] Request path: /
-[2025-12-11 21:58:31] [DEBUG] No route matched for: /
