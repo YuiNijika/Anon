@@ -20,9 +20,18 @@ return [
     'app' => [
         'debug' => [
             'global' => false,
-            'router' => true,
+            'router' => false,
         ],
         'avatar' => 'https://www.cravatar.cn/avatar',
+        'token' => [
+            'enabled' => true,
+            'whitelist' => [
+                '/auth/login',
+                '/auth/logout',
+                '/auth/check-login',
+                '/auth/token'
+            ],
+        ],
     ],
 ];
 ```
@@ -34,7 +43,7 @@ return [
 ```php
 $db = new Anon_Database();
 
-// 用户
+// 用户操作
 $db->addUser('admin', 'admin@example.com', 'password', 'admin');
 $db->getUserInfo(1);
 $db->getUserInfoByName('admin');
@@ -42,84 +51,28 @@ $db->isUserAdmin(1);
 $db->updateUserGroup(1, 'admin');
 ```
 
-### 数据库类命名规则
+### 类命名规则
 
-#### Repository 类
+**Repository 类**：`Anon_Database_{Name}Repository`  
+**Service 类**：`Anon_Database_{Name}Service`  
+**文件位置**：`server/app/Database/{Name}.php`  
+**必须继承**：`Anon_Database_Connection`
 
-- **类名格式**：`Anon_Database_{Name}Repository`
-- **文件位置**：`server/app/Database/{Name}.php`
-- **必须继承**：`Anon_Database_Connection`
-
-示例：
-
-```php
-// server/app/Database/User.php
-class Anon_Database_UserRepository extends Anon_Database_Connection
-{
-    public function __construct()
-    {
-        parent::__construct();
-    }
-    
-    public function getUserInfo($uid)
-    {
-        return $this->db('users')
-            ->select(['uid', 'name', 'email'])
-            ->where('uid', '=', (int)$uid)
-            ->first();
-    }
-}
-```
-
-#### Service 类
-
-- **类名格式**：`Anon_Database_{Name}Service`
-- **文件位置**：`server/app/Database/{Name}.php`
-- **必须继承**：`Anon_Database_Connection`
-
-示例：
-
-```php
-// server/app/Database/Avatar.php
-class Anon_Database_AvatarService extends Anon_Database_Connection
-{
-    public function __construct()
-    {
-        parent::__construct();
-    }
-    
-    public function buildAvatar($email)
-    {
-        $hash = md5(strtolower(trim($email)));
-        return "https://www.cravatar.cn/avatar/{$hash}?s=640&d=retro";
-    }
-}
-```
-
-#### 访问方式
-
-系统会自动发现并实例化所有 Repository 和 Service 类，支持多种访问方式：
+### 访问方式
 
 ```php
 $db = new Anon_Database();
 
-// 方式1：属性访问（推荐）
+// 属性访问
 $db->userRepository->getUserInfo(1);
 $db->avatarService->buildAvatar('user@example.com');
 
-// 方式2：大驼峰命名
-$db->UserRepository->getUserInfo(1);
-
-// 方式3：完整类名
-$db->Anon_Database_UserRepository->getUserInfo(1);
-
-// 方式4：方法自动转发（推荐）
-// 方法名以 get/is/add/update/delete 开头时，自动解析到对应的 Repository 或 Service
-$db->getUserInfo(1);  // 自动转发到 UserRepository::getUserInfo()
-$db->isUserAdmin(1);  // 自动转发到 UserRepository::isUserAdmin()
+// 方法自动转发
+$db->getUserInfo(1);  // 自动转发到 UserRepository
+$db->isUserAdmin(1);  // 自动转发到 UserRepository
 ```
 
-#### QueryBuilder 使用
+### QueryBuilder
 
 ```php
 // 查询
@@ -132,17 +85,12 @@ $users = $db->db('users')
 
 // 单条查询
 $user = $db->db('users')
-    ->select(['uid', 'name'])
     ->where('uid', '=', 1)
     ->first();
 
 // 插入
 $id = $db->db('users')
-    ->insert([
-        'name' => 'admin',
-        'email' => 'admin@example.com',
-        'password' => password_hash('password', PASSWORD_BCRYPT)
-    ])
+    ->insert(['name' => 'admin', 'email' => 'admin@example.com'])
     ->execute();
 
 // 更新
@@ -156,18 +104,6 @@ $affected = $db->db('users')
     ->delete()
     ->where('uid', '=', 1)
     ->execute();
-
-// 计数
-$count = $db->db('users')
-    ->count()
-    ->where('`group`', '=', 'admin')
-    ->scalar();
-
-// 存在检查
-$exists = $db->db('users')
-    ->exists()
-    ->where('email', '=', 'user@example.com')
-    ->scalar();
 ```
 
 ## 路由
@@ -194,16 +130,20 @@ Anon_Config::addRoute('/api/test', function () {
 });
 ```
 
-### API 端点示例
+### API 端点
 
-```http
-POST   http://localhost:8080/auth/login
-POST   http://localhost:8080/auth/logout
-GET    http://localhost:8080/auth/check-login
-GET    http://localhost:8080/user/info
+```
+GET    /anon/common/config
+GET    /anon/common/system
+GET    /anon/common/client-ip
+POST   /auth/login
+POST   /auth/logout
+GET    /auth/check-login
+GET    /auth/token
+GET    /user/info
 ```
 
-## 路由处理
+## 路由处理示例
 
 ```php
 // server/app/Router/Auth/Login.php
@@ -225,10 +165,13 @@ try {
     $_SESSION['user_id'] = (int)$user['uid'];
     Anon_Check::setAuthCookies((int)$user['uid'], $user['name']);
     
+    $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name']);
+    
     Anon_ResponseHelper::success([
         'user_id' => (int)$user['uid'],
         'username' => $user['name'],
         'email' => $user['email'],
+        'token' => $token,
     ], '登录成功');
     
 } catch (Exception $e) {
@@ -239,16 +182,14 @@ try {
 ## 通用方法
 
 ```php
-// 设置 HTTP 响应头
-Anon_Common::Header(); // 默认：200, JSON响应, CORS
-Anon_Common::Header(404); // 404错误，JSON响应，CORS
-Anon_Common::Header(200, false); // 200，不设置JSON响应头，CORS
-Anon_Common::Header(200, true, false); // 200，JSON响应，不设置CORS
+// HTTP 响应头
+Anon_Common::Header();              // 200, JSON, CORS
+Anon_Common::Header(404);            // 404, JSON, CORS
+Anon_Common::Header(200, false);    // 200, 非JSON, CORS
+Anon_Common::Header(200, true, false); // 200, JSON, 非CORS
 
-// 获取系统信息
+// 系统信息
 $systemInfo = Anon_Common::SystemInfo();
-
-// 获取客户端IP
 $clientIp = Anon_Common::GetClientIp();
 ```
 
@@ -257,14 +198,11 @@ $clientIp = Anon_Common::GetClientIp();
 ```php
 // 成功响应
 Anon_ResponseHelper::success($data, '操作成功');
-Anon_ResponseHelper::success($data, '操作成功', 201); // 自定义HTTP状态码
+Anon_ResponseHelper::success($data, '操作成功', 201);
 
-// 失败响应
+// 错误响应
 Anon_ResponseHelper::error('错误消息');
 Anon_ResponseHelper::error('错误消息', $data, 400);
-
-// 分页响应
-Anon_ResponseHelper::paginated($data, $pagination, '获取数据成功');
 
 // 状态码响应
 Anon_ResponseHelper::unauthorized('未授权访问');
@@ -283,6 +221,7 @@ Anon_ResponseHelper::handleException($e, '自定义错误消息');
 ```php
 // 检查请求方法
 Anon_RequestHelper::requireMethod('POST');
+Anon_RequestHelper::requireMethod(['GET', 'POST']);
 
 // 获取输入
 $data = Anon_RequestHelper::getInput();
@@ -294,8 +233,17 @@ $data = Anon_RequestHelper::validate([
     'password' => '密码不能为空'
 ]);
 
-// 要求登录
+// 用户认证
+$userId = Anon_RequestHelper::getUserId();
 $userInfo = Anon_RequestHelper::requireAuth();
+
+// Token 生成
+$token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
+$token = Anon_RequestHelper::generateUserToken($userId, $username); // 自动判断
+
+// Token 验证
+Anon_RequestHelper::requireToken();
+Anon_RequestHelper::requireToken(false); // 不抛出异常
 ```
 
 ## 认证
@@ -312,6 +260,87 @@ Anon_Check::setAuthCookies($userId, $username, $rememberMe);
 // 登出
 Anon_Check::logout();
 ```
+
+## Token 验证
+
+### 配置
+
+```php
+'app' => [
+    'token' => [
+        'enabled' => true,
+        'whitelist' => [
+            '/api/public/*',
+        ],
+    ],
+],
+```
+
+**注意**：
+
+- Token 密钥基于用户会话自动生成，无需手动配置
+- 默认白名单：`/anon/install`、`/anon/common/*`、`/auth/login`、`/auth/logout`、`/auth/check-login`、`/auth/token`
+
+### 生成 Token
+
+```php
+// 推荐：生成用户 Token
+$token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
+
+// 手动生成 Token
+$token = Anon_Token::generate(['user_id' => 1], 3600); // 1小时
+$token = Anon_Token::generate(['user_id' => 1], 86400 * 30); // 30天
+```
+
+### 验证 Token
+
+Token 验证自动在路由执行前进行，验证失败返回 403。
+
+**特性**：
+
+- Token 验证通过后，如果包含用户信息，系统自动设置登录状态
+- 每个登录会话都有独立的 Token
+- Token 只能从 HTTP Header 获取：`X-API-Token` 或 `Authorization: Bearer`
+
+### 手动验证
+
+```php
+Anon_RequestHelper::requireToken();
+
+$payload = Anon_Token::verify();
+if ($payload) {
+    $userId = $payload['data']['user_id'] ?? null;
+}
+```
+
+### 白名单
+
+支持精确匹配和通配符：
+
+- 精确匹配：`/api/public`
+- 通配符：`/api/public/*`
+
+## 配置接口
+
+前端通过 `/anon/common/config` 获取配置：
+
+```http
+GET /anon/common/config
+```
+
+响应：
+
+```json
+{
+  "success": true,
+  "message": "获取配置信息成功",
+  "data": {
+    "token": true
+  }
+}
+```
+
+前端根据 `data.token` 决定是否在请求头中携带 Token。
 
 ## 调试
 
@@ -332,7 +361,7 @@ Anon_Debug::query('SELECT * FROM users', ['id' => 1], 0.12);
 
 ## 自定义代码
 
-在 `server/app/Code.php` 中添加自定义代码（类似 WordPress 的 `functions.php`）：
+在 `server/app/Code.php` 中添加自定义代码：
 
 ```php
 // 注册钩子
@@ -365,16 +394,4 @@ Anon_Hook::add_filter('content_filter', function ($content) {
     return str_replace('bad', '***', $content);
 });
 $filtered = Anon_Hook::apply_filters('content_filter', $content);
-```
-
-## 错误处理
-
-```php
-Anon_Config::addErrorHandler(404, function () {
-    Anon_ResponseHelper::notFound('页面不存在');
-});
-
-Anon_Config::addErrorHandler(500, function () {
-    Anon_ResponseHelper::serverError('服务器错误');
-});
 ```

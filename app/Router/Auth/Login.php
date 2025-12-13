@@ -25,17 +25,25 @@ try {
     Anon_Check::startSessionIfNotStarted();
     session_regenerate_id(true);
     
-    $_SESSION['user_id'] = (int)$user['uid'];
+    $userId = (int)$user['uid'];
+    
+    $_SESSION['user_id'] = $userId;
     $_SESSION['username'] = $user['name'];
     
-    Anon_Check::setAuthCookies((int)$user['uid'], $user['name'], $rememberMe);
+    Anon_Check::setAuthCookies($userId, $user['name'], $rememberMe);
+    
+    $token = Anon_RequestHelper::generateUserToken($userId, $user['name'], $rememberMe);
     
     $userData = [
-        'user_id' => (int)$user['uid'],
+        'user_id' => $userId,
         'username' => $user['name'],
         'email' => $user['email'],
         'logged_in' => true
     ];
+    
+    if ($token !== null) {
+        $userData['token'] = $token;
+    }
     
     Anon_ResponseHelper::success($userData, '登录成功');
     

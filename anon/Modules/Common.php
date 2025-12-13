@@ -25,6 +25,8 @@ class Anon_Common
             self::defineIfNotExists('ANON_INSTALLED', Anon_Env::get('system.installed', false));
             self::defineIfNotExists('ANON_DEBUG', Anon_Env::get('app.debug.global', false));
             self::defineIfNotExists('ANON_ROUTER_DEBUG', Anon_Env::get('app.debug.router', false));
+            self::defineIfNotExists('ANON_TOKEN_ENABLED', Anon_Env::get('app.token.enabled', false));
+            self::defineIfNotExists('ANON_TOKEN_WHITELIST', Anon_Env::get('app.token.whitelist', []));
         } else {
             // 如果 Anon_Env 未初始化，使用默认值
             self::defineIfNotExists('ANON_DB_HOST', 'localhost');
@@ -37,6 +39,8 @@ class Anon_Common
             self::defineIfNotExists('ANON_INSTALLED', false);
             self::defineIfNotExists('ANON_ROUTER_DEBUG', false);
             self::defineIfNotExists('ANON_DEBUG', false);
+            self::defineIfNotExists('ANON_TOKEN_ENABLED', false);
+            self::defineIfNotExists('ANON_TOKEN_WHITELIST', []);
         }
 
         // 站点配置
@@ -239,13 +243,11 @@ class Anon_Check
             'samesite' => $sameSite
         ];
 
-        // 根据"记住我"选项设置cookie过期时间
+        // 设置 cookie 过期时间
         if ($rememberMe) {
-            // 记住30天
-            $cookieOptions['expires'] = time() + (86400 * 30);
+            $cookieOptions['expires'] = time() + (86400 * 30); // 30天
         } else {
-            // 会话cookie（浏览器关闭时失效）
-            $cookieOptions['expires'] = 0;
+            $cookieOptions['expires'] = 0; // 会话 cookie
         }
 
         setcookie('user_id', (string)$userId, $cookieOptions);

@@ -39,6 +39,11 @@ class Anon_ResponseHelper {
     public static function error($message = '操作失败', $data = null, $httpCode = 400) {
         http_response_code($httpCode);
         
+        // 确保设置 JSON 响应头
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        
         $response = [
             'success' => false,
             'message' => $message

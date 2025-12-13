@@ -658,19 +658,29 @@ class Anon_Debug
      */
     public static function console()
     {
+        // 检查 debug 权限
         if (!self::checkPermission()) {
-            Anon_Common::Header(403, false);
-            echo '<!DOCTYPE html>
-<html>
-<head>
-    <title>Debug Console - Access Denied</title>
-</head>
-<body>
-    <h1>Access Denied</h1>
-    <p>Debug mode is disabled or not allowed. Please enable ANON_DEBUG in env.php</p>
-</body>
-</html>';
-            exit;
+            Anon_Common::Header(403);
+            Anon_ResponseHelper::forbidden('Debug 模式未启用');
+        }
+
+        // 检查用户是否登录
+        if (!Anon_Check::isLoggedIn()) {
+            Anon_Common::Header(403);
+            Anon_ResponseHelper::forbidden('请先登录');
+        }
+
+        // 检查用户是否为管理员
+        $userId = Anon_RequestHelper::getUserId();
+        if (!$userId) {
+            Anon_Common::Header(403);
+            Anon_ResponseHelper::forbidden('无法获取用户信息');
+        }
+
+        $db = new Anon_Database();
+        if (!$db->isUserAdmin($userId)) {
+            Anon_Common::Header(403);
+            Anon_ResponseHelper::forbidden('仅管理员可访问 Debug 控制台');
         }
 
         // 输出调试控制台HTML

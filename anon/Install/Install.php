@@ -138,7 +138,7 @@ class Anon_Install
      */
     private static function renderInstallPage()
     {
-        // 读取配置（优先从常量读取，如果未定义则从配置文件读取）
+        // 优先从常量读取配置，否则从配置文件读取
         if (defined('ANON_DB_HOST')) {
             $db_host = ANON_DB_HOST;
             $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
@@ -335,6 +335,15 @@ class Anon_Install
         }
         if (!isset($config['app']['avatar'])) {
             $config['app']['avatar'] = 'https://www.cravatar.cn/avatar';
+        }
+        if (!isset($config['app']['token'])) {
+            $config['app']['token'] = [];
+        }
+        if (!isset($config['app']['token']['enabled'])) {
+            $config['app']['token']['enabled'] = false;
+        }
+        if (!isset($config['app']['token']['whitelist'])) {
+            $config['app']['token']['whitelist'] = [];
         }
         
         // 生成配置文件内容

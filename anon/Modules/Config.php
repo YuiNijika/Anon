@@ -74,6 +74,13 @@ class Anon_Config
             Anon_Common::Header();
             Anon_ResponseHelper::success(Anon_Common::GetClientIp(), '获取客户端IP成功');
         });
+        self::addRoute('/anon/common/config', function() {
+            Anon_Common::Header();
+            $config = [
+                'token' => class_exists('Anon_Token') && Anon_Token::isEnabled()
+            ];
+            Anon_ResponseHelper::success($config, '获取配置信息成功');
+        });
 
         // 注册Install路由
         self::addRoute('/anon/install', [Anon_Install::class, 'index']);

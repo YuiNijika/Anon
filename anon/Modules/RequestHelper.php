@@ -189,5 +189,107 @@ class Anon_RequestHelper
         
         return $userInfo;
     }
+
+    /**
+     * 生成用户 Token
+     * @param int $userId 用户ID
+     * @param string $username 用户名
+     * @param bool|null $rememberMe 是否记住我，null 时自动从 cookie 判断
+     * @return string|null Token 字符串，未启用时返回 null
+     */
+    public static function generateUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
+    {
+        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+            return null;
+        }
+
+        Anon_Check::startSessionIfNotStarted();
+        $sessionId = session_id();
+
+        if ($rememberMe === null) {
+            $rememberMe = isset($_COOKIE['user_id']) && !empty($_COOKIE['user_id']);
+        }
+
+        $expire = $rememberMe ? 86400 * 30 : 3600;
+
+        return Anon_Token::generate([
+            'user_id' => $userId,
+            'username' => $username,
+            'session_id' => $sessionId,
+            'login_time' => time()
+        ], $expire);
+    }
+
+    /**
+     * 验证 API Token（防止 API 被刷）
+     * @param bool $throwException 验证失败时是否抛出异常，默认 true
+     * @return bool 验证成功返回 true，失败返回 false 或抛出异常
+     */
+    public static function requireToken(bool $throwException = true): bool
+    {
+        // 检查是否启用 Token 验证
+        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+            return true; // 未启用则直接通过
+        }
+
+        // 获取当前请求路径
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        $path = parse_url($requestUri, PHP_URL_PATH);
+        $path = strstr($path, '?', true) ?: $path;
+        
+        // 去除前端代理的 /apiService 前缀
+        if (strpos($path, '/apiService') === 0) {
+            $path = substr($path, strlen('/apiService'));
+        }
+        if (strpos($path, '/') !== 0) {
+            $path = '/' . $path;
+        }
+
+        // 检查是否在白名单中
+        if (Anon_Token::isWhitelisted($path)) {
+            return true;
+        }
+
+        // 验证 Token
+        $token = Anon_Token::getTokenFromRequest();
+        if (empty($token)) {
+            if ($throwException) {
+                Anon_Common::Header(403);
+                Anon_ResponseHelper::forbidden('Token 验证失败，未提供 API Token');
+            }
+            return false;
+        }
+
+        $payload = Anon_Token::verify($token);
+        if ($payload === false) {
+            if ($throwException) {
+                Anon_Common::Header(403);
+                Anon_ResponseHelper::forbidden('Token 验证失败，请提供有效的 API Token');
+            }
+            return false;
+        }
+
+        // 如果 Token 包含用户信息，自动设置登录状态
+        if (isset($payload['data']['user_id'])) {
+            Anon_Check::startSessionIfNotStarted();
+            
+            // 从 Token 中恢复用户登录状态
+            $userId = (int)$payload['data']['user_id'];
+            $username = $payload['data']['username'] ?? '';
+            
+            // 设置会话信息
+            $_SESSION['user_id'] = $userId;
+            if (!empty($username)) {
+                $_SESSION['username'] = $username;
+            }
+            
+            // 支持多设备登录，不强制验证 session_id
+            if (isset($payload['data']['session_id'])) {
+                $currentSessionId = session_id();
+            }
+        }
+
+        return true;
+    }
 }
 

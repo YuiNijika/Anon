@@ -15,6 +15,10 @@ return [
             'view' => 'Auth/CheckLogin',
             'useLoginCheck' => false,
         ],
+        'token' => [
+            'view' => 'Auth/Token',
+            'useLoginCheck' => true,
+        ],
     ],
     'user' => [
         'info' => [

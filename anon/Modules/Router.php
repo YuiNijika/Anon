@@ -52,10 +52,10 @@ class Anon_Router
                 Anon_Debug::startPerformance('router_init');
             }
             
-            // 先加载应用路由配置（从 app/App.php 注册到配置中心）
+            // 加载应用路由配置
             self::registerAppRoutes(require __DIR__ . '/../../app/App.php');
 
-            // 再加载配置中心中的所有路由
+            // 加载系统路由配置
             self::loadConfig();
             
             // 执行配置加载后钩子
@@ -402,6 +402,11 @@ class Anon_Router
         }
 
         try {
+            // Token 验证
+            if (class_exists('Anon_Token') && Anon_Token::isEnabled()) {
+                Anon_RequestHelper::requireToken(true);
+            }
+            
             // 执行路由执行前钩子
             if (class_exists('Anon_Hook')) {
                 Anon_Hook::do_action('router_before_dispatch', $routeKey, $handler);
@@ -457,7 +462,7 @@ class Anon_Router
         // 去掉查询参数，但保留前导斜杠
         $path = strstr($path, '?', true) ?: $path;
         
-        // 去除前端代理的 /apiService 前缀（前端代理会将 /apiService 转发到后端）
+        // 去除前端代理前缀
         if (strpos($path, '/apiService') === 0) {
             $path = substr($path, strlen('/apiService'));
         }
@@ -478,9 +483,9 @@ class Anon_Router
     private static function matchParameterRoute(string $requestPath): ?array
     {
         foreach (self::$routes as $routePattern => $handler) {
-            // 检查路由模式是否包含参数（如 {id}）
+            // 匹配参数路由，如 /user/{id}
             if (strpos($routePattern, '{') !== false) {
-                // 将路由模式转换为正则表达式
+                // 转换为正则表达式
                 $pattern = preg_quote($routePattern, '/');
                 $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
                 $pattern = '/^' . $pattern . '$/';
@@ -525,7 +530,12 @@ class Anon_Router
         }
 
         try {
-            // 将参数添加到 $_GET 超全局变量中，以便在处理器中访问
+            // Token 验证
+            if (class_exists('Anon_Token') && Anon_Token::isEnabled()) {
+                Anon_RequestHelper::requireToken(true);
+            }
+            
+            // 将路由参数添加到 $_GET
             foreach ($params as $key => $value) {
                 $_GET[$key] = $value;
             }
