@@ -34,6 +34,9 @@ return [
                 '/auth/token'
             ],
         ],
+        'captcha' => [
+            'enabled' => true,
+        ],
     ],
 ];
 ```
@@ -134,7 +137,7 @@ Anon_Config::addRoute('/api/test', function () {
 
 ### API 端点
 
-```
+```http
 GET    /anon/common/config
 GET    /anon/common/system
 GET    /anon/common/client-ip
@@ -142,6 +145,7 @@ POST   /auth/login
 POST   /auth/logout
 GET    /auth/check-login
 GET    /auth/token
+GET    /auth/captcha
 GET    /user/info
 ```
 
@@ -153,8 +157,17 @@ try {
     Anon_RequestHelper::requireMethod('POST');
     $data = Anon_RequestHelper::validate([
         'username' => '用户名不能为空',
-        'password' => '密码不能为空'
+        'password' => '密码不能为空',
+        'captcha' => '验证码不能为空'
     ]);
+    
+    // 验证验证码
+    if (!Anon_Captcha::verify($data['captcha'] ?? '')) {
+        Anon_ResponseHelper::error('验证码错误', null, 400);
+    }
+    
+    // 验证成功后清除验证码
+    Anon_Captcha::clear();
     
     $db = new Anon_Database();
     $user = $db->getUserInfoByName($data['username']);
@@ -265,7 +278,7 @@ Anon_Check::logout();
 
 ## Token 验证
 
-### 配置
+### Token 配置
 
 ```php
 'app' => [
@@ -281,7 +294,7 @@ Anon_Check::logout();
 **注意**：
 
 - Token 密钥基于用户会话自动生成，无需手动配置
-- 默认白名单：`/anon/install`、`/anon/common/*`、`/auth/login`、`/auth/logout`、`/auth/check-login`、`/auth/token`
+- 默认白名单：`/anon/install`、`/anon/common/*`、`/anon/debug/*`、`/auth/login`、`/auth/logout`、`/auth/check-login`、`/auth/token`、`/auth/captcha`
 
 ### 生成 Token
 
@@ -337,12 +350,16 @@ GET /anon/common/config
   "success": true,
   "message": "获取配置信息成功",
   "data": {
-    "token": true
+    "token": true,
+    "captcha": true
   }
 }
 ```
 
-前端根据 `data.token` 决定是否在请求头中携带 Token。
+前端根据配置自动处理：
+
+- `data.token` - 决定是否在请求头中携带 Token
+- `data.captcha` - 决定是否显示验证码输入框
 
 ## 调试
 
@@ -381,6 +398,40 @@ Anon_Config::addErrorHandler(404, function () {
     Anon_ResponseHelper::notFound('页面不存在');
 });
 ```
+
+## 验证码
+
+### 生成验证码
+
+```php
+// 生成验证码（返回 base64 图片）
+$result = Anon_Captcha::generate();
+$base64Image = $result['image']; // data:image/svg+xml;base64,...
+$code = $result['code']; // 验证码字符串
+
+// 保存到 session
+Anon_Captcha::saveToSession($code);
+```
+
+### 验证验证码
+
+```php
+// 验证用户输入的验证码
+if (Anon_Captcha::verify($userInput)) {
+    // 验证成功
+}
+
+// 清除验证码
+Anon_Captcha::clear();
+```
+
+### 特性
+
+- 无需 GD 扩展，使用 SVG 生成
+- 仅生成数字验证码（0-9）
+- 包含干扰线和干扰点
+- 支持文字旋转效果
+- 验证码存储在 session 中
 
 ## 钩子
 

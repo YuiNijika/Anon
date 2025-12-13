@@ -30,8 +30,12 @@ return [
                 '/auth/login',
                 '/auth/logout',
                 '/auth/check-login',
-                '/auth/token'
+                '/auth/token',
+                '/auth/captcha'
             ], // Token 验证白名单路由
+        ],
+        'captcha' => [
+            'enabled' => true, // 是否启用验证码
         ],
     ],
 ];

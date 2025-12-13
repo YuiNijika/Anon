@@ -11,9 +11,26 @@ try {
         'password' => '密码不能为空'
     ]);
     
+    // 获取原始输入数据
+    $inputData = Anon_RequestHelper::getInput();
+    
+    // 如果启用验证码，验证验证码
+    if (class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()) {
+        if (empty($inputData['captcha'] ?? '')) {
+            Anon_ResponseHelper::error('验证码不能为空', null, 400);
+        }
+        
+        if (!Anon_Captcha::verify($inputData['captcha'] ?? '')) {
+            Anon_ResponseHelper::error('验证码错误', null, 400);
+        }
+        
+        // 验证成功后清除验证码
+        Anon_Captcha::clear();
+    }
+    
     $username = $data['username'];
     $password = $data['password'];
-    $rememberMe = filter_var($data['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
     $db = new Anon_Database();
     $user = $db->getUserInfoByName($username);

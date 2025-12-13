@@ -77,7 +77,8 @@ class Anon_Config
         self::addRoute('/anon/common/config', function() {
             Anon_Common::Header();
             $config = [
-                'token' => class_exists('Anon_Token') && Anon_Token::isEnabled()
+                'token' => class_exists('Anon_Token') && Anon_Token::isEnabled(),
+                'captcha' => class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()
             ];
             Anon_ResponseHelper::success($config, '获取配置信息成功');
         });

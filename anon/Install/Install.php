@@ -345,6 +345,12 @@ class Anon_Install
         if (!isset($config['app']['token']['whitelist'])) {
             $config['app']['token']['whitelist'] = [];
         }
+        if (!isset($config['app']['captcha'])) {
+            $config['app']['captcha'] = [];
+        }
+        if (!isset($config['app']['captcha']['enabled'])) {
+            $config['app']['captcha']['enabled'] = false;
+        }
         
         // 生成配置文件内容
         $content = "<?php\n";

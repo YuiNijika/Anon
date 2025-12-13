@@ -27,6 +27,7 @@ class Anon_Common
             self::defineIfNotExists('ANON_ROUTER_DEBUG', Anon_Env::get('app.debug.router', false));
             self::defineIfNotExists('ANON_TOKEN_ENABLED', Anon_Env::get('app.token.enabled', false));
             self::defineIfNotExists('ANON_TOKEN_WHITELIST', Anon_Env::get('app.token.whitelist', []));
+            self::defineIfNotExists('ANON_CAPTCHA_ENABLED', Anon_Env::get('app.captcha.enabled', false));
         } else {
             // 如果 Anon_Env 未初始化，使用默认值
             self::defineIfNotExists('ANON_DB_HOST', 'localhost');
@@ -41,6 +42,7 @@ class Anon_Common
             self::defineIfNotExists('ANON_DEBUG', false);
             self::defineIfNotExists('ANON_TOKEN_ENABLED', false);
             self::defineIfNotExists('ANON_TOKEN_WHITELIST', []);
+            self::defineIfNotExists('ANON_CAPTCHA_ENABLED', false);
         }
 
         // 站点配置

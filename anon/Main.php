@@ -27,6 +27,7 @@ class Anon_Main
         require_once $Modules  . 'ResponseHelper.php';
         require_once $Modules  . 'RequestHelper.php';
         require_once $Modules . 'Token.php';
+        require_once $Modules . 'Captcha.php';
         require_once $Modules . 'Debug.php';
         require_once $Modules . 'Hook.php';
         

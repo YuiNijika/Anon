@@ -19,6 +19,10 @@ return [
             'view' => 'Auth/Token',
             'useLoginCheck' => true,
         ],
+        'captcha' => [
+            'view' => 'Auth/Captcha',
+            'useLoginCheck' => false,
+        ],
     ],
     'user' => [
         'info' => [
