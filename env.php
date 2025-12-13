@@ -3,7 +3,7 @@
  * Anon环境配置
  */
 
-define('ANON_ALLOWED_ACCESS', false);
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     'system' => [
