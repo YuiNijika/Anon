@@ -2,6 +2,9 @@
 /**
  * Anon环境配置
  */
+
+define('ANON_ALLOWED_ACCESS', false);
+
 return [
     'system' => [
         'db' => [
