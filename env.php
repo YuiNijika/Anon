@@ -5,19 +5,19 @@
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
+// 数据库配置
+define('ANON_DB_HOST', 'localhost'); // 数据库主机
+define('ANON_DB_PORT', 3306); // 数据库端口
+define('ANON_DB_PREFIX', 'anon_'); // 数据库表前缀
+define('ANON_DB_USER', 'root'); // 数据库用户
+define('ANON_DB_PASSWORD', 'root'); // 数据库密码
+define('ANON_DB_DATABASE', 'anon'); // 数据库名称
+define('ANON_DB_CHARSET', 'utf8mb4'); // 数据库字符集
+
+// 安装状态
+define('ANON_INSTALLED', true);
+
 return [
-    'system' => [
-        'db' => [
-            'host' => 'localhost', // 数据库主机    
-            'port' => 3306, // 数据库端口
-            'prefix' => 'puxt_', // 数据库表前缀
-            'user' => 'root', // 数据库用户
-            'password' => 'root', // 数据库密码
-            'database' => 'puxt', // 数据库名称
-            'charset' => 'utf8mb4', // 数据库字符集
-        ],
-        'installed' => true, // 是否安装程序
-    ],
     'app' => [
         'debug' => [
             'global' => false, // 全局调试

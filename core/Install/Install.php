@@ -86,10 +86,28 @@ class Anon_Install
             // 更新配置文件
             self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
 
-            // 重新加载配置文件
-            $envConfig = require self::envfile;
-            if (class_exists('Anon_Env')) {
-                Anon_Env::init($envConfig);
+            // 重新加载配置数组
+            // 创建一个临时文件，只包含 return 数组部分
+            $configContent = file_get_contents(self::envfile);
+            if ($configContent !== false) {
+                // 提取 return 数组部分
+                if (preg_match('/return\s+(\[.*\]);/s', $configContent, $matches)) {
+                    // 创建临时 PHP 文件来安全地解析配置
+                    $tempFile = sys_get_temp_dir() . '/anon_config_' . uniqid() . '.php';
+                    file_put_contents($tempFile, '<?php return ' . $matches[1] . ';');
+                    $envConfig = require $tempFile;
+                    unlink($tempFile);
+                    
+                    if (class_exists('Anon_Env')) {
+                        Anon_Env::init($envConfig);
+                    }
+                } else {
+                    // 如果无法解析，使用默认配置
+                    $envConfig = ['app' => []];
+                    if (class_exists('Anon_Env')) {
+                        Anon_Env::init($envConfig);
+                    }
+                }
             }
 
             // 连接到数据库
@@ -138,35 +156,13 @@ class Anon_Install
      */
     private static function renderInstallPage()
     {
-        // 优先从常量读取配置，否则从配置文件读取
-        if (defined('ANON_DB_HOST')) {
-            $db_host = ANON_DB_HOST;
-            $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
-            $db_user = ANON_DB_USER;
-            $db_pass = defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '';
-            $db_name = ANON_DB_DATABASE;
-            $db_prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : 'anon_';
-        } else {
-            // 如果常量未定义，尝试从配置文件读取
-            $configFile = self::envfile;
-            if (file_exists($configFile)) {
-                $config = require $configFile;
-                $db_host = $config['system']['db']['host'] ?? 'localhost';
-                $db_port = $config['system']['db']['port'] ?? 3306;
-                $db_user = $config['system']['db']['user'] ?? 'root';
-                $db_pass = $config['system']['db']['password'] ?? '';
-                $db_name = $config['system']['db']['database'] ?? '';
-                $db_prefix = $config['system']['db']['prefix'] ?? 'anon_';
-            } else {
-                // 默认值
-                $db_host = 'localhost';
-                $db_port = 3306;
-                $db_user = 'root';
-                $db_pass = '';
-                $db_name = '';
-                $db_prefix = 'anon_';
-            }
-        }
+        // 从常量读取配置，否则使用默认值
+        $db_host = defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost';
+        $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
+        $db_user = defined('ANON_DB_USER') ? ANON_DB_USER : 'root';
+        $db_pass = defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '';
+        $db_name = defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '';
+        $db_prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : 'anon_';
 
         $csrf = htmlspecialchars($_SESSION['install_csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
         $db_host_h = htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8');
@@ -289,77 +285,85 @@ class Anon_Install
 
     /**
      * 更新配置文件
+     * 直接修改常量定义的值，保留原有格式和内容
      */
     private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
     {
         $configFile = self::envfile;
         
-        // 读取现有配置
-        $config = [];
-        if (file_exists($configFile)) {
-            try {
-                $config = require $configFile;
-            } catch (Exception $e) {
-                // 如果读取失败，使用默认配置
-                $config = [];
+        // 读取原始文件内容
+        if (!file_exists($configFile)) {
+            throw new Exception('配置文件不存在: ' . $configFile);
+        }
+        
+        $lines = file($configFile, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) {
+            throw new Exception('无法读取配置文件: ' . $configFile);
+        }
+        
+        // 转义字符串值
+        $escapeValue = function($str) {
+            return "'" . addcslashes($str, "'\\") . "'";
+        };
+        
+        // 直接修改每一行的值
+        foreach ($lines as $index => $line) {
+            // ANON_DB_HOST
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_HOST['\"]/", $line)) {
+                // 提取注释部分
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_DB_HOST', " . $escapeValue($dbHost) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_DB_PORT
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_PORT['\"]/", $line) || preg_match('/^\s*\d+\)\s*;\s*\/\/.*数据库端口/', $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : ' // 数据库端口';
+                $lines[$index] = "define('ANON_DB_PORT', " . $dbPort . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_DB_PREFIX
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_PREFIX['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_DB_PREFIX', " . $escapeValue($dbPrefix) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_DB_USER
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_USER['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_DB_USER', " . $escapeValue($dbUser) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_DB_PASSWORD
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_PASSWORD['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_DB_PASSWORD', " . $escapeValue($dbPass) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_DB_DATABASE
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_DATABASE['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_DB_DATABASE', " . $escapeValue($dbName) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+            
+            // ANON_INSTALLED
+            if (preg_match("/define\s*\(\s*['\"]ANON_INSTALLED['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_INSTALLED', true);" . ($comment ? ' ' . $comment : '');
+                continue;
             }
         }
         
-        // 初始化 system 配置
-        if (!isset($config['system'])) {
-            $config['system'] = [];
+        // 写入文件
+        $content = implode("\n", $lines) . "\n";
+        if (file_put_contents($configFile, $content) === false) {
+            throw new Exception('无法写入配置文件: ' . $configFile);
         }
-        
-        $config['system']['db'] = [
-            'host' => $dbHost,
-            'port' => $dbPort,
-            'prefix' => $dbPrefix,
-            'user' => $dbUser,
-            'password' => $dbPass,
-            'database' => $dbName,
-            'charset' => $config['system']['db']['charset'] ?? 'utf8mb4',
-        ];
-        $config['system']['installed'] = true;
-        
-        if (!isset($config['app'])) {
-            $config['app'] = [];
-        }
-        if (!isset($config['app']['debug'])) {
-            $config['app']['debug'] = [];
-        }
-        if (!isset($config['app']['debug']['router'])) {
-            $config['app']['debug']['router'] = true;
-        }
-        if (!isset($config['app']['debug']['global'])) {
-            $config['app']['debug']['global'] = false;
-        }
-        if (!isset($config['app']['avatar'])) {
-            $config['app']['avatar'] = 'https://www.cravatar.cn/avatar';
-        }
-        if (!isset($config['app']['token'])) {
-            $config['app']['token'] = [];
-        }
-        if (!isset($config['app']['token']['enabled'])) {
-            $config['app']['token']['enabled'] = false;
-        }
-        if (!isset($config['app']['token']['whitelist'])) {
-            $config['app']['token']['whitelist'] = [];
-        }
-        if (!isset($config['app']['captcha'])) {
-            $config['app']['captcha'] = [];
-        }
-        if (!isset($config['app']['captcha']['enabled'])) {
-            $config['app']['captcha']['enabled'] = false;
-        }
-        
-        // 生成配置文件内容
-        $content = "<?php\n";
-        $content .= "/**\n";
-        $content .= " * Anon环境配置\n";
-        $content .= " */\n";
-        $content .= "return " . var_export($config, true) . ";\n";
-        
-        file_put_contents($configFile, $content);
     }
 
     /**
