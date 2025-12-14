@@ -1,5 +1,7 @@
 # Anon Framework
 
+> 开发灵感来源于[Typecho](https://github.com/Typecho) | [TTDF](https://github.com/YuiNijika/TTDF) 原博客程序现抽象为纯后端API式交互
+
 [配套前端](https://github.com/YuiNijika/AnonClient)
 
 ## 配置
