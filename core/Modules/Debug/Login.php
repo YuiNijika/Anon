@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anon Debug Console</title>
-    <script src="/core/Static/vue.global.js"></script>
+    <script src="/core/Static/vue.global.prod.js"></script>
     <style>
         * {
             margin: 0;
