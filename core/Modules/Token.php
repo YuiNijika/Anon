@@ -175,7 +175,8 @@ class Anon_Token
         $defaultWhitelist = [
             '/anon/install',
             '/anon/common/*',
-            '/anon/debug/*',
+            '/anon/debug/login',
+            '/anon/debug/console',
         ];
         
         if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {

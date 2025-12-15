@@ -48,7 +48,13 @@ class Anon_RequestHelper
             $data = $_POST;
         }
         
-        return $data ?: [];
+        $data = $data ?: [];
+        
+        if (class_exists('Anon_Hook')) {
+            $data = Anon_Hook::apply_filters('request_input', $data);
+        }
+        
+        return $data;
     }
 
     /**
@@ -253,6 +259,13 @@ class Anon_RequestHelper
         // 验证 Token
         $token = Anon_Token::getTokenFromRequest();
         if (empty($token)) {
+            // 如果用户已通过 Session/Cookie 登录，允许降级使用 Session 验证（仅限 Debug API）
+            $isDebugApi = strpos($path, '/anon/debug/api/') === 0;
+            if ($isDebugApi && Anon_Check::isLoggedIn()) {
+                // Debug API 允许已登录用户通过 Session 访问（向后兼容）
+                return true;
+            }
+            
             if ($throwException) {
                 Anon_Common::Header(403);
                 Anon_ResponseHelper::forbidden('Token 验证失败，未提供 API Token');

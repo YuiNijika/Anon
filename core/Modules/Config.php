@@ -66,6 +66,10 @@ class Anon_Config
             error_log("Registering system routes...");
         }
         
+        self::addRoute('/anon/common/license', function() {
+            Anon_Common::Header();
+            Anon_ResponseHelper::success(Anon_Common::LICENSE_TEXT(), '获取许可证信息成功');
+        });
         self::addRoute('/anon/common/system', function() {
             Anon_Common::Header();
             Anon_ResponseHelper::success(Anon_Common::SystemInfo(), '获取系统信息成功');
@@ -119,13 +123,16 @@ class Anon_Config
 
         // 注册Debug路由
         if (class_exists('Anon_Debug')) {
-            self::addRoute('/anon/debug/info', [Anon_Debug::class, 'debugInfo']);
-            self::addRoute('/anon/debug/performance', [Anon_Debug::class, 'performanceApi']);
-            self::addRoute('/anon/debug/logs', [Anon_Debug::class, 'logs']);
-            self::addRoute('/anon/debug/errors', [Anon_Debug::class, 'errors']);
-            self::addRoute('/anon/debug/hooks', [Anon_Debug::class, 'hooks']);
-            self::addRoute('/anon/debug/tools', [Anon_Debug::class, 'tools']);
-            self::addRoute('/anon/debug/clear', [Anon_Debug::class, 'clearData']);
+            // API 路由
+            self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
+            self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
+            self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
+            self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
+            self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
+            self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
+            self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
+            // 页面路由
+            self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
             self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
         }
 

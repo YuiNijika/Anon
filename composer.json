@@ -1,0 +1,16 @@
+{
+    "name": "yuinijika/anon",
+    "description": "Anon Framework - A PHP backend API framework",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.4.0 <9.0.0"
+    },
+    "autoload": {
+        "classmap": [
+            "app/",
+            "core/"
+        ]
+    }
+}
+

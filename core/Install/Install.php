@@ -86,28 +86,28 @@ class Anon_Install
             // 更新配置文件
             self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
 
-            // 重新加载配置数组
-            // 创建一个临时文件，只包含 return 数组部分
-            $configContent = file_get_contents(self::envfile);
-            if ($configContent !== false) {
-                // 提取 return 数组部分
-                if (preg_match('/return\s+(\[.*\]);/s', $configContent, $matches)) {
-                    // 创建临时 PHP 文件来安全地解析配置
-                    $tempFile = sys_get_temp_dir() . '/anon_config_' . uniqid() . '.php';
-                    file_put_contents($tempFile, '<?php return ' . $matches[1] . ';');
-                    $envConfig = require $tempFile;
-                    unlink($tempFile);
-                    
-                    if (class_exists('Anon_Env')) {
-                        Anon_Env::init($envConfig);
-                    }
-                } else {
-                    // 如果无法解析，使用默认配置
-                    $envConfig = ['app' => []];
-                    if (class_exists('Anon_Env')) {
-                        Anon_Env::init($envConfig);
-                    }
-                }
+            require_once self::envfile;
+            $appConfigFile = __DIR__ . '/../../app/useApp.php';
+            $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
+            
+            $envConfig = [
+                'system' => [
+                    'db' => [
+                        'host' => defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost',
+                        'port' => defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306,
+                        'prefix' => defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '',
+                        'user' => defined('ANON_DB_USER') ? ANON_DB_USER : 'root',
+                        'password' => defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '',
+                        'database' => defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '',
+                        'charset' => defined('ANON_DB_CHARSET') ? ANON_DB_CHARSET : 'utf8mb4',
+                    ],
+                    'installed' => defined('ANON_INSTALLED') ? ANON_INSTALLED : false,
+                ],
+            ];
+            $envConfig = array_merge_recursive($envConfig, $appConfig);
+            
+            if (class_exists('Anon_Env')) {
+                Anon_Env::init($envConfig);
             }
 
             // 连接到数据库
@@ -283,15 +283,10 @@ class Anon_Install
 <?php
     }
 
-    /**
-     * 更新配置文件
-     * 直接修改常量定义的值，保留原有格式和内容
-     */
     private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
     {
         $configFile = self::envfile;
         
-        // 读取原始文件内容
         if (!file_exists($configFile)) {
             throw new Exception('配置文件不存在: ' . $configFile);
         }
@@ -301,57 +296,47 @@ class Anon_Install
             throw new Exception('无法读取配置文件: ' . $configFile);
         }
         
-        // 转义字符串值
         $escapeValue = function($str) {
             return "'" . addcslashes($str, "'\\") . "'";
         };
         
-        // 直接修改每一行的值
         foreach ($lines as $index => $line) {
-            // ANON_DB_HOST
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_HOST['\"]/", $line)) {
-                // 提取注释部分
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_HOST', " . $escapeValue($dbHost) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_DB_PORT
-            if (preg_match("/define\s*\(\s*['\"]ANON_DB_PORT['\"]/", $line) || preg_match('/^\s*\d+\)\s*;\s*\/\/.*数据库端口/', $line)) {
-                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : ' // 数据库端口';
+            if (preg_match("/define\s*\(\s*['\"]ANON_DB_PORT['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PORT', " . $dbPort . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_DB_PREFIX
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_PREFIX['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PREFIX', " . $escapeValue($dbPrefix) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_DB_USER
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_USER['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_USER', " . $escapeValue($dbUser) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_DB_PASSWORD
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_PASSWORD['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PASSWORD', " . $escapeValue($dbPass) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_DB_DATABASE
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_DATABASE['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_DATABASE', " . $escapeValue($dbName) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
             
-            // ANON_INSTALLED
             if (preg_match("/define\s*\(\s*['\"]ANON_INSTALLED['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_INSTALLED', true);" . ($comment ? ' ' . $comment : '');
@@ -359,7 +344,6 @@ class Anon_Install
             }
         }
         
-        // 写入文件
         $content = implode("\n", $lines) . "\n";
         if (file_put_contents($configFile, $content) === false) {
             throw new Exception('无法写入配置文件: ' . $configFile);

@@ -8,6 +8,41 @@ if (!Anon_Config::isInstalled()) {
 
 class Anon_Common
 {
+    const NAME = 'Anon Framework';
+    const VERSION = '1.0.0';
+    const AUTHOR = '鼠子(YuiNijika)';
+    const AUTHOR_URL = 'https://github.com/YuiNijika';
+    const GITHUB = 'https://github.com/YuiNijika/Anon';
+    const LICENSE = 'MIT';
+    
+    public static function LICENSE_TEXT(): string
+    {
+        $yearRange = '2024-' . date('Y');
+        
+        return <<<LICENSE
+MIT License
+Copyright (c) {$yearRange} 鼠子(YuiNijika)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+LICENSE;
+    }
+
     /**
      * 从 Anon_Env 读取配置并定义常量
      * 如果 Anon_Env 已初始化，使用其配置；否则使用默认值
@@ -107,10 +142,14 @@ class Anon_Common
                 'SERVER_PROTOCOL' => $_SERVER['SERVER_PROTOCOL'] ?? 'Unknown',
             ],
             'copyright' => [
-                'name' => 'Anon API Framework',
-                'version' => '1.0.0',
-                'author' => '鼠子(YuiNijika)',
-                'github' => 'https://github.com/YuiNijika/Anon',
+                'name' => self::NAME,
+                'version' => self::VERSION,
+                'author' => self::AUTHOR,
+                'author_url' => self::AUTHOR_URL,
+                'github' => self::GITHUB,
+                'license' => self::LICENSE,
+                'license_text' => self::LICENSE_TEXT(),
+                'copyright' => '© 2024-' . date('Y') . ' ' . self::AUTHOR,
             ],
         ];
     }
@@ -188,12 +227,15 @@ class Anon_Check
      */
     public static function logout(): void
     {
+        if (class_exists('Anon_Hook')) {
+            $userId = $_SESSION['user_id'] ?? null;
+            Anon_Hook::do_action('auth_before_logout', $userId);
+        }
+        
         self::startSessionIfNotStarted();
 
-        // 清空会话数据
         $_SESSION = [];
 
-        // 重置会话 Cookie
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(
@@ -209,8 +251,11 @@ class Anon_Check
 
         session_destroy();
 
-        // 清除认证Cookie
         self::clearAuthCookies();
+        
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('auth_after_logout', $userId ?? null);
+        }
     }
 
     /**
@@ -222,14 +267,15 @@ class Anon_Check
      */
     public static function setAuthCookies(int $userId, string $username, bool $rememberMe = false): void
     {
-        // 检测是否为跨域请求
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
+        }
+        
         $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
                         parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
         
         $isHttps = defined('ANON_SITE_HTTPS') && ANON_SITE_HTTPS;
         
-        // 跨域且 HTTPS 时使用 None，否则使用 Lax
-        // SameSite=None 必须配合 Secure=true，只能在 HTTPS 下工作
         if ($isCrossOrigin && $isHttps) {
             $sameSite = 'None';
             $secure = true;
@@ -245,15 +291,22 @@ class Anon_Check
             'samesite' => $sameSite
         ];
 
-        // 设置 cookie 过期时间
         if ($rememberMe) {
-            $cookieOptions['expires'] = time() + (86400 * 30); // 30天
+            $cookieOptions['expires'] = time() + (86400 * 30);
         } else {
-            $cookieOptions['expires'] = 0; // 会话 cookie
+            $cookieOptions['expires'] = 0;
+        }
+
+        if (class_exists('Anon_Hook')) {
+            $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
         }
 
         setcookie('user_id', (string)$userId, $cookieOptions);
         setcookie('username', $username, $cookieOptions);
+        
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
+        }
     }
 
     /**

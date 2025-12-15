@@ -1,7 +1,7 @@
 <?php
 
 /**
- * 调试系统核心引擎
+ * Debug Module
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
@@ -432,12 +432,7 @@ class Anon_Debug
         // 获取调试数据
         $debugData = self::getData();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Debug info retrieved successfully',
-            'data' => $debugData
-        ]);
+        Anon_ResponseHelper::success($debugData, 'Debug info retrieved successfully');
     }
 
     /**
@@ -452,12 +447,7 @@ class Anon_Debug
         // 获取性能数据
         $performanceData = self::getPerformanceData();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Performance data retrieved successfully',
-            'data' => $performanceData
-        ]);
+        Anon_ResponseHelper::success($performanceData, 'Performance data retrieved successfully');
     }
 
     /**
@@ -480,12 +470,7 @@ class Anon_Debug
         // 获取日志数据
         $logs = self::getLogs();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Logs retrieved successfully',
-            'data' => $logs
-        ]);
+        Anon_ResponseHelper::success($logs, 'Logs retrieved successfully');
     }
 
     /**
@@ -508,12 +493,7 @@ class Anon_Debug
         // 获取错误数据
         $errors = self::getErrors();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Errors retrieved successfully',
-            'data' => $errors
-        ]);
+        Anon_ResponseHelper::success($errors, 'Errors retrieved successfully');
     }
 
     /**
@@ -536,12 +516,7 @@ class Anon_Debug
         // 获取Hook数据
         $hooks = self::getHookData();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Hook data retrieved successfully',
-            'data' => $hooks
-        ]);
+        Anon_ResponseHelper::success($hooks, 'Hook data retrieved successfully');
     }
 
     /**
@@ -551,9 +526,52 @@ class Anon_Debug
     {
         // 如果Hook类存在，获取其统计数据
         if (class_exists('Anon_Hook')) {
-            return Anon_Hook::getStats();
+            $allHooks = Anon_Hook::get_all_hooks();
+            $stats = Anon_Hook::get_hook_stats();
+            
+            $actions = [];
+            $filters = [];
+            
+            foreach ($allHooks as $hookName => $priorities) {
+                foreach ($priorities as $priority => $hooks) {
+                    foreach ($hooks as $hookId => $hookData) {
+                        $hookInfo = [
+                            'name' => $hookName,
+                            'priority' => $priority,
+                            'type' => $hookData['type'],
+                            'added_at' => $hookData['added_at'] ?? null
+                        ];
+                        
+                        if (isset($stats[$hookName])) {
+                            $hookInfo['stats'] = $stats[$hookName];
+                        }
+                        
+                        if ($hookData['type'] === 'action') {
+                            $actions[] = $hookInfo;
+                        } else {
+                            $filters[] = $hookInfo;
+                        }
+                    }
+                }
+            }
+            
+            return [
+                'actions' => $actions,
+                'filters' => $filters,
+                'total_actions' => count($actions),
+                'total_filters' => count($filters),
+                'stats' => $stats
+            ];
         }
-        return [];
+        
+        return [
+            'actions' => [],
+            'filters' => [],
+            'total_actions' => 0,
+            'total_filters' => 0,
+            'stats' => [],
+            'message' => 'Hook class not available'
+        ];
     }
 
     /**
@@ -581,37 +599,37 @@ class Anon_Debug
                 'clear_debug_data' => [
                     'name' => '清理调试数据',
                     'description' => '清理所有调试日志、性能数据和错误记录',
-                    'endpoint' => '/anon/debug/clear',
+                    'endpoint' => '/anon/debug/api/clear',
                     'method' => 'POST'
                 ],
                 'export_debug_info' => [
                     'name' => '导出调试信息',
                     'description' => '导出完整的调试信息JSON数据',
-                    'endpoint' => '/anon/debug/info',
+                    'endpoint' => '/anon/debug/api/info',
                     'method' => 'GET'
                 ],
                 'performance_monitor' => [
                     'name' => '性能监控',
                     'description' => '查看系统性能数据和执行时间统计',
-                    'endpoint' => '/anon/debug/performance',
+                    'endpoint' => '/anon/debug/api/performance',
                     'method' => 'GET'
                 ],
                 'system_logs' => [
                     'name' => '系统日志',
                     'description' => '查看系统运行日志',
-                    'endpoint' => '/anon/debug/logs',
+                    'endpoint' => '/anon/debug/api/logs',
                     'method' => 'GET'
                 ],
                 'error_logs' => [
                     'name' => '错误日志',
                     'description' => '查看系统错误和异常记录',
-                    'endpoint' => '/anon/debug/errors',
+                    'endpoint' => '/anon/debug/api/errors',
                     'method' => 'GET'
                 ],
                 'hook_debug' => [
                     'name' => 'Hook调试',
                     'description' => '查看Hook系统的执行统计',
-                    'endpoint' => '/anon/debug/hooks',
+                    'endpoint' => '/anon/debug/api/hooks',
                     'method' => 'GET'
                 ]
             ],
@@ -626,12 +644,7 @@ class Anon_Debug
             ]
         ];
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Debug tools retrieved successfully',
-            'data' => $tools
-        ]);
+        Anon_ResponseHelper::success($tools, 'Debug tools retrieved successfully');
     }
 
     /**
@@ -646,11 +659,30 @@ class Anon_Debug
         // 清理调试数据
         self::clear();
 
-        Anon_Common::Header();
-        echo json_encode([
-            'code' => 200,
-            'message' => 'Debug data cleared successfully'
-        ]);
+        Anon_ResponseHelper::success(null, 'Debug data cleared successfully');
+    }
+
+    /**
+     * 调试控制台登录页面
+     */
+    public static function login()
+    {
+        if (!self::checkPermission()) {
+            Anon_Common::Header(403);
+            Anon_ResponseHelper::forbidden('Debug 模式未启用');
+        }
+        
+        $debugFile = __FILE__;
+        $debugDir = dirname($debugFile);
+        $viewPath = $debugDir . DIRECTORY_SEPARATOR . 'Debug' . DIRECTORY_SEPARATOR . 'Login.php';
+        
+        if (file_exists($viewPath)) {
+            include $viewPath;
+        } else {
+            Anon_Common::Header(500);
+            Anon_ResponseHelper::error('登录页面文件不存在: ' . $viewPath);
+        }
+        exit;
     }
 
     /**
@@ -658,23 +690,38 @@ class Anon_Debug
      */
     public static function console()
     {
-        // 检查 debug 权限
         if (!self::checkPermission()) {
             Anon_Common::Header(403);
             Anon_ResponseHelper::forbidden('Debug 模式未启用');
         }
 
-        // 检查用户是否登录
-        if (!Anon_Check::isLoggedIn()) {
-            Anon_Common::Header(403);
-            Anon_ResponseHelper::forbidden('请先登录');
+        $userId = null;
+        
+        if (class_exists('Anon_Token') && Anon_Token::isEnabled()) {
+            try {
+                $token = Anon_Token::getTokenFromRequest();
+                if ($token) {
+                    $payload = Anon_Token::verify($token);
+                    if ($payload && isset($payload['data']['user_id'])) {
+                        $userId = (int)$payload['data']['user_id'];
+                        Anon_Check::startSessionIfNotStarted();
+                        $_SESSION['user_id'] = $userId;
+                        if (isset($payload['data']['username'])) {
+                            $_SESSION['username'] = $payload['data']['username'];
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+            }
         }
-
-        // 检查用户是否为管理员
-        $userId = Anon_RequestHelper::getUserId();
+        
+        if (!$userId && Anon_Check::isLoggedIn()) {
+            $userId = Anon_RequestHelper::getUserId();
+        }
+        
         if (!$userId) {
-            Anon_Common::Header(403);
-            Anon_ResponseHelper::forbidden('无法获取用户信息');
+            header('Location: /anon/debug/login');
+            exit;
         }
 
         $db = new Anon_Database();
@@ -683,387 +730,16 @@ class Anon_Debug
             Anon_ResponseHelper::forbidden('仅管理员可访问 Debug 控制台');
         }
 
-        // 输出调试控制台HTML
-        self::renderConsole();
-    }
-
-    /**
-     * 渲染调试控制台HTML
-     */
-    private static function renderConsole()
-    {
-        ?>
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KonFans Debug Console</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        $debugFile = __FILE__;
+        $debugDir = dirname($debugFile);
+        $viewPath = $debugDir . DIRECTORY_SEPARATOR . 'Debug' . DIRECTORY_SEPARATOR . 'Console.php';
         
-        body {
-            font-family: 'Consolas', 'Monaco', monospace;
-            background: #1e1e1e;
-            color: #d4d4d4;
-            line-height: 1.4;
+        if (file_exists($viewPath)) {
+            include $viewPath;
+        } else {
+            Anon_Common::Header(500);
+            Anon_ResponseHelper::error('控制台页面文件不存在: ' . $viewPath);
         }
-        
-        .header {
-            background: #2d2d30;
-            padding: 15px 20px;
-            border-bottom: 1px solid #3e3e42;
-        }
-        
-        .header h1 {
-            color: #569cd6;
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        
-        .header p {
-            color: #9cdcfe;
-            font-size: 14px;
-        }
-        
-        .container {
-            display: flex;
-            height: calc(100vh - 80px);
-        }
-        
-        .sidebar {
-            width: 250px;
-            background: #252526;
-            border-right: 1px solid #3e3e42;
-            overflow-y: auto;
-        }
-        
-        .nav-item {
-            display: block;
-            padding: 12px 20px;
-            color: #cccccc;
-            text-decoration: none;
-            border-bottom: 1px solid #3e3e42;
-            transition: background-color 0.2s;
-        }
-        
-        .nav-item:hover {
-            background: #2a2d2e;
-            color: #ffffff;
-        }
-        
-        .nav-item.active {
-            background: #094771;
-            color: #ffffff;
-        }
-        
-        .content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        
-        .section {
-            display: none;
-        }
-        
-        .section.active {
-            display: block;
-        }
-        
-        .card {
-            background: #2d2d30;
-            border: 1px solid #3e3e42;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        
-        .card-header {
-            background: #383838;
-            padding: 12px 16px;
-            border-bottom: 1px solid #3e3e42;
-            font-weight: bold;
-            color: #ffffff;
-        }
-        
-        .card-body {
-            padding: 16px;
-        }
-        
-        .btn {
-            background: #0e639c;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .btn:hover {
-            background: #1177bb;
-        }
-        
-        .btn-danger {
-            background: #d73a49;
-        }
-        
-        .btn-danger:hover {
-            background: #e53e3e;
-        }
-        
-        pre {
-            background: #1e1e1e;
-            border: 1px solid #3e3e42;
-            border-radius: 4px;
-            padding: 12px;
-            overflow-x: auto;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-        
-        .status-enabled {
-            color: #4ec9b0;
-        }
-        
-        .status-disabled {
-            color: #f44747;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #9cdcfe;
-        }
-        
-        .error {
-            color: #f44747;
-            background: #2d1b1b;
-            border: 1px solid #5a1e1e;
-            padding: 12px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        
-        .success {
-            color: #4ec9b0;
-            background: #1b2d1b;
-            border: 1px solid #1e5a1e;
-            padding: 12px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>KonFans Debug Console</h1>
-        <p>System debugging and monitoring interface</p>
-    </div>
-    
-    <div class="container">
-        <nav class="sidebar">
-            <a href="#" class="nav-item active" data-section="overview">系统概览</a>
-            <a href="#" class="nav-item" data-section="performance">性能监控</a>
-            <a href="#" class="nav-item" data-section="logs">系统日志</a>
-            <a href="#" class="nav-item" data-section="errors">错误日志</a>
-            <a href="#" class="nav-item" data-section="hooks">Hook调试</a>
-            <a href="#" class="nav-item" data-section="tools">调试工具</a>
-        </nav>
-        
-        <main class="content">
-            <div id="overview" class="section active">
-                <div class="card">
-                    <div class="card-header">系统状态</div>
-                    <div class="card-body">
-                        <p>调试模式: <span class="status-enabled">已启用</span></p>
-                        <p>PHP版本: <?php echo PHP_VERSION; ?></p>
-                        <p>内存使用: <?php echo round(memory_get_usage(true) / 1024 / 1024, 2); ?> MB</p>
-                        <p>峰值内存: <?php echo round(memory_get_peak_usage(true) / 1024 / 1024, 2); ?> MB</p>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header">快速操作</div>
-                    <div class="card-body">
-                        <button class="btn" onclick="refreshData()">刷新数据</button>
-                        <button class="btn btn-danger" onclick="clearDebugData()">清理调试数据</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="performance" class="section">
-                <div class="card">
-                    <div class="card-header">性能数据</div>
-                    <div class="card-body">
-                        <div class="loading">加载中...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="logs" class="section">
-                <div class="card">
-                    <div class="card-header">系统日志</div>
-                    <div class="card-body">
-                        <div class="loading">加载中...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="errors" class="section">
-                <div class="card">
-                    <div class="card-header">错误日志</div>
-                    <div class="card-body">
-                        <div class="loading">加载中...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="hooks" class="section">
-                <div class="card">
-                    <div class="card-header">Hook调试信息</div>
-                    <div class="card-body">
-                        <div class="loading">加载中...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="tools" class="section">
-                <div class="card">
-                    <div class="card-header">调试工具</div>
-                    <div class="card-body">
-                        <button class="btn" onclick="exportDebugData()">导出调试数据</button>
-                        <button class="btn btn-danger" onclick="clearAllData()">清空所有数据</button>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-    
-    <script>
-        // 导航切换
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // 移除所有active类
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
-                
-                // 添加active类
-                this.classList.add('active');
-                const sectionId = this.getAttribute('data-section');
-                document.getElementById(sectionId).classList.add('active');
-                
-                // 加载对应数据
-                loadSectionData(sectionId);
-            });
-        });
-        
-        // 加载区块数据
-        function loadSectionData(section) {
-            const sectionElement = document.getElementById(section);
-            const cardBody = sectionElement.querySelector('.card-body');
-            
-            if (section === 'overview') return; // 概览页面不需要异步加载
-            
-            cardBody.innerHTML = '<div class="loading">加载中...</div>';
-            
-            fetch(`/anon/debug/${section}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.code === 200) {
-                        displayData(section, data.data, cardBody);
-                    } else {
-                        cardBody.innerHTML = `<div class="error">加载失败: ${data.message}</div>`;
-                    }
-                })
-                .catch(error => {
-                    cardBody.innerHTML = `<div class="error">网络错误: ${error.message}</div>`;
-                });
-        }
-        
-        // 显示数据
-        function displayData(section, data, container) {
-            let html = '';
-            
-            switch (section) {
-                case 'performance':
-                    html = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-                    break;
-                case 'logs':
-                    if (Array.isArray(data) && data.length > 0) {
-                        html = data.map(log => `<pre>${JSON.stringify(log, null, 2)}</pre>`).join('');
-                    } else {
-                        html = '<p>暂无日志数据</p>';
-                    }
-                    break;
-                case 'errors':
-                    if (Array.isArray(data) && data.length > 0) {
-                        html = data.map(error => `<pre class="error">${JSON.stringify(error, null, 2)}</pre>`).join('');
-                    } else {
-                        html = '<p>暂无错误数据</p>';
-                    }
-                    break;
-                case 'hooks':
-                    html = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-                    break;
-                default:
-                    html = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-            }
-            
-            container.innerHTML = html;
-        }
-        
-        // 刷新数据
-        function refreshData() {
-            const activeSection = document.querySelector('.nav-item.active').getAttribute('data-section');
-            if (activeSection !== 'overview') {
-                loadSectionData(activeSection);
-            }
-            location.reload();
-        }
-        
-        // 清理调试数据
-        function clearDebugData() {
-            if (confirm('确定要清理调试数据吗？')) {
-                fetch('/anon/debug/clear', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.code === 200) {
-                            alert('调试数据已清理');
-                            refreshData();
-                        } else {
-                            alert('清理失败: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        alert('网络错误: ' + error.message);
-                    });
-            }
-        }
-        
-        // 导出调试数据
-        function exportDebugData() {
-            window.open('/anon/debug/info', '_blank');
-        }
-        
-        // 清空所有数据
-        function clearAllData() {
-            if (confirm('确定要清空所有调试数据吗？此操作不可恢复！')) {
-                clearDebugData();
-            }
-        }
-    </script>
-</body>
-</html>
-        <?php
+        exit;
     }
 }

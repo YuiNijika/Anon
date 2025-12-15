@@ -2,10 +2,42 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 统一JSON响应格式助手类
+ * 统一JSON响应格式
  * 提供标准化的API响应格式：success、message、data
  */
 class Anon_ResponseHelper {
+    
+    /**
+     * 输出 JSON 响应到控制台（调试用）
+     * @param array $response 响应数据
+     * @param string $type 响应类型（success/error）
+     */
+    private static function logToConsole(array $response, string $type = 'success'): void
+    {
+        $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
+        if (!$isDebug) {
+            return;
+        }
+        
+        $json = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $uri = $_SERVER['REQUEST_URI'] ?? '/';
+        
+        $logMessage = sprintf(
+            "[%s] %s %s\n%s: %s\n",
+            date('Y-m-d H:i:s'),
+            $method,
+            $uri,
+            strtoupper($type),
+            $json
+        );
+        
+        if (php_sapi_name() === 'cli') {
+            file_put_contents('php://stderr', $logMessage);
+        } else {
+            error_log($logMessage);
+        }
+    }
     
     /**
      * 发送成功响应
@@ -14,6 +46,12 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认200
      */
     public static function success($data = null, $message = '操作成功', $httpCode = 200) {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('response_before_success', $data, $message, $httpCode);
+            $data = Anon_Hook::apply_filters('response_data', $data);
+            $message = Anon_Hook::apply_filters('response_message', $message);
+        }
+        
         http_response_code($httpCode);
         
         $response = [
@@ -21,10 +59,15 @@ class Anon_ResponseHelper {
             'message' => $message
         ];
         
-        // 只有当data不为null时才添加data字段
         if ($data !== null) {
             $response['data'] = $data;
         }
+        
+        if (class_exists('Anon_Hook')) {
+            $response = Anon_Hook::apply_filters('response_success', $response);
+        }
+        
+        self::logToConsole($response, 'success');
         
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;
@@ -37,9 +80,13 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认400
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400) {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('response_before_error', $message, $data, $httpCode);
+            $message = Anon_Hook::apply_filters('response_error_message', $message);
+        }
+        
         http_response_code($httpCode);
         
-        // 确保设置 JSON 响应头
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
         }
@@ -49,10 +96,15 @@ class Anon_ResponseHelper {
             'message' => $message
         ];
         
-        // 只有当data不为null时才添加data字段
         if ($data !== null) {
             $response['data'] = $data;
         }
+        
+        if (class_exists('Anon_Hook')) {
+            $response = Anon_Hook::apply_filters('response_error', $response);
+        }
+        
+        self::logToConsole($response, 'error');
         
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;
@@ -74,6 +126,8 @@ class Anon_ResponseHelper {
             'data' => $data,
             'pagination' => $pagination
         ];
+        
+        self::logToConsole($response, 'success');
         
         echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit;

@@ -20,19 +20,36 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function getUserInfo($uid)
     {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('user_before_get_info', $uid);
+        }
+        
         $row = $this->db('users')
             ->select(['uid', 'name', 'email', '`group`'])
             ->where('uid', '=', (int)$uid)
             ->first();
 
-        if (!$row) return null;
-        return [
+        if (!$row) {
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_not_found', $uid);
+            }
+            return null;
+        }
+        
+        $userInfo = [
             'uid' => $row['uid'],
             'name' => $row['name'],
             'email' => $row['email'],
             'avatar' => $this->buildAvatar($row['email']),
             'group' => $row['group'],
         ];
+        
+        if (class_exists('Anon_Hook')) {
+            $userInfo = Anon_Hook::apply_filters('user_info', $userInfo, $uid);
+            Anon_Hook::do_action('user_after_get_info', $userInfo, $uid);
+        }
+        
+        return $userInfo;
     }
 
     /**
@@ -126,18 +143,36 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function getUserInfoByName($name)
     {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('user_before_get_info_by_name', $name);
+        }
+        
         $row = $this->db('users')
             ->select(['uid', 'name', 'password', 'email', '`group`'])
             ->where('name', '=', $name)
             ->first();
-        if (!$row) return false;
-        return [
+        
+        if (!$row) {
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_not_found_by_name', $name);
+            }
+            return false;
+        }
+        
+        $userInfo = [
             'uid' => $row['uid'],
             'name' => $row['name'],
             'password' => $row['password'],
             'email' => $row['email'],
             'group' => $row['group']
         ];
+        
+        if (class_exists('Anon_Hook')) {
+            $userInfo = Anon_Hook::apply_filters('user_info_by_name', $userInfo, $name);
+            Anon_Hook::do_action('user_after_get_info_by_name', $userInfo, $name);
+        }
+        
+        return $userInfo;
     }
 
     /**
@@ -150,10 +185,22 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function addUser($name, $email, $password, $group = 'user')
     {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('user_before_add', $name, $email, $group);
+        }
+        
         $validGroups = ['admin', 'author', 'user'];
         if (!in_array($group, $validGroups)) {
             throw new Exception('无效的用户组');
         }
+        
+        if (class_exists('Anon_Hook')) {
+            $name = Anon_Hook::apply_filters('user_name_before_add', $name);
+            $email = Anon_Hook::apply_filters('user_email_before_add', $email);
+            $password = Anon_Hook::apply_filters('user_password_before_add', $password);
+            $group = Anon_Hook::apply_filters('user_group_before_add', $group);
+        }
+        
         $this->conn->begin_transaction();
         try {
             $id = $this->db('users')->insert([
@@ -164,9 +211,17 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ])->execute();
             $success = $id > 0;
             $this->conn->commit();
+            
+            if ($success && class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_after_add', $id, $name, $email, $group);
+            }
+            
             return $success;
         } catch (Exception $e) {
             $this->conn->rollback();
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_add_failed', $name, $email, $e);
+            }
             throw $e;
         }
     }
@@ -214,10 +269,20 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function updateUserGroup($uid, $group)
     {
+        if (class_exists('Anon_Hook')) {
+            $oldGroup = $this->getUserInfo($uid)['group'] ?? null;
+            Anon_Hook::do_action('user_before_update_group', $uid, $oldGroup, $group);
+        }
+        
         $validGroups = ['admin', 'author', 'user'];
         if (!in_array($group, $validGroups)) {
             throw new Exception('无效的用户组');
         }
+        
+        if (class_exists('Anon_Hook')) {
+            $group = Anon_Hook::apply_filters('user_group_before_update', $group, $uid);
+        }
+        
         $this->conn->begin_transaction();
         try {
             $affected = $this->db('users')
@@ -225,9 +290,17 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 ->where('uid', '=', (int)$uid)
                 ->execute();
             $this->conn->commit();
+            
+            if ($affected > 0 && class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_after_update_group', $uid, $oldGroup ?? null, $group);
+            }
+            
             return $affected > 0;
         } catch (Exception $e) {
             $this->conn->rollback();
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_update_group_failed', $uid, $group, $e);
+            }
             throw $e;
         }
     }

@@ -53,7 +53,7 @@ class Anon_Router
             }
             
             // 加载应用路由配置
-            self::registerAppRoutes(require __DIR__ . '/../../app/App.php');
+            self::registerAppRoutes(require __DIR__ . '/../../app/useRouter.php');
 
             // 加载系统路由配置
             self::loadConfig();
