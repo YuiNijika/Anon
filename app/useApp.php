@@ -3,11 +3,12 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     'app' => [
+        'autoRouter' => true, // 是否启用自动路由
+        'avatar' => 'https://www.cravatar.cn/avatar', // 头像源URL
         'debug' => [
             'global' => true, // 全局调试
             'router' => false, // 路由调试
         ],
-        'avatar' => 'https://www.cravatar.cn/avatar', // 头像源URL
         'token' => [
             'enabled' => true, // 是否启用 Token 验证
             'whitelist' => [

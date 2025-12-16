@@ -16,6 +16,9 @@
 - [快速开始](#-快速开始)
 - [核心功能](#-核心功能)
   - [路由处理](#路由处理)
+    - [自动路由](#自动路由)
+    - [手动路由](#手动路由)
+    - [登录检查](#登录检查)
   - [数据库操作](#数据库操作)
   - [请求与响应](#请求与响应)
   - [用户认证](#用户认证)
@@ -57,13 +60,20 @@ define('ANON_INSTALLED', true);
 ```php
 return [
     'app' => [
+        'autoRouter' => true,  // 启用自动路由（推荐）
         'debug' => [
             'global' => false,
             'router' => false,
         ],
         'token' => [
             'enabled' => true,
-            'whitelist' => ['/auth/login', '/auth/logout'],
+            'whitelist' => [
+                '/auth/login',
+                '/auth/logout',
+                '/auth/check-login',
+                '/auth/token',
+                '/auth/captcha'
+            ],
         ],
         'captcha' => [
             'enabled' => true,
@@ -74,23 +84,34 @@ return [
 
 ### 3. 创建路由
 
+**自动路由模式（推荐）**：
+
 创建 `server/app/Router/Test/Index.php`：
 
 ```php
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+];
 
 try {
-    Anon_RequestHelper::requireMethod('GET');
     Anon_ResponseHelper::success(['message' => 'Anon Tokyo~!']);
 } catch (Exception $e) {
     Anon_ResponseHelper::handleException($e);
 }
 ```
 
-访问：`GET /test/index`
+访问：`GET /test/index`（自动注册，路径自动转为小写）
+
+**路由规则**：
+
+- 文件路径：`app/Router/Test/Index.php` → 路由路径：`/test/index`
+- 文件路径：`app/Router/User/Profile/Index.php` → 路由路径：`/user/profile/index`
+- 所有路由路径自动转为小写，不区分文件大小写
 
 ---
 
@@ -98,41 +119,173 @@ try {
 
 ### 路由处理
 
-#### 创建路由文件
+#### 自动路由
 
-路由文件位置：`server/app/Router/{Group}/{Action}.php`
+**启用方式**：
 
-示例：`server/app/Router/Auth/Login.php` → `/auth/login`
+在 `server/app/useApp.php` 中设置：
 
-#### 路由处理模板
+```php
+'app' => [
+    'autoRouter' => true,  // 启用自动路由
+],
+```
+
+**工作原理**：
+
+- 自动扫描 `app/Router` 目录下的所有 PHP 文件
+- 根据文件结构自动生成路由路径
+- 所有路由路径自动转为小写
+- 通过 `Anon_RouterMeta` 常量配置路由元数据（Header、登录检查、HTTP 方法等）
+
+**示例**：
+
+```text
+app/Router/
+  ├── Auth/
+  │   ├── Login.php      → /auth/login
+  │   ├── Logout.php     → /auth/logout
+  │   └── Token.php      → /auth/token
+  └── User/
+      └── Info.php        → /user/info
+```
+
+#### 手动路由
+
+**启用方式**：
+
+在 `server/app/useApp.php` 中设置：
+
+```php
+'app' => [
+    'autoRouter' => false,  // 禁用自动路由
+],
+```
+
+**配置路由**：
+
+编辑 `server/app/useRouter.php`：
+
+```php
+return [
+    'auth' => [
+        'login' => [
+            'view' => 'Auth/Login',
+        ],
+        'logout' => [
+            'view' => 'Auth/Logout',
+        ],
+    ],
+    'user' => [
+        'info' => [
+            'view' => 'User/Info',
+        ],
+    ],
+];
+```
+
+#### 路由元数据配置（Anon_RouterMeta）
+
+**推荐方式**：使用 `Anon_RouterMeta` 常量统一配置路由元数据，系统会自动应用这些配置。
+
+**配置项说明**：
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `header` | bool | `true` | 是否设置响应头（包括 CORS、Content-Type 等） |
+| `requireLogin` | bool | `false` | 是否需要登录验证 |
+| `method` | string\|array | `null` | 允许的 HTTP 方法，如 `'GET'` 或 `['GET', 'POST']` |
+| `cors` | bool | `true` | 是否设置 CORS 头 |
+| `response` | bool | `true` | 是否设置 JSON 响应头 |
+| `code` | int | `200` | HTTP 状态码 |
+
+**示例：需要登录的 GET 接口**：
 
 ```php
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => true,
+    'method' => 'GET',
+];
 
 try {
-    // 1. 检查请求方法
-    Anon_RequestHelper::requireMethod('POST');
+    // 获取用户信息（已自动通过登录检查）
+    $userInfo = Anon_RequestHelper::requireAuth();
     
-    // 2. 获取并验证输入
+    Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
+    
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+**示例：不需要登录的 POST 接口**：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'POST',
+];
+
+try {
+    // 验证输入数据
     $data = Anon_RequestHelper::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空',
     ]);
     
-    // 3. 业务逻辑
+    // 业务逻辑
     $db = new Anon_Database();
     $user = $db->getUserInfoByName($data['username']);
     
-    // 4. 返回响应
     Anon_ResponseHelper::success($user, '操作成功');
     
 } catch (Exception $e) {
     Anon_ResponseHelper::handleException($e);
 }
 ```
+
+**示例：支持多种 HTTP 方法**：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => true,
+    'method' => ['GET', 'POST'],  // 支持 GET 和 POST
+];
+
+try {
+    // 根据请求方法执行不同逻辑
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    
+    if ($method === 'GET') {
+        // GET 逻辑
+    } else {
+        // POST 逻辑
+    }
+    
+    Anon_ResponseHelper::success(null, '操作成功');
+    
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+**注意**：
+- `Anon_RouterMeta` 必须在路由文件顶部定义
+- 如果未定义 `Anon_RouterMeta`，系统会使用默认配置（`header: true`, `requireLogin: false`, `method: null`）
+- HTTP 方法检查会在登录检查之前执行
+- 登录检查失败会自动返回 401 错误
 
 #### 动态注册路由
 
@@ -695,27 +848,41 @@ define('ANON_INSTALLED', true);
 ```php
 return [
     'app' => [
+        'autoRouter' => true,  // 是否启用自动路由（推荐）
         'debug' => [
             'global' => false,  // 全局调试
             'router' => false,  // 路由调试
         ],
-        'avatar' => 'https://www.cravatar.cn/avatar',
+        'avatar' => 'https://www.cravatar.cn/avatar',  // 头像源URL
         'token' => [
-            'enabled' => true,
+            'enabled' => true,  // 是否启用 Token 验证
             'whitelist' => [
                 '/auth/login',
                 '/auth/logout',
                 '/auth/check-login',
                 '/auth/token',
                 '/auth/captcha'
-            ],
+            ],  // Token 验证白名单路由
         ],
         'captcha' => [
-            'enabled' => true,
+            'enabled' => true,  // 是否启用验证码
         ],
     ],
 ];
 ```
+
+**配置说明**：
+
+- `autoRouter`: 是否启用自动路由模式
+  - `true`: 自动扫描 `app/Router` 目录，根据文件结构自动注册路由
+  - `false`: 使用 `useRouter.php` 手动配置路由
+- `debug.global`: 全局调试模式，启用后会在控制台输出调试信息
+- `debug.router`: 路由调试模式，启用后会记录路由注册和执行日志
+- `token.enabled`: 是否启用 Token 验证
+- `token.whitelist`: Token 验证白名单，这些路由不需要 Token 验证
+- `captcha.enabled`: 是否启用验证码功能
+
+---
 
 ### 配置访问
 
@@ -730,20 +897,43 @@ Anon_Env::get('system.db.host', 'localhost');
 
 ## 🐛 调试工具
 
+### 代码调试
+
 ```php
-// 日志
+// 日志记录
 Anon_Debug::log('INFO', '消息');
 Anon_Debug::log('ERROR', '错误');
+Anon_Debug::info('信息消息');
+Anon_Debug::error('错误消息', ['context' => 'data']);
 
-// 性能
-Anon_Debug::performance('操作名', microtime(true));
+// 性能监控
+Anon_Debug::startPerformance('operation_name');
+// ... 执行操作 ...
+Anon_Debug::endPerformance('operation_name');
 
-// SQL
+// SQL 查询记录
 Anon_Debug::query('SELECT * FROM users', ['id' => 1], 0.12);
-
-// Web 控制台
-// http://localhost:8080/anon/debug/console
 ```
+
+### Web 调试控制台
+
+启用调试模式后，访问调试控制台：
+
+```
+http://localhost:8080/anon/debug/console
+```
+
+**功能**：
+
+- 系统信息：PHP 版本、服务器信息、框架信息
+- 性能监控：请求耗时、内存使用、数据库查询统计
+- 日志查看：系统日志、错误日志
+- 钩子监控：已注册的钩子和执行统计
+- 工具集：清理调试数据、导出日志等
+
+**登录**：
+
+调试控制台需要登录才能访问，使用系统管理员账号登录。
 
 ---
 

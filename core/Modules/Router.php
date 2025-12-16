@@ -53,7 +53,17 @@ class Anon_Router
             }
             
             // 加载应用路由配置
-            self::registerAppRoutes(require __DIR__ . '/../../app/useRouter.php');
+            $autoRouter = Anon_Env::get('app.autoRouter', false);
+            if ($autoRouter) {
+                // 自动路由模式：扫描 Router 目录
+                self::autoRegisterRoutes();
+            } else {
+                // 手动路由模式：加载 useRouter.php 配置
+                $routerConfig = __DIR__ . '/../../app/useRouter.php';
+                if (file_exists($routerConfig)) {
+                    self::registerAppRoutes(require $routerConfig);
+                }
+            }
 
             // 加载系统路由配置
             self::loadConfig();
@@ -130,7 +140,92 @@ class Anon_Router
             throw new RuntimeException("路径遍历攻击检测: {$fileView}");
         }
 
+        // 读取路由元数据配置
+        $meta = self::readRouterMeta($filePath);
+        
+        // 应用元数据配置
+        self::applyRouterMeta($meta);
+
         require $filePath;
+    }
+
+    /**
+     * 读取路由文件中的 Anon_RouterMeta 常量配置
+     * @param string $filePath 路由文件路径
+     * @return array 路由元数据配置
+     */
+    private static function readRouterMeta(string $filePath): array
+    {
+        $defaultMeta = [
+            'header' => true,
+            'requireLogin' => false,
+            'method' => null,
+            'cors' => true,
+            'response' => true,
+        ];
+
+        if (!file_exists($filePath)) {
+            return $defaultMeta;
+        }
+
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return $defaultMeta;
+        }
+
+        // 查找 const Anon_RouterMeta = [...] 的定义
+        // 支持多种格式：const Anon_RouterMeta = [...] 或 const Anon_RouterMeta=[...]
+        if (preg_match('/const\s+Anon_RouterMeta\s*=\s*(\[[\s\S]*?\]);/i', $content, $matches)) {
+            try {
+                // 使用 eval 安全地解析数组（仅在找到匹配时）
+                $metaArray = eval('return ' . $matches[1] . ';');
+                if (is_array($metaArray)) {
+                    return array_merge($defaultMeta, $metaArray);
+                }
+            } catch (Throwable $e) {
+                // 解析失败时使用默认配置
+                if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
+                    Anon_Debug::warning("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
+                }
+            }
+        }
+
+        return $defaultMeta;
+    }
+
+    /**
+     * 应用路由元数据配置
+     * @param array $meta 路由元数据配置
+     */
+    private static function applyRouterMeta(array $meta): void
+    {
+        // 设置 Header
+        if ($meta['header'] ?? true) {
+            $code = $meta['code'] ?? 200;
+            $response = $meta['response'] ?? true;
+            $cors = $meta['cors'] ?? true;
+            Anon_Common::Header($code, $response, $cors);
+        }
+
+        // 检查登录状态
+        if ($meta['requireLogin'] ?? false) {
+            Anon_Common::RequireLogin();
+        }
+
+        // 检查 HTTP 方法
+        if (!empty($meta['method'])) {
+            $allowedMethods = is_array($meta['method']) ? $meta['method'] : [$meta['method']];
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            
+            if (!in_array(strtoupper($requestMethod), array_map('strtoupper', $allowedMethods))) {
+                Anon_Common::Header(405);
+                Anon_ResponseHelper::error('不允许的请求方法', [
+                    'allowed' => $allowedMethods,
+                    'received' => $requestMethod
+                ], 405);
+                exit;
+            }
+        }
     }
 
     /**
@@ -146,57 +241,141 @@ class Anon_Router
             // 叶子节点：包含视图
             if (isset($value['view'])) {
                 $view = $value['view'];
-                $useLoginCheck = $value['useLoginCheck'] ?? false;
 
                 // 注册前钩子
                 if (class_exists('Anon_Hook')) {
-                    Anon_Hook::do_action('app_before_register_route', $currentPath, $view, $useLoginCheck);
+                    Anon_Hook::do_action('app_before_register_route', $currentPath, $view, false);
                 }
 
-                // 生成处理器
-                $handler = function () use ($view, $currentPath, $useLoginCheck) {
-                    // 登录检查
-                    if ($useLoginCheck) {
-                        // 前置钩子
-                        if (class_exists('Anon_Hook')) {
-                            Anon_Hook::do_action('app_before_login_check', $currentPath);
-                        }
-
-                        if (!Anon_Check::isLoggedIn()) {
-                            // 失败钩子
-                            if (class_exists('Anon_Hook')) {
-                                Anon_Hook::do_action('app_login_check_failed', $currentPath);
-                            }
-
-                            Anon_Common::Header();
-                            echo json_encode([
-                                'code' => 401,
-                                'message' => 'Unauthorized'
-                            ]);
-                            exit;
-                        }
-
-                        // 成功钩子
-                        if (class_exists('Anon_Hook')) {
-                            Anon_Hook::do_action('app_login_check_success', $currentPath);
-                        }
-                    }
-
-                    // 执行最终视图
+                // 生成处理器（登录检查等由 Anon_RouterMeta 统一处理）
+                $handler = function () use ($view, $currentPath) {
+                    // 执行最终视图（View 方法会自动读取并应用 Anon_RouterMeta 配置）
                     Anon_Router::View($view);
                 };
 
                 // 注册到配置
                 Anon_Config::addRoute($currentPath, $handler);
 
+                // 调试日志
+                if (self::isDebugEnabled()) {
+                    self::debugLog("Registered route: {$currentPath} -> {$view}");
+                }
+
                 // 注册后钩子
                 if (class_exists('Anon_Hook')) {
-                    Anon_Hook::do_action('app_after_register_route', $currentPath, $view, $useLoginCheck);
+                    Anon_Hook::do_action('app_after_register_route', $currentPath, $view, false);
                 }
             } else {
                 // 递归子节点
                 self::registerAppRoutes($value, $currentPath);
             }
+        }
+    }
+
+    /**
+     * 自动注册路由（扫描 Router 目录）
+     * 类似 Nuxt 的自动路由功能，不区分大小写，所有路由转为小写
+     */
+    private static function autoRegisterRoutes(): void
+    {
+        $routerDir = __DIR__ . '/../../app/Router';
+        if (!is_dir($routerDir)) {
+            return;
+        }
+
+        // 执行自动路由扫描前钩子
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('router_before_auto_register');
+        }
+
+        // 扫描目录并注册路由
+        self::scanDirectory($routerDir, '');
+
+        // 执行自动路由扫描后钩子
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('router_after_auto_register');
+        }
+    }
+
+    /**
+     * 递归扫描目录并注册路由
+     * @param string $dir 目录路径
+     * @param string $basePath 基础路由路径（小写）
+     */
+    private static function scanDirectory(string $dir, string $basePath): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            // 跳过隐藏文件和当前/父目录
+            if ($item === '.' || $item === '..' || $item[0] === '.') {
+                continue;
+            }
+
+            $itemPath = $dir . DIRECTORY_SEPARATOR . $item;
+            $itemName = pathinfo($item, PATHINFO_FILENAME); // 去除扩展名
+            $itemNameLower = strtolower($itemName); // 转为小写
+
+            // 构建路由路径（小写）
+            if (empty($basePath)) {
+                $routePath = '/' . $itemNameLower;
+            } else {
+                $routePath = $basePath . '/' . $itemNameLower;
+            }
+
+            if (is_dir($itemPath)) {
+                // 递归扫描子目录
+                self::scanDirectory($itemPath, $routePath);
+            } elseif (is_file($itemPath) && pathinfo($item, PATHINFO_EXTENSION) === 'php') {
+                // 注册 PHP 文件为路由
+                self::registerAutoRoute($routePath, $itemPath, $dir);
+            }
+        }
+    }
+
+    /**
+     * 注册自动路由
+     * @param string $routePath 路由路径（小写，如 /auth/login）
+     * @param string $filePath 文件完整路径
+     * @param string $baseDir Router 基础目录
+     */
+    private static function registerAutoRoute(string $routePath, string $filePath, string $baseDir): void
+    {
+        // 计算相对路径（用于 View 方法）
+        $routerBaseDir = __DIR__ . '/../../app/Router';
+        $relativePath = str_replace($routerBaseDir . DIRECTORY_SEPARATOR, '', $filePath);
+        $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
+        $viewPath = str_replace('.php', '', $relativePath);
+
+        // 注册前钩子
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('app_before_register_route', $routePath, $viewPath, false);
+        }
+
+        // 生成处理器（登录检查等由 Anon_RouterMeta 统一处理）
+        $handler = function () use ($viewPath, $routePath) {
+            // 执行最终视图（View 方法会自动读取并应用 Anon_RouterMeta 配置）
+            Anon_Router::View($viewPath);
+        };
+
+        // 注册到配置
+        Anon_Config::addRoute($routePath, $handler);
+
+        // 调试日志
+        if (self::isDebugEnabled()) {
+            self::debugLog("Auto registered route: {$routePath} -> {$viewPath}");
+        }
+
+        // 注册后钩子
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('app_after_register_route', $routePath, $viewPath, false);
         }
     }
 

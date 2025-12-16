@@ -115,6 +115,18 @@ LICENSE;
     }
 
     /**
+     * 检查登录状态（未登录则直接返回 401）
+     * 通常与 Header() 一起使用
+     */
+    public static function RequireLogin(): void
+    {
+        if (!Anon_Check::isLoggedIn()) {
+            self::Header(401);
+            Anon_ResponseHelper::unauthorized('请先登录');
+        }
+    }
+
+    /**
      * 设置 CORS 头
      */
     private static function setCorsHeaders(): void

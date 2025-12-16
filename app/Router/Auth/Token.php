@@ -1,12 +1,15 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => true,
+    'method' => 'GET',
+];
 
 try {
-    Anon_RequestHelper::requireMethod('GET');
-    
     $userInfo = Anon_RequestHelper::requireAuth();
+    
     $token = Anon_RequestHelper::generateUserToken((int)$userInfo['uid'], $userInfo['name']);
     
     if ($token === null) {

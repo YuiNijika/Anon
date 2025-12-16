@@ -1,20 +1,21 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'POST',
+];
 
 try {
-    Anon_RequestHelper::requireMethod('POST');
     
     $data = Anon_RequestHelper::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空'
     ]);
     
-    // 获取原始输入数据
     $inputData = Anon_RequestHelper::getInput();
     
-    // 如果启用验证码，验证验证码
     if (class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()) {
         if (empty($inputData['captcha'] ?? '')) {
             Anon_ResponseHelper::error('验证码不能为空', null, 400);
@@ -24,7 +25,6 @@ try {
             Anon_ResponseHelper::error('验证码错误', null, 400);
         }
         
-        // 验证成功后清除验证码
         Anon_Captcha::clear();
     }
     
@@ -43,7 +43,6 @@ try {
     session_regenerate_id(true);
     
     $userId = (int)$user['uid'];
-    
     $_SESSION['user_id'] = $userId;
     $_SESSION['username'] = $user['name'];
     

@@ -1,11 +1,13 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => true,
+    'method' => 'POST',
+];
 
 try {
-    Anon_RequestHelper::requireMethod('POST');
-    
     Anon_Check::logout();
     
     Anon_ResponseHelper::success(null, '登出成功');

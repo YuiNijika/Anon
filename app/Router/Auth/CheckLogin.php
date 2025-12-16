@@ -1,10 +1,13 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Common::Header();
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+];
 
 try {
-    Anon_RequestHelper::requireMethod('GET');
     
     $isLoggedIn = Anon_Check::isLoggedIn();
     $message = $isLoggedIn ? '用户已登录' : '用户未登录';
