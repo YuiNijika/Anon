@@ -26,6 +26,7 @@ return [
         'avatar' => 'https://www.cravatar.cn/avatar',  // 头像源URL
         'token' => [
             'enabled' => true,  // 是否启用 Token 验证
+            'refresh' => false, // 是否在验证后自动刷新 Token（生成新 Token）
             'whitelist' => [
                 '/auth/login',
                 '/auth/logout',
@@ -49,6 +50,7 @@ return [
 - `debug.global`: 全局调试模式，启用后会在控制台输出调试信息
 - `debug.router`: 路由调试模式，启用后会记录路由注册和执行日志
 - `token.enabled`: 是否启用 Token 验证
+- `token.refresh`: 是否在验证后自动刷新 Token（生成新 Token），新 Token 通过响应头 `X-New-Token` 返回
 - `token.whitelist`: Token 验证白名单，这些路由不需要 Token 验证
 - `captcha.enabled`: 是否启用验证码功能
 

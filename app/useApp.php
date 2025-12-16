@@ -11,6 +11,7 @@ return [
         ],
         'token' => [
             'enabled' => true, // 是否启用 Token 验证
+            'refresh' => false, // 是否在验证后自动刷新生成新 Token
             'whitelist' => [
                 '/auth/login',
                 '/auth/logout',

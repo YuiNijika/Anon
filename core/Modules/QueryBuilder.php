@@ -218,6 +218,32 @@ class Anon_QueryBuilder
      */
     public function join(string $table, string $first, string $operator, string $second, string $type = 'INNER')
     {
+        // 验证表名安全性
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("无效的表名: {$table}");
+        }
+        
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $first)) {
+            throw new InvalidArgumentException("无效的字段名: {$first}");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $second)) {
+            throw new InvalidArgumentException("无效的字段名: {$second}");
+        }
+        
+        // 验证操作符
+        $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE'];
+        if (!in_array(strtoupper($operator), $allowedOps)) {
+            throw new InvalidArgumentException("无效的操作符: {$operator}");
+        }
+        
+        // 验证 JOIN 类型
+        $allowedTypes = ['INNER', 'LEFT', 'RIGHT', 'FULL'];
+        $type = strtoupper($type);
+        if (!in_array($type, $allowedTypes)) {
+            throw new InvalidArgumentException("无效的 JOIN 类型: {$type}");
+        }
+        
         $this->joins[] = [
             'type' => $type,
             'table' => $table,
@@ -250,9 +276,20 @@ class Anon_QueryBuilder
      */
     public function orderBy(string $column, string $direction = 'ASC')
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+        
+        // 验证排序方向
+        $direction = strtoupper($direction);
+        if ($direction !== 'ASC' && $direction !== 'DESC') {
+            throw new InvalidArgumentException("无效的排序方向: {$direction}");
+        }
+        
         $this->orders[] = [
             'column' => $column,
-            'direction' => strtoupper($direction)
+            'direction' => $direction
         ];
 
         return $this;
@@ -268,6 +305,13 @@ class Anon_QueryBuilder
         if (is_string($columns)) {
             $columns = [$columns];
         }
+        
+        // 验证所有字段名安全性
+        foreach ($columns as $column) {
+            if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+                throw new InvalidArgumentException("无效的字段名: {$column}");
+            }
+        }
 
         $this->groups = array_merge($this->groups, $columns);
         return $this;
@@ -282,6 +326,17 @@ class Anon_QueryBuilder
      */
     public function having(string $column, string $operator, $value)
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+        
+        // 验证操作符
+        $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE'];
+        if (!in_array(strtoupper($operator), $allowedOps)) {
+            throw new InvalidArgumentException("无效的操作符: {$operator}");
+        }
+        
         $this->having = "{$column} {$operator} ?";
         $this->bindings[] = $value;
         return $this;
@@ -426,6 +481,8 @@ class Anon_QueryBuilder
                 while ($row = $result->fetch_assoc()) {
                     $rows[] = $row;
                 }
+                $result->free(); // 释放结果集
+                $stmt->close(); // 关闭语句
                 return $rows;
             }
         }
@@ -468,6 +525,11 @@ class Anon_QueryBuilder
      */
     public function count(string $column = '*'): int
     {
+        // 验证列名安全性 只允许字母、数字、下划线、点号和 *
+        if ($column !== '*' && !preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的列名: {$column}");
+        }
+        
         $this->selects = ["COUNT({$column}) as count"];
         $result = $this->first();
         return (int)($result['count'] ?? 0);
@@ -512,6 +574,7 @@ class Anon_QueryBuilder
                 // 获取真实的mysqli连接
                 $conn = $this->getMysqliConnection();
                 $insertId = $conn->insert_id ?? null;
+                $stmt->close(); // 关闭语句
                 return $insertId !== null ? (int)$insertId : true;
             }
         }
@@ -558,7 +621,9 @@ class Anon_QueryBuilder
             $stmt = $this->connection->prepare($sql, $values);
             if ($stmt instanceof mysqli_stmt) {
                 $stmt->execute();
-                return $stmt->affected_rows;
+                $affected = $stmt->affected_rows;
+                $stmt->close(); // 关闭语句
+                return $affected;
             }
         }
         
@@ -603,7 +668,9 @@ class Anon_QueryBuilder
             $stmt = $this->connection->prepare($sql, $bindings);
             if ($stmt instanceof mysqli_stmt) {
                 $stmt->execute();
-                return $stmt->affected_rows;
+                $affected = $stmt->affected_rows;
+                $stmt->close(); // 关闭语句
+                return $affected;
             }
         }
         
@@ -634,7 +701,9 @@ class Anon_QueryBuilder
             $stmt = $this->connection->prepare($sql, $this->bindings);
             if ($stmt instanceof mysqli_stmt) {
                 $stmt->execute();
-                return $stmt->affected_rows;
+                $affected = $stmt->affected_rows;
+                $stmt->close(); // 关闭语句
+                return $affected;
             }
         }
         

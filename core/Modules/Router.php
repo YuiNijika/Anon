@@ -182,11 +182,28 @@ class Anon_Router
         }
 
         // 查找 const Anon_RouterMeta = [...] 的定义
-        // 支持多种格式：const Anon_RouterMeta = [...] 或 const Anon_RouterMeta=[...]
+        // const Anon_RouterMeta = [...] 或 const Anon_RouterMeta=[...]
         if (preg_match('/const\s+Anon_RouterMeta\s*=\s*(\[[\s\S]*?\]);/i', $content, $matches)) {
             try {
-                // 使用 eval 安全地解析数组（仅在找到匹配时）
-                $metaArray = eval('return ' . $matches[1] . ';');
+                // 先尝试 JSON 格式，如果失败则使用严格验证的 eval
+                $arrayStr = trim($matches[1]);
+                
+                // 尝试 JSON 解析
+                $jsonStr = str_replace(['=>', "'"], [':', '"'], $arrayStr);
+                $jsonStr = preg_replace('/(\w+):/', '"$1":', $jsonStr);
+                $metaArray = json_decode($jsonStr, true);
+                
+                // 如果 JSON 解析失败，使用严格验证的 eval 仅允许数组字面量
+                if (!is_array($metaArray)) {
+                    // 验证只包含安全的字符 数组、字符串、数字、布尔值、null
+                    if (preg_match('/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/', $arrayStr)) {
+                        // 移除所有可能的函数调用和变量
+                        if (!preg_match('/(\$|function|eval|exec|system|shell_exec|passthru|popen|proc_open|file_get_contents|file_put_contents|fopen|fwrite|unlink|include|require)/i', $arrayStr)) {
+                            $metaArray = eval('return ' . $arrayStr . ';');
+                        }
+                    }
+                }
+                
                 if (is_array($metaArray)) {
                     return array_merge($defaultMeta, $metaArray);
                 }

@@ -38,8 +38,23 @@ class Anon_Database_Connection
         return self::$instance;
     }
 
+    /**
+     * 执行原始 SQL 查询
+     * 此方法直接执行 SQL，不进行参数绑定
+     * 请确保 $sql 不包含用户输入，优先使用 prepare() 和 QueryBuilder
+     * 
+     * @param string $sql SQL 语句
+     * @return array|int 查询结果数组或影响的行数
+     * @throws RuntimeException
+     */
     public function query($sql)
     {
+        // 检测可能的 SQL 注入特征
+        if (preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) && 
+            preg_match('/(\$|%|_|\'|"|`)/', $sql)) {
+            error_log("警告：检测到可疑的 SQL 查询模式: " . substr($sql, 0, 100));
+        }
+        
         $result = $this->conn->query($sql);
         if (!$result) {
             error_log("SQL 查询错误: " . $this->conn->error);
@@ -51,6 +66,7 @@ class Anon_Database_Connection
             while ($row = $result->fetch_assoc()) {
                 $rows[] = $row;
             }
+            $result->free(); // 释放结果集
             return $rows;
         }
 

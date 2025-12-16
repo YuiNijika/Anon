@@ -300,6 +300,24 @@ class Anon_RequestHelper
             if (isset($payload['data']['session_id'])) {
                 $currentSessionId = session_id();
             }
+
+            // 如果启用了 Token 刷新，生成新 Token 并添加到响应头
+            if (Anon_Token::isRefreshEnabled()) {
+                // 根据 Token 过期时间判断是否为"记住我"
+                // 如果过期时间超过24小时，视为记住我
+                $expireTime = $payload['expire'] ?? 0;
+                $tokenLifetime = $expireTime - ($payload['timestamp'] ?? time());
+                $rememberMe = $tokenLifetime > 86400; // 超过24小时视为记住我
+                
+                $newToken = self::generateUserToken($userId, $username, $rememberMe);
+                
+                if ($newToken !== null) {
+                    // 将新 Token 添加到响应头，客户端需要更新
+                    if (!headers_sent()) {
+                        header('X-New-Token: ' . $newToken);
+                    }
+                }
+            }
         }
 
         return true;

@@ -74,6 +74,7 @@ try {
 'app' => [
     'token' => [
         'enabled' => true,
+        'refresh' => false, // 是否在验证后自动刷新 Token
         'whitelist' => [
             '/auth/login',
             '/auth/logout',
@@ -84,6 +85,13 @@ try {
     ],
 ],
 ```
+
+**配置说明**：
+- `enabled`: 是否启用 Token 验证
+- `refresh`: 是否在验证后自动刷新 Token
+  - `true`: 每次验证成功后生成新 Token，通过响应头 `X-New-Token` 返回
+  - `false`: 不刷新，Token 保持到过期（推荐用于多设备场景）
+- `whitelist`: Token 验证白名单路由
 
 ### 生成 Token
 
@@ -105,6 +113,19 @@ Token 验证自动在路由执行前进行，验证失败返回 403。
 - Token 验证通过后，如果包含用户信息，系统自动设置登录状态
 - 每个登录会话都有独立的 Token
 - Token 只能从 HTTP Header 获取：`X-API-Token` 或 `Authorization: Bearer`
+- 如果启用了 `refresh`，验证成功后会在响应头返回新 Token：`X-New-Token`
+
+**Token 刷新机制**：
+
+当 `token.refresh` 设置为 `true` 时：
+- 每次 Token 验证成功后，自动生成新的 Token
+- 新 Token 通过响应头 `X-New-Token` 返回给客户端
+- 客户端需要检查并更新本地存储的 Token
+- 旧 Token 仍然有效，直到过期
+
+**适用场景**：
+- `refresh: false`（默认）：多设备登录、Web 应用（推荐）
+- `refresh: true`：单设备应用、移动 App、高安全要求场景
 
 ### 手动验证
 

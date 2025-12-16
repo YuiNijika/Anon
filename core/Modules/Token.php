@@ -84,8 +84,14 @@ class Anon_Token
                 return false;
             }
 
+            // 时间戳验证
+            // 如果时间戳差异超过5分钟，记录警告但不拒绝 允许时钟偏差
             $timestampDiff = abs(time() - $payload['timestamp']);
             if ($timestampDiff > 300) {
+                // 记录时间戳异常，但不拒绝 Token允许时钟偏差
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    error_log("Token timestamp diff: {$timestampDiff} seconds");
+                }
             }
 
             return $payload;
@@ -113,7 +119,7 @@ class Anon_Token
             }
         }
 
-        // 兼容环境：getallheaders() 不可用时从 $_SERVER 获取
+        // 兼容环境 getallheaders() 不可用时从 $_SERVER 获取
         if (isset($_SERVER['HTTP_X_API_TOKEN'])) {
             return trim($_SERVER['HTTP_X_API_TOKEN']);
         }
@@ -144,11 +150,14 @@ class Anon_Token
             throw new RuntimeException('无法生成 Token：缺少会话ID');
         }
         
+        // 使用更安全的密钥来源 优先使用配置的密钥 避免依赖可伪造的 $_SERVER
+        $serverKey = defined('ANON_SECRET_KEY') ? ANON_SECRET_KEY : (defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : 'anon_default_key_change_in_production');
+        
         $secretData = [
             'session_id' => $sessionId,
             'user_id' => $userId,
             'username' => $username,
-            'server_key' => $_SERVER['SERVER_NAME'] ?? 'anon'
+            'server_key' => $serverKey
         ];
         
         return hash('sha256', json_encode($secretData, JSON_UNESCAPED_UNICODE));
@@ -164,6 +173,18 @@ class Anon_Token
             return Anon_Env::get('app.token.enabled', false);
         }
         return defined('ANON_TOKEN_ENABLED') ? ANON_TOKEN_ENABLED : false;
+    }
+
+    /**
+     * 检查是否启用 Token 刷新
+     * @return bool
+     */
+    public static function isRefreshEnabled(): bool
+    {
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            return Anon_Env::get('app.token.refresh', false);
+        }
+        return false;
     }
 
     /**

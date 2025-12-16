@@ -81,7 +81,13 @@ class Anon_FileCache implements Anon_CacheInterface
      */
     private function getCachePath(string $key): string
     {
-        $hash = md5($key);
+        // 验证缓存键安全性（防止路径遍历）
+        if (strpos($key, '..') !== false || strpos($key, '/') !== false || strpos($key, '\\') !== false) {
+            throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
+        }
+        
+        // 使用更安全的哈希（虽然 MD5 对缓存键足够安全，但可以考虑使用 hash()）
+        $hash = hash('sha256', $key);
         $subDir = substr($hash, 0, 2);
         $dir = $this->cacheDir . '/' . $subDir;
         
