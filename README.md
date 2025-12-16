@@ -1,13 +1,13 @@
 # Anon Framework
 
+> 这是一个用于PHP的API开发框架  
 > 开发灵感来源于 [Typecho](https://github.com/Typecho) | [TTDF](https://github.com/YuiNijika/TTDF)  
-> 原博客程序现抽象为纯后端 API 式交互
 
 [配套前端](https://github.com/YuiNijika/AnonClient)
 
-**PHP 版本要求：7.4 - 8.4**
-
 金牌赞助: [Cyber蝈蝈总](https://github.com/Katock-Cricket)
+
+**PHP 版本要求：7.4 - 8.4**
 
 ---
 
