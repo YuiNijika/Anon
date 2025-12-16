@@ -60,14 +60,14 @@ define('ANON_INSTALLED', true);
 ```php
 return [
     'app' => [
-        'autoRouter' => true,  // 启用自动路由（推荐）
+        'autoRouter' => true,  // 启用自动路由
         'debug' => [
-            'global' => false,
-            'router' => false,
+            'global' => false, // 全局debug
+            'router' => false, // 路由debug
         ],
-        'token' => [
-            'enabled' => true,
-            'whitelist' => [
+        'token' => [ // api访问token
+            'enabled' => true, // 是否启用token
+            'whitelist' => [ // 白名单路由
                 '/auth/login',
                 '/auth/logout',
                 '/auth/check-login',
@@ -76,7 +76,7 @@ return [
             ],
         ],
         'captcha' => [
-            'enabled' => true,
+            'enabled' => true, // 是否启用验证码
         ],
     ],
 ];
