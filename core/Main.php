@@ -1,6 +1,11 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
+if (version_compare(phpversion(), '7.4.0', '<')) {
+    die('PHP 版本过低，请升级到 7.4.0 或更高版本。');
+    exit;
+}
+
 class Anon_Main
 {
     /**
@@ -59,6 +64,13 @@ class Anon_Main
         require_once $Modules . 'Helper.php';
         require_once $Modules . 'Widget.php';
         require_once $Modules . 'Capability.php';
+        
+        // 现代特性模块
+        require_once $Modules . 'Container.php';
+        require_once $Modules . 'Middleware.php';
+        require_once $Modules . 'Cache.php';
+        require_once $Modules . 'QueryBuilder.php';
+        require_once $Modules . 'Console.php';
         
         Anon_Debug::init();
         Anon_Capability::getInstance()->init();

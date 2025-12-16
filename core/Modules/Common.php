@@ -9,7 +9,7 @@ if (!Anon_Config::isInstalled()) {
 class Anon_Common
 {
     const NAME = 'Anon Framework';
-    const VERSION = '1.0.0';
+    const VERSION = '1.1.0';
     const AUTHOR = '鼠子(YuiNijika)';
     const AUTHOR_URL = 'https://github.com/YuiNijika';
     const GITHUB = 'https://github.com/YuiNijika/Anon';

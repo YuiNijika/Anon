@@ -146,7 +146,15 @@ class Anon_Router
         // 应用元数据配置
         self::applyRouterMeta($meta);
 
-        require $filePath;
+        // 执行中间件
+        if (class_exists('Anon_Middleware') && isset($meta['middleware'])) {
+            $middlewares = is_array($meta['middleware']) ? $meta['middleware'] : [$meta['middleware']];
+            Anon_Middleware::pipeline($middlewares, $_REQUEST, function () use ($filePath) {
+                require $filePath;
+            });
+        } else {
+            require $filePath;
+        }
     }
 
     /**

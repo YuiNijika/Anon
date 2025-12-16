@@ -114,9 +114,16 @@ class Anon_Database
 
     /**
      * 直接访问 QueryBuilder 的入口
+     * @param string $table 表名
+     * @return Anon_QueryBuilder|Anon_Database_QueryBuilder
      */
     public function db($table)
     {
+        if (class_exists('Anon_QueryBuilder')) {
+            return new Anon_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
+        }
+        
+        // 回退到旧的 QueryBuilder
         return $this->getConnection()->db($table);
     }
 
