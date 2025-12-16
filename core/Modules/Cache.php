@@ -60,10 +60,10 @@ class Anon_FileCache implements Anon_CacheInterface
     private $defaultTtl;
 
     /**
-     * @param string $cacheDir 缓存目录
+     * @param string|null $cacheDir 缓存目录
      * @param int $defaultTtl 默认过期时间（秒）
      */
-    public function __construct(string $cacheDir = null, int $defaultTtl = 3600)
+    public function __construct(?string $cacheDir = null, int $defaultTtl = 3600)
     {
         $this->cacheDir = $cacheDir ?? (__DIR__ . '/../../cache');
         $this->defaultTtl = $defaultTtl;
