@@ -429,6 +429,8 @@ class Anon_Debug
             self::return403();
         }
 
+        Anon_Common::Header();
+
         // 获取调试数据
         $debugData = self::getData();
 
@@ -443,6 +445,8 @@ class Anon_Debug
         if (!self::checkPermission()) {
             self::return403();
         }
+
+        Anon_Common::Header();
 
         // 获取性能数据
         $performanceData = self::getPerformanceData();
@@ -467,6 +471,8 @@ class Anon_Debug
             self::return403();
         }
 
+        Anon_Common::Header();
+
         // 获取日志数据
         $logs = self::getLogs();
 
@@ -490,6 +496,8 @@ class Anon_Debug
             self::return403();
         }
 
+        Anon_Common::Header();
+
         // 获取错误数据
         $errors = self::getErrors();
 
@@ -512,6 +520,8 @@ class Anon_Debug
         if (!self::checkPermission()) {
             self::return403();
         }
+
+        Anon_Common::Header();
 
         // 获取Hook数据
         $hooks = self::getHookData();
@@ -582,6 +592,8 @@ class Anon_Debug
         if (!self::checkPermission()) {
             self::return403();
         }
+
+        Anon_Common::Header();
 
         $tools = [
             'system_info' => [
@@ -655,6 +667,8 @@ class Anon_Debug
         if (!self::checkPermission()) {
             self::return403();
         }
+
+        Anon_Common::Header();
 
         // 清理调试数据
         self::clear();
