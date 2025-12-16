@@ -9,7 +9,7 @@ class Anon_Main
     public static function run()
     {
         $App  = __DIR__ . '/../app/';
-        $Widget = __DIR__ . '/Widget/';
+        $Widget = __DIR__ . '/Widgets/';
         $Modules = __DIR__ . '/Modules/';
         $Root = __DIR__ . '/../';
         
