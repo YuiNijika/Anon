@@ -65,23 +65,3 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 //     Anon_Common::Header(404);
 //     Anon_ResponseHelper::notFound('页面不存在');
 // });
-
-
-Anon_Config::addRoute('/test', function () {
-    Anon_Common::Header();
-
-    try {
-        Anon_RequestHelper::requireMethod('GET');
-        
-        if (Anon_Check::isLoggedIn()) {
-            // 已登录
-            Anon_ResponseHelper::success(['message' => '已登录']);
-        } else {
-            // 未登录
-            Anon_ResponseHelper::error('未登录');
-        }
-
-    } catch (Exception $e) {
-        Anon_ResponseHelper::handleException($e);
-    }
-});
