@@ -10,7 +10,7 @@ const Anon_RouterMeta = [
 try {
     $userInfo = Anon_RequestHelper::requireAuth();
     
-    $token = Anon_RequestHelper::generateUserToken((int)$userInfo['uid'], $userInfo['name']);
+    $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     
     if ($token === null) {
         Anon_ResponseHelper::success(['token_enabled' => false], 'Token验证未启用');

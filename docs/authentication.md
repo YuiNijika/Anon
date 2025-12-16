@@ -52,6 +52,7 @@ try {
     $_SESSION['user_id'] = (int)$user['uid'];
     Anon_Check::setAuthCookies((int)$user['uid'], $user['name']);
     
+    // 登录时总是生成新 Token
     $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name']);
     
     Anon_ResponseHelper::success([
@@ -95,13 +96,52 @@ try {
 
 ### 生成 Token
 
-```php
-// 推荐：生成用户 Token
-$token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
+**推荐使用 `getUserToken()`**（智能获取或生成）：
 
-// 手动生成 Token
+```php
+// 智能获取或生成 Token（根据 refresh 配置决定）
+// - refresh = false: 如果已有有效 Token，返回现有 Token；否则生成新 Token
+// - refresh = true: 总是生成新 Token
+$token = Anon_RequestHelper::getUserToken($userId, $username, $rememberMe);
+```
+
+**直接生成新 Token**（登录时使用）：
+
+```php
+// 总是生成新 Token（登录时使用）
+$token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
+```
+
+**手动生成 Token**（不推荐，除非特殊需求）：
+
+```php
 $token = Anon_Token::generate(['user_id' => 1], 3600); // 1小时
 $token = Anon_Token::generate(['user_id' => 1], 86400 * 30); // 30天
+```
+
+**方法选择指南**：
+
+- `getUserToken()`: 用于获取用户信息、获取 Token 等场景，会根据配置智能处理
+- `generateUserToken()`: 用于登录等需要强制生成新 Token 的场景
+
+**使用示例**：
+
+```php
+// 获取用户信息时使用 getUserToken()
+// server/app/Router/User/Info.php
+try {
+    $userInfo = Anon_RequestHelper::requireAuth();
+    
+    // 智能获取或生成 Token（根据 refresh 配置决定）
+    $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
+    if ($token !== null) {
+        $userInfo['token'] = $token;
+    }
+    
+    Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e, '获取用户信息发生错误');
+}
 ```
 
 ### 验证 Token

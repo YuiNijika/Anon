@@ -227,6 +227,39 @@ class Anon_RequestHelper
     }
 
     /**
+     * 智能获取或生成用户 Token
+     * 根据 refresh 配置决定是返回现有 Token 还是生成新 Token
+     * @param int $userId 用户ID
+     * @param string $username 用户名
+     * @param bool|null $rememberMe 是否记住我，null 时自动从 cookie 判断
+     * @return string|null Token 字符串，未启用时返回 null
+     */
+    public static function getUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
+    {
+        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+            return null;
+        }
+
+        // 如果启用了 Token 刷新，总是生成新 Token
+        if (Anon_Token::isRefreshEnabled()) {
+            return self::generateUserToken($userId, $username, $rememberMe);
+        }
+
+        // 如果未启用刷新，检查是否有有效的现有 Token
+        $existingToken = Anon_Token::getTokenFromRequest();
+        if (!empty($existingToken)) {
+            $payload = Anon_Token::verify($existingToken);
+            // 如果现有 Token 有效，返回现有 Token
+            if ($payload !== false && isset($payload['data']['user_id']) && (int)$payload['data']['user_id'] === $userId) {
+                return $existingToken;
+            }
+        }
+
+        // 如果没有有效 Token，生成新 Token
+        return self::generateUserToken($userId, $username, $rememberMe);
+    }
+
+    /**
      * 验证 API Token（防止 API 被刷）
      * @param bool $throwException 验证失败时是否抛出异常，默认 true
      * @return bool 验证成功返回 true，失败返回 false 或抛出异常
