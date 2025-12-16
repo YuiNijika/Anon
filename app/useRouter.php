@@ -1,33 +1,33 @@
 <?php
+
+/**
+ * 手动配置路由
+ * 如果 autoRouter 为 true，则不会加载此配置
+ */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     'auth' => [
         'login' => [
             'view' => 'Auth/Login',
-            'useLoginCheck' => false,
         ],
         'logout' => [
             'view' => 'Auth/Logout',
-            'useLoginCheck' => false,
         ],
         'check-login' => [
             'view' => 'Auth/CheckLogin',
-            'useLoginCheck' => false,
         ],
         'token' => [
             'view' => 'Auth/Token',
-            'useLoginCheck' => true,
         ],
         'captcha' => [
             'view' => 'Auth/Captcha',
-            'useLoginCheck' => false,
         ],
     ],
     'user' => [
         'info' => [
             'view' => 'User/Info',
-            'useLoginCheck' => true,
         ],
     ],
 ];
