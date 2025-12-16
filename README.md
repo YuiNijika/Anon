@@ -112,6 +112,9 @@ try {
 - 文件路径：`app/Router/Test/Index.php` → 路由路径：`/test/index`
 - 文件路径：`app/Router/User/Profile/Index.php` → 路由路径：`/user/profile/index`
 - 所有路由路径自动转为小写，不区分文件大小写
+- **特殊处理**：文件名和目录名中的下划线（`_`）会自动转换为连字符（`-`）
+  - 文件路径：`app/Router/Aa_Bb/Cc_Dd.php` → 路由路径：`/aa-bb/cc-dd`
+  - 文件路径：`app/Router/User_Profile/Index.php` → 路由路径：`/user-profile/index`
 
 ---
 
@@ -143,12 +146,21 @@ try {
 ```text
 app/Router/
   ├── Auth/
-  │   ├── Login.php      → /auth/login
-  │   ├── Logout.php     → /auth/logout
-  │   └── Token.php      → /auth/token
-  └── User/
-      └── Info.php        → /user/info
+  │   ├── Login.php           → /auth/login
+  │   ├── Logout.php          → /auth/logout
+  │   └── Token.php           → /auth/token
+  ├── User/
+  │   └── Info.php             → /user/info
+  └── User_Profile/
+      ├── Index.php            → /user-profile/index
+      └── Update_Avatar.php    → /user-profile/update-avatar
 ```
+
+**命名转换规则**：
+
+- 文件名和目录名中的下划线（`_`）会自动转换为连字符（`-`）
+- 所有路径自动转为小写
+- 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
 
 #### 手动路由
 
@@ -282,6 +294,7 @@ try {
 ```
 
 **注意**：
+
 - `Anon_RouterMeta` 必须在路由文件顶部定义
 - 如果未定义 `Anon_RouterMeta`，系统会使用默认配置（`header: true`, `requireLogin: false`, `method: null`）
 - HTTP 方法检查会在登录检查之前执行

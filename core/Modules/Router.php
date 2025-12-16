@@ -322,12 +322,13 @@ class Anon_Router
             $itemPath = $dir . DIRECTORY_SEPARATOR . $item;
             $itemName = pathinfo($item, PATHINFO_FILENAME); // 去除扩展名
             $itemNameLower = strtolower($itemName); // 转为小写
+            $itemNameRoute = str_replace('_', '-', $itemNameLower); // 下划线转换为连字符
 
-            // 构建路由路径（小写）
+            // 构建路由路径
             if (empty($basePath)) {
-                $routePath = '/' . $itemNameLower;
+                $routePath = '/' . $itemNameRoute;
             } else {
-                $routePath = $basePath . '/' . $itemNameLower;
+                $routePath = $basePath . '/' . $itemNameRoute;
             }
 
             if (is_dir($itemPath)) {
@@ -342,13 +343,13 @@ class Anon_Router
 
     /**
      * 注册自动路由
-     * @param string $routePath 路由路径（小写，如 /auth/login）
+     * @param string $routePath 路由路径
      * @param string $filePath 文件完整路径
      * @param string $baseDir Router 基础目录
      */
     private static function registerAutoRoute(string $routePath, string $filePath, string $baseDir): void
     {
-        // 计算相对路径（用于 View 方法）
+        // 计算相对路径
         $routerBaseDir = __DIR__ . '/../../app/Router';
         $relativePath = str_replace($routerBaseDir . DIRECTORY_SEPARATOR, '', $filePath);
         $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
@@ -359,9 +360,8 @@ class Anon_Router
             Anon_Hook::do_action('app_before_register_route', $routePath, $viewPath, false);
         }
 
-        // 生成处理器（登录检查等由 Anon_RouterMeta 统一处理）
+        // 生成处理器
         $handler = function () use ($viewPath, $routePath) {
-            // 执行最终视图（View 方法会自动读取并应用 Anon_RouterMeta 配置）
             Anon_Router::View($viewPath);
         };
 
