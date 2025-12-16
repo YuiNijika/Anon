@@ -9,7 +9,7 @@ class Anon_Main
     public static function run()
     {
         $App  = __DIR__ . '/../app/';
-        $Widget = __DIR__ . '/Widgets/';
+        $Widgets = __DIR__ . '/Widgets/';
         $Modules = __DIR__ . '/Modules/';
         $Root = __DIR__ . '/../';
         
@@ -39,14 +39,14 @@ class Anon_Main
         require_once $Modules  . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
-        require_once $Widget  . 'Connection.php';
-        require_once $Widget  . 'Utils/Escape.php';
-        require_once $Widget  . 'Utils/Sanitize.php';
-        require_once $Widget  . 'Utils/Validate.php';
-        require_once $Widget  . 'Utils/Text.php';
-        require_once $Widget  . 'Utils/Format.php';
-        require_once $Widget  . 'Utils/Array.php';
-        require_once $Widget  . 'Utils/Random.php';
+        require_once $Widgets  . 'Connection.php';
+        require_once $Widgets  . 'Utils/Escape.php';
+        require_once $Widgets  . 'Utils/Sanitize.php';
+        require_once $Widgets  . 'Utils/Validate.php';
+        require_once $Widgets  . 'Utils/Text.php';
+        require_once $Widgets  . 'Utils/Format.php';
+        require_once $Widgets  . 'Utils/Array.php';
+        require_once $Widgets  . 'Utils/Random.php';
         require_once $Modules  . 'Database.php';
         require_once $Modules  . '../Install/Install.php';
         
