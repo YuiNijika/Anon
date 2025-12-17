@@ -99,7 +99,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
-     * 检查用户是否有内容管理权限（管理员或作者）
+     * 检查用户是否有管理员或作者的内容管理权限
      * 
      * @param int $uid 用户ID
      * @return bool 返回用户是否有内容管理权限
@@ -176,7 +176,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
-     * 添加用户（支持不同用户组）
+     * 添加支持不同用户组的用户
      * @param string $name
      * @param string $email
      * @param string $password

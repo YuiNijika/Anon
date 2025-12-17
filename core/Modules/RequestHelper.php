@@ -27,7 +27,7 @@ class Anon_RequestHelper
     }
 
     /**
-     * 获取请求输入数据（支持 JSON 和表单数据）
+     * 获取支持 JSON 和表单数据的请求输入数据
      * @return array 解析后的数据数组
      */
     public static function getInput(): array
@@ -58,7 +58,7 @@ class Anon_RequestHelper
     }
 
     /**
-     * 获取请求参数（从 GET 或 POST）
+     * 从 GET 或 POST 获取请求参数
      * @param string $key 参数名
      * @param mixed $default 默认值
      * @return mixed 参数值
@@ -153,7 +153,7 @@ class Anon_RequestHelper
     }
 
     /**
-     * 获取当前用户ID（从会话或Cookie）
+     * 从会话或 Cookie 获取当前用户ID
      * @return int|null 用户ID，未登录返回null
      */
     public static function getUserId(): ?int
@@ -172,7 +172,7 @@ class Anon_RequestHelper
     }
 
     /**
-     * 获取当前用户信息（需要登录）
+     * 获取需要登录的当前用户信息
      * @return array 用户信息数组
      */
     public static function requireAuth(): array
@@ -260,7 +260,7 @@ class Anon_RequestHelper
     }
 
     /**
-     * 验证 API Token（防止 API 被刷）
+     * 验证 API Token 防止 API 被刷
      * @param bool $throwException 验证失败时是否抛出异常，默认 true
      * @return bool 验证成功返回 true，失败返回 false 或抛出异常
      */
@@ -292,10 +292,10 @@ class Anon_RequestHelper
         // 验证 Token
         $token = Anon_Token::getTokenFromRequest();
         if (empty($token)) {
-            // 如果用户已通过 Session/Cookie 登录，允许降级使用 Session 验证（仅限 Debug API）
+            // 如果用户已通过 Session/Cookie 登录，允许降级使用 Session 验证，仅限 Debug API
             $isDebugApi = strpos($path, '/anon/debug/api/') === 0;
             if ($isDebugApi && Anon_Check::isLoggedIn()) {
-                // Debug API 允许已登录用户通过 Session 访问（向后兼容）
+                // Debug API 允许已登录用户通过 Session 访问以保持向后兼容
                 return true;
             }
             

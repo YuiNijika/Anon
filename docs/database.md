@@ -5,7 +5,7 @@
 ```php
 $db = new Anon_Database();
 
-// 用户操作（自动转发到 UserRepository）
+// 用户操作自动转发到 UserRepository
 $db->addUser('admin', 'admin@example.com', 'password', 'admin');
 $user = $db->getUserInfo(1);
 $user = $db->getUserInfoByName('admin');
@@ -13,7 +13,7 @@ $isAdmin = $db->isUserAdmin(1);
 $db->updateUserGroup(1, 'admin');
 ```
 
-## QueryBuilder（旧版）
+## QueryBuilder 旧版
 
 ```php
 $db = new Anon_Database();
@@ -171,7 +171,7 @@ $query = $db->db('users')
     ->where('status', '=', 'active')
     ->where('age', '>', 18);
 
-// 获取原始 SQL（带参数值）
+// 获取带参数值的原始 SQL
 echo $query->toRawSql();
 ```
 

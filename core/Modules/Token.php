@@ -10,7 +10,7 @@ class Anon_Token
     /**
      * 生成 Token
      * @param array $data 要包含在 token 中的数据
-     * @param int $expire 过期时间（秒），默认 3600 秒（1小时）
+     * @param int $expire 过期时间秒数，默认 3600 秒即1小时
      * @return string Token 字符串
      */
     public static function generate(array $data = [], int $expire = 3600): string
@@ -194,6 +194,7 @@ class Anon_Token
     public static function getWhitelist(): array
     {
         $defaultWhitelist = [
+            '/anon/ciallo',
             '/anon/install',
             '/anon/common/*',
             '/anon/debug/login',

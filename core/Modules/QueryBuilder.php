@@ -718,7 +718,7 @@ class Anon_QueryBuilder
     }
 
     /**
-     * 获取原始 SQL（用于调试）
+     * 获取用于调试的原始 SQL
      * @return string
      */
     public function toRawSql(): string

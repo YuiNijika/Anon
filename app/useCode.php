@@ -42,12 +42,6 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 //     return $userInfo;
 // });
 
-// 注册 Widget
-// $widget = Anon_Widget::getInstance();
-// $widget->register('my_widget', '我的组件', function ($args) {
-//     echo '<div>' . Anon_Helper::escHtml($args['title'] ?? '') . '</div>';
-// }, ['description' => '这是一个示例组件']);
-
 // 权限检查
 // $capability = Anon_Capability::getInstance();
 // if ($capability->currentUserCan('manage_options')) {

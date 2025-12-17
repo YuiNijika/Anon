@@ -49,7 +49,7 @@ $userService = $container->make('UserService');
 
 ## 中间件系统
 
-中间件系统允许你在请求处理前后执行代码，实现跨切面功能（如日志、认证、限流等）。
+中间件系统允许你在请求处理前后执行代码，实现跨切面功能如日志、认证、限流等。
 
 ### 创建中间件
 
@@ -78,7 +78,7 @@ use Anon_Middleware;
 // 注册全局中间件
 Anon_Middleware::global('AuthMiddleware');
 
-// 注册路由中间件（带别名）
+// 注册带别名的路由中间件
 Anon_Middleware::alias('auth', 'AuthMiddleware');
 Anon_Middleware::alias('throttle', 'ThrottleMiddleware');
 ```
@@ -108,13 +108,13 @@ const Anon_RouterMeta = [
 ```php
 use Anon_Cache;
 
-// 使用文件缓存（默认）
+// 使用文件缓存默认
 Anon_Cache::init('file', [
     'dir' => __DIR__ . '/../../cache',
-    'ttl' => 3600, // 默认过期时间（秒）
+    'ttl' => 3600, // 默认过期时间秒数
 ]);
 
-// 使用内存缓存（单次请求有效）
+// 使用内存缓存单次请求有效
 Anon_Cache::init('memory');
 ```
 
@@ -141,7 +141,7 @@ Anon_Cache::delete('user:1');
 Anon_Cache::clear();
 ```
 
-### 记住缓存（缓存回调结果）
+### 记住缓存缓存回调结果
 
 ```php
 // 如果缓存不存在，执行回调并缓存结果

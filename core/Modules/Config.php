@@ -86,6 +86,10 @@ class Anon_Config
             ];
             Anon_ResponseHelper::success($config, '获取配置信息成功');
         });
+        self::addRoute('/anon/ciallo', function() {
+            Anon_Common::Header();
+            Anon_ResponseHelper::success(Anon_Common::Ciallo(), '恰喽~');
+        });
 
         // 注册Install路由
         self::addRoute('/anon/install', [Anon_Install::class, 'index']);

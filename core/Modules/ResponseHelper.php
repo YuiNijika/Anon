@@ -8,9 +8,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_ResponseHelper {
     
     /**
-     * 输出 JSON 响应到控制台（调试用）
+     * 输出用于调试的 JSON 响应到控制台
      * @param array $response 响应数据
-     * @param string $type 响应类型（success/error）
+     * @param string $type 响应类型 success 或 error
      */
     private static function logToConsole(array $response, string $type = 'success'): void
     {
@@ -76,7 +76,7 @@ class Anon_ResponseHelper {
     /**
      * 发送失败响应
      * @param string $message 错误消息
-     * @param mixed $data 额外的错误数据（可选）
+     * @param mixed $data 可选的额外错误数据
      * @param int $httpCode HTTP状态码，默认400
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400) {
@@ -148,7 +148,7 @@ class Anon_ResponseHelper {
     /**
      * 发送参数验证失败响应
      * @param string $message 验证失败消息
-     * @param array $errors 具体的验证错误（可选）
+     * @param array $errors 可选的具体验证错误
      */
     public static function validationError($message = '参数验证失败', $errors = null) {
         self::error($message, $errors, 422);
@@ -181,7 +181,7 @@ class Anon_ResponseHelper {
     /**
      * 发送服务器内部错误响应
      * @param string $message 错误消息
-     * @param mixed $data 错误详情（开发环境可用）
+     * @param mixed $data 开发环境可用的错误详情
      */
     public static function serverError($message = '服务器内部错误', $data = null) {
         // 记录错误日志
@@ -201,7 +201,7 @@ class Anon_ResponseHelper {
     /**
      * 处理异常并发送错误响应
      * @param Exception $exception 异常对象
-     * @param string $customMessage 自定义错误消息（可选）
+     * @param string $customMessage 可选的自定义错误消息
      */
     public static function handleException($exception, $customMessage = null) {
         $message = $customMessage ?: $exception->getMessage();

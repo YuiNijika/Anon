@@ -536,8 +536,8 @@ class Anon_Debug
     {
         // 如果Hook类存在，获取其统计数据
         if (class_exists('Anon_Hook')) {
-            $allHooks = Anon_Hook::get_all_hooks();
-            $stats = Anon_Hook::get_hook_stats();
+            $allHooks = Anon_Hook::getAllHooks();
+            $stats = Anon_Hook::getHookStats();
             
             $actions = [];
             $filters = [];

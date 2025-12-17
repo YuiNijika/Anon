@@ -55,13 +55,15 @@ class Anon_Router
             // 加载应用路由配置
             $autoRouter = Anon_Env::get('app.autoRouter', false);
             if ($autoRouter) {
-                // 自动路由模式：扫描 Router 目录
+                // 自动路由 扫描 Router 目录
                 self::autoRegisterRoutes();
             } else {
-                // 手动路由模式：加载 useRouter.php 配置
+                // 手动路由 加载 useRouter.php 配置
                 $routerConfig = __DIR__ . '/../../app/useRouter.php';
                 if (file_exists($routerConfig)) {
                     self::registerAppRoutes(require $routerConfig);
+                } else {
+                    throw new RuntimeException("Router config file not found: {$routerConfig}");
                 }
             }
 
@@ -254,7 +256,7 @@ class Anon_Router
     }
 
     /**
-     * 注册应用路由（从树形配置生成并注册到配置中心）
+     * 从树形配置生成并注册到配置中心的应用路由
      * @param array $routeTree 路由树
      * @param string $basePath 基础路径
      */
@@ -272,9 +274,9 @@ class Anon_Router
                     Anon_Hook::do_action('app_before_register_route', $currentPath, $view, false);
                 }
 
-                // 生成处理器（登录检查等由 Anon_RouterMeta 统一处理）
+                // 生成处理器，登录检查等由 Anon_RouterMeta 统一处理
                 $handler = function () use ($view, $currentPath) {
-                    // 执行最终视图（View 方法会自动读取并应用 Anon_RouterMeta 配置）
+                    // 执行最终视图，View 方法会自动读取并应用 Anon_RouterMeta 配置
                     Anon_Router::View($view);
                 };
 
@@ -298,7 +300,7 @@ class Anon_Router
     }
 
     /**
-     * 自动注册路由（扫描 Router 目录）
+     * 扫描 Router 目录自动注册路由
      * 类似 Nuxt 的自动路由功能，不区分大小写，所有路由转为小写
      */
     private static function autoRegisterRoutes(): void
@@ -325,7 +327,7 @@ class Anon_Router
     /**
      * 递归扫描目录并注册路由
      * @param string $dir 目录路径
-     * @param string $basePath 基础路由路径（小写）
+     * @param string $basePath 小写的基础路由路径
      */
     private static function scanDirectory(string $dir, string $basePath): void
     {

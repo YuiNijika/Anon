@@ -17,7 +17,7 @@
 - 自动扫描 `app/Router` 目录下的所有 PHP 文件
 - 根据文件结构自动生成路由路径
 - 所有路由路径自动转为小写
-- 通过 `Anon_RouterMeta` 常量配置路由元数据（Header、登录检查、HTTP 方法等）
+- 通过 `Anon_RouterMeta` 常量配置路由元数据 Header、登录检查、HTTP 方法等
 
 **示例**：
 
@@ -36,7 +36,7 @@ app/Router/
 
 **命名转换规则**：
 
-- 文件名和目录名中的下划线（`_`）会自动转换为连字符（`-`）
+- 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
 - 所有路径自动转为小写
 - 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
 
@@ -82,7 +82,7 @@ return [
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `header` | bool | `true` | 是否设置响应头（包括 CORS、Content-Type 等） |
+| `header` | bool | `true` | 是否设置响应头包括 CORS、Content-Type 等 |
 | `requireLogin` | bool | `false` | 是否需要登录验证 |
 | `method` | string\|array | `null` | 允许的 HTTP 方法，如 `'GET'` 或 `['GET', 'POST']` |
 | `cors` | bool | `true` | 是否设置 CORS 头 |
@@ -103,7 +103,7 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    // 获取用户信息（已自动通过登录检查）
+    // 获取用户信息已自动通过登录检查
     $userInfo = Anon_RequestHelper::requireAuth();
     
     Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
@@ -191,7 +191,7 @@ const Anon_RouterMeta = [
 **注意**：
 
 - `Anon_RouterMeta` 必须在路由文件顶部定义
-- 如果未定义 `Anon_RouterMeta`，系统会使用默认配置（`header: true`, `requireLogin: false`, `method: null`）
+- 如果未定义 `Anon_RouterMeta`，系统会使用默认配置 `header: true`, `requireLogin: false`, `method: null`
 - HTTP 方法检查会在登录检查之前执行
 - 登录检查失败会自动返回 401 错误
 

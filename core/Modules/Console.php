@@ -20,7 +20,7 @@ class Anon_Console
     /**
      * 注册命令
      * @param string $name 命令名
-     * @param callable|string $handler 命令处理器（闭包或类名）
+     * @param callable|string $handler 命令处理器，可以是闭包或类名
      * @param string|null $description 命令描述
      * @return void
      */

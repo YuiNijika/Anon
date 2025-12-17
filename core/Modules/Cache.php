@@ -18,7 +18,7 @@ interface Anon_CacheInterface
      * 设置缓存
      * @param string $key 缓存键
      * @param mixed $value 缓存值
-     * @param int|null $ttl 过期时间（秒），null 表示永不过期
+     * @param int|null $ttl 过期时间秒数，null 表示永不过期
      * @return bool
      */
     public function set(string $key, $value, ?int $ttl = null): bool;
@@ -55,13 +55,13 @@ class Anon_FileCache implements Anon_CacheInterface
     private $cacheDir;
 
     /**
-     * @var int 默认过期时间（秒）
+     * @var int 默认过期时间秒数
      */
     private $defaultTtl;
 
     /**
      * @param string|null $cacheDir 缓存目录
-     * @param int $defaultTtl 默认过期时间（秒）
+     * @param int $defaultTtl 默认过期时间秒数
      */
     public function __construct(?string $cacheDir = null, int $defaultTtl = 3600)
     {
@@ -81,12 +81,12 @@ class Anon_FileCache implements Anon_CacheInterface
      */
     private function getCachePath(string $key): string
     {
-        // 验证缓存键安全性（防止路径遍历）
+        // 验证缓存键安全性防止路径遍历
         if (strpos($key, '..') !== false || strpos($key, '/') !== false || strpos($key, '\\') !== false) {
             throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
         }
         
-        // 使用更安全的哈希（虽然 MD5 对缓存键足够安全，但可以考虑使用 hash()）
+        // 使用更安全的哈希，虽然 MD5 对缓存键足够安全，但可以考虑使用 hash()
         $hash = hash('sha256', $key);
         $subDir = substr($hash, 0, 2);
         $dir = $this->cacheDir . '/' . $subDir;
@@ -415,7 +415,7 @@ class Anon_Cache
     }
 
     /**
-     * 记住缓存（如果不存在则执行闭包并缓存结果）
+     * 如果不存在则执行闭包并缓存结果的记住缓存
      * @param string $key 缓存键
      * @param callable $callback 回调函数
      * @param int|null $ttl 过期时间（秒）

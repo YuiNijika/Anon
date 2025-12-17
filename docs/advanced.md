@@ -2,30 +2,135 @@
 
 ## Widget 组件系统
 
+Widget 组件系统支持两种模式：**HTML 输出模式**和**JSON API 模式**。
+
+### HTML 输出模式传统模式
+
 ```php
 $widget = Anon_Widget::getInstance();
 
-// 注册组件
+// 注册 HTML 组件
 $widget->register('my_widget', '我的组件', function ($args) {
     echo '<div>' . Anon_Helper::escHtml($args['title'] ?? '') . '</div>';
 }, [
     'description' => '这是一个示例组件',
     'class' => 'custom-widget'
-]);
+], 'html'); // 指定为 HTML 模式
 
-// 渲染组件
+// 渲染组件返回 HTML 字符串
 $output = $widget->render('my_widget', ['title' => '标题']);
+```
+
+### JSON API 模式推荐
+
+```php
+$widget = Anon_Widget::getInstance();
+
+// 注册回调函数返回数组或对象的 JSON API 组件
+$widget->register('user_stats', '用户统计', function ($args) {
+    $db = new Anon_Database();
+    $userId = $args['user_id'] ?? 0;
+    
+    return [
+        'user_id' => $userId,
+        'total_posts' => $db->count('posts', ['author_id' => $userId]),
+        'total_comments' => $db->count('comments', ['user_id' => $userId]),
+        'last_login' => date('Y-m-d H:i:s'),
+    ];
+}, [
+    'description' => '获取用户统计数据'
+], 'json'); // 指定为 JSON 模式
+
+// 获取组件数据返回数组
+$data = $widget->getData('user_stats', ['user_id' => 1]);
+// 返回: ['user_id' => 1, 'total_posts' => 10, ...]
+
+// 获取组件 JSON 字符串
+$json = $widget->getJson('user_stats', ['user_id' => 1]);
+// 返回: '{"user_id":1,"total_posts":10,...}'
+
+// 在 API 路由中使用
+try {
+    $userInfo = Anon_RequestHelper::requireAuth();
+    $stats = $widget->getData('user_stats', ['user_id' => $userInfo['uid']]);
+    
+    Anon_ResponseHelper::success($stats, '获取统计数据成功');
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+### 自动检测模式
+
+```php
+// 不指定类型，系统自动检测
+$widget->register('auto_widget', '自动检测组件', function ($args) {
+    // 如果返回数组/对象，自动识别为 JSON 模式
+    return ['status' => 'ok', 'data' => $args];
+    // 如果使用 echo 输出，自动识别为 HTML 模式
+}, [], 'auto'); // 默认值
+```
+
+### 组件管理
+
+```php
+$widget = Anon_Widget::getInstance();
 
 // 检查组件是否存在
 if ($widget->exists('my_widget')) {
     // 组件存在
 }
 
-// 获取所有组件
+// 获取不执行回调的组件信息
+$info = $widget->getInfo('my_widget');
+// 返回: ['id' => 'my_widget', 'name' => '我的组件', 'type' => 'json', 'args' => [...]]
+
+// 获取仅信息不执行回调的所有组件列表
+$list = $widget->list();
+// 返回: [['id' => 'widget1', ...], ['id' => 'widget2', ...]]
+
+// 获取所有包含回调函数的组件用于内部使用
 $allWidgets = $widget->all();
 
 // 注销组件
 $widget->unregister('my_widget');
+```
+
+### 方法对比
+
+| 方法 | 用途 | 返回类型 | 适用模式 |
+|------|------|----------|----------|
+| `render()` | 渲染 HTML 输出 | `string` | HTML 模式 |
+| `getData()` | 获取组件数据 | `array\|null` | JSON 模式 |
+| `getJson()` | 获取 JSON 字符串 | `string\|null` | JSON 模式 |
+| `getInfo()` | 获取组件信息 | `array\|null` | 所有模式 |
+| `list()` | 获取组件列表 | `array` | 所有模式 |
+
+### 钩子支持
+
+Widget 系统支持钩子过滤：
+
+```php
+// 过滤组件参数
+Anon_Hook::add_filter('widget_args', function ($args, $id) {
+    if ($id === 'user_stats') {
+        $args['cache'] = true; // 添加缓存参数
+    }
+    return $args;
+}, 10, 2);
+
+// 过滤 JSON 模式的组件数据
+Anon_Hook::add_filter('widget_data', function ($data, $id) {
+    if ($id === 'user_stats') {
+        $data['cached'] = true;
+    }
+    return $data;
+}, 10, 2);
+
+// 过滤 HTML 模式的组件输出
+Anon_Hook::add_filter('widget_output', function ($output, $id) {
+    return '<div class="widget-wrapper">' . $output . '</div>';
+}, 10, 2);
 ```
 
 ## 用户权限系统
@@ -48,7 +153,7 @@ if ($capability->currentUserCan('edit_posts')) {
     // 当前用户有权限
 }
 
-// 要求权限（无权限则返回 403）
+// 要求权限，无权限则返回 403
 $capability->requireCapability('manage_options');
 
 // 添加/移除权限
@@ -62,7 +167,7 @@ $allCaps = $capability->all();
 
 ### 内置角色和权限
 
-**admin（管理员）**：
+**admin 管理员**：
 
 - `manage_options` - 管理选项
 - `manage_users` - 管理用户
@@ -72,19 +177,19 @@ $allCaps = $capability->all();
 - `delete_posts` - 删除文章
 - `publish_posts` - 发布文章
 
-**editor（编辑）**：
+**editor 编辑**：
 
 - `edit_posts` - 编辑文章
 - `delete_posts` - 删除文章
 - `publish_posts` - 发布文章
 
-**author（作者）**：
+**author 作者**：
 
 - `edit_own_posts` - 编辑自己的文章
 - `delete_own_posts` - 删除自己的文章
 - `publish_own_posts` - 发布自己的文章
 
-**user（用户）**：
+**user 用户**：
 
 - `read` - 阅读
 
@@ -141,7 +246,7 @@ $filtered = Anon_Hook::apply_filters('content_filter', $content);
 ## 验证码
 
 ```php
-// 生成验证码（返回 base64 图片）
+// 生成返回 base64 图片的验证码
 $result = Anon_Captcha::generate();
 $base64Image = $result['image']; // data:image/svg+xml;base64,...
 $code = $result['code']; // 验证码字符串
@@ -158,7 +263,7 @@ Anon_Captcha::clear();
 **特性**：
 
 - 无需 GD 扩展，使用 SVG 生成
-- 仅生成数字验证码（0-9）
+- 仅生成 0-9 数字验证码
 - 包含干扰线和干扰点
 - 支持文字旋转效果
 - 验证码存储在 session 中

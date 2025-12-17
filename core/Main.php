@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 if (version_compare(phpversion(), '7.4.0', '<')) {
-    die('PHP 版本过低，请升级到 7.4.0 或更高版本。');
+    die('杂鱼~ Anon Framework 需要 PHP 7.4.0及以上版本~');
     exit;
 }
 
@@ -65,7 +65,6 @@ class Anon_Main
         require_once $Modules . 'Widget.php';
         require_once $Modules . 'Capability.php';
         
-        // 现代特性模块
         require_once $Modules . 'Container.php';
         require_once $Modules . 'Middleware.php';
         require_once $Modules . 'Cache.php';
@@ -92,5 +91,4 @@ class Anon_Main
     }
 }
 
-// 启动应用
 Anon_Main::run();

@@ -20,7 +20,7 @@ class Anon_Hook {
      * 当前执行的钩子栈
      * @var array
      */
-    private static $current_hook = [];
+    private static $currentHook = [];
     
     /**
      * 添加动作钩子
@@ -73,19 +73,19 @@ class Anon_Hook {
     }
     
     /**
-     * 移除钩子
+     * 移除指定钩子
      * 
      * @param string $hook_name 钩子名称
      * @param callable $callback 回调函数
      * @param int $priority 优先级
      * @return bool
      */
-    public static function remove_hook($hook_name, $callback, $priority = 10) {
+    public static function removeHook($hook_name, $callback, $priority = 10) {
         if (!isset(self::$hooks[$hook_name][$priority])) {
             return false;
         }
         
-        $hook_id = self::get_hook_id($callback);
+        $hook_id = self::getHookId($callback);
         if (isset(self::$hooks[$hook_name][$priority][$hook_id])) {
             unset(self::$hooks[$hook_name][$priority][$hook_id]);
             
@@ -99,7 +99,7 @@ class Anon_Hook {
                 unset(self::$hooks[$hook_name]);
             }
             
-            self::debug_log("移除钩子: {$hook_name} (优先级: {$priority})");
+            self::debugLog("移除钩子: {$hook_name} (优先级: {$priority})");
             return true;
         }
         
@@ -113,11 +113,11 @@ class Anon_Hook {
      * @param int|null $priority 优先级，null表示移除所有优先级
      * @return bool
      */
-    public static function remove_all_hooks($hook_name = null, $priority = null) {
+    public static function removeAllHooks($hook_name = null, $priority = null) {
         if ($hook_name === null) {
             // 移除所有钩子
             self::$hooks = [];
-            self::debug_log("移除所有钩子");
+            self::debugLog("移除所有钩子");
             return true;
         }
         
@@ -128,11 +128,11 @@ class Anon_Hook {
         if ($priority !== null) {
             if (isset(self::$hooks[$hook_name][$priority])) {
                 unset(self::$hooks[$hook_name][$priority]);
-                self::debug_log("移除钩子组: {$hook_name} (优先级: {$priority})");
+                self::debugLog("移除钩子组: {$hook_name} (优先级: {$priority})");
             }
         } else {
             unset(self::$hooks[$hook_name]);
-            self::debug_log("移除所有钩子: {$hook_name}");
+            self::debugLog("移除所有钩子: {$hook_name}");
         }
         
         return true;
@@ -145,7 +145,7 @@ class Anon_Hook {
      * @param callable|null $callback 回调函数，null表示检查钩子名是否存在
      * @return bool|int 存在返回true或优先级，不存在返回false
      */
-    public static function has_hook($hook_name, $callback = null) {
+    public static function hasHook($hook_name, $callback = null) {
         if (!isset(self::$hooks[$hook_name])) {
             return false;
         }
@@ -154,7 +154,7 @@ class Anon_Hook {
             return !empty(self::$hooks[$hook_name]);
         }
         
-        $hook_id = self::get_hook_id($callback);
+        $hook_id = self::getHookId($callback);
         foreach (self::$hooks[$hook_name] as $priority => $hooks) {
             if (isset($hooks[$hook_id])) {
                 return $priority;
@@ -169,8 +169,8 @@ class Anon_Hook {
      * 
      * @return string|null
      */
-    public static function current_hook() {
-        return end(self::$current_hook) ?: null;
+    public static function getCurrentHook() {
+        return end(self::$currentHook) ?: null;
     }
     
     /**
@@ -179,7 +179,7 @@ class Anon_Hook {
      * @param string|null $hook_name 钩子名称，null返回所有统计
      * @return array
      */
-    public static function get_hook_stats($hook_name = null) {
+    public static function getHookStats($hook_name = null) {
         if ($hook_name !== null) {
             return self::$stats[$hook_name] ?? [];
         }
@@ -191,7 +191,7 @@ class Anon_Hook {
      * 
      * @return array
      */
-    public static function get_all_hooks() {
+    public static function getAllHooks() {
         return self::$hooks;
     }
     
@@ -200,12 +200,63 @@ class Anon_Hook {
      * 
      * @param string|null $hook_name 钩子名称，null清除所有统计
      */
-    public static function clear_stats($hook_name = null) {
+    public static function clearStats($hook_name = null) {
         if ($hook_name !== null) {
             unset(self::$stats[$hook_name]);
         } else {
             self::$stats = [];
         }
+    }
+    
+    // ========== 向后兼容 ==========
+    
+    /**
+     * @deprecated 使用 removeHook() 代替
+     */
+    public static function remove_hook($hook_name, $callback, $priority = 10) {
+        return self::removeHook($hook_name, $callback, $priority);
+    }
+    
+    /**
+     * @deprecated 使用 removeAllHooks() 代替
+     */
+    public static function remove_all_hooks($hook_name = null, $priority = null) {
+        return self::removeAllHooks($hook_name, $priority);
+    }
+    
+    /**
+     * @deprecated 使用 hasHook() 代替
+     */
+    public static function has_hook($hook_name, $callback = null) {
+        return self::hasHook($hook_name, $callback);
+    }
+    
+    /**
+     * @deprecated 使用 getCurrentHook() 代替
+     */
+    public static function current_hook() {
+        return self::getCurrentHook();
+    }
+    
+    /**
+     * @deprecated 使用 getHookStats() 代替
+     */
+    public static function get_hook_stats($hook_name = null) {
+        return self::getHookStats($hook_name);
+    }
+    
+    /**
+     * @deprecated 使用 getAllHooks() 代替
+     */
+    public static function get_all_hooks() {
+        return self::getAllHooks();
+    }
+    
+    /**
+     * @deprecated 使用 clearStats() 代替
+     */
+    public static function clear_stats($hook_name = null) {
+        return self::clearStats($hook_name);
     }
     
     /**
@@ -220,11 +271,11 @@ class Anon_Hook {
      */
     private static function add_hook($hook_name, $callback, $priority, $accepted_args, $type) {
         if (!is_callable($callback)) {
-            self::debug_log("无效的回调函数: {$hook_name}", 'ERROR');
+            self::debugLog("无效的回调函数: {$hook_name}", 'ERROR');
             return false;
         }
         
-        $hook_id = self::get_hook_id($callback);
+        $hook_id = self::getHookId($callback);
         
         self::$hooks[$hook_name][$priority][$hook_id] = [
             'callback' => $callback,
@@ -236,7 +287,7 @@ class Anon_Hook {
         // 按优先级排序
         ksort(self::$hooks[$hook_name]);
         
-        self::debug_log("添加{$type}钩子: {$hook_name} (优先级: {$priority})");
+        self::debugLog("添加{$type}钩子: {$hook_name} (优先级: {$priority})");
         return true;
     }
     
@@ -254,7 +305,7 @@ class Anon_Hook {
         }
         
         // 记录当前执行的钩子
-        self::$current_hook[] = $hook_name;
+        self::$currentHook[] = $hook_name;
         
         $start_time = microtime(true);
         $executed_count = 0;
@@ -287,20 +338,20 @@ class Anon_Hook {
                         $hook_time = microtime(true) - $hook_start;
                         $executed_count++;
                         
-                        self::debug_log("执行钩子: {$hook_name} (优先级: {$priority}, 耗时: " . number_format($hook_time * 1000, 2) . "ms)");
+                        self::debugLog("执行钩子: {$hook_name} (优先级: {$priority}, 耗时: " . number_format($hook_time * 1000, 2) . "ms)");
                         
                     } catch (Exception $e) {
-                        self::debug_log("钩子执行错误: {$hook_name} - " . $e->getMessage(), 'ERROR');
+                        self::debugLog("钩子执行错误: {$hook_name} - " . $e->getMessage(), 'ERROR');
                         echo "Hook callback error: " . $e->getMessage() . "\n";
                     } catch (Error $e) {
-                        self::debug_log("钩子回调错误: {$hook_name} - " . $e->getMessage(), 'ERROR');
+                        self::debugLog("钩子回调错误: {$hook_name} - " . $e->getMessage(), 'ERROR');
                         echo "Hook callback error: " . $e->getMessage() . "\n";
                     }
                 }
             }
         } finally {
             // 移除当前钩子
-            array_pop(self::$current_hook);
+            array_pop(self::$currentHook);
         }
         
         $total_time = microtime(true) - $start_time;
@@ -328,7 +379,7 @@ class Anon_Hook {
      * @param callable $callback 回调函数
      * @return string
      */
-    private static function get_hook_id($callback) {
+    private static function getHookId($callback) {
         if (is_string($callback)) {
             return $callback;
         } elseif (is_array($callback)) {
@@ -350,7 +401,7 @@ class Anon_Hook {
      * @param string $message 消息
      * @param string $level 日志级别
      */
-    private static function debug_log($message, $level = 'DEBUG') {
+    private static function debugLog($message, $level = 'DEBUG') {
         if (defined('ANON_DEBUG') && ANON_DEBUG && class_exists('Anon_Debug')) {
             Anon_Debug::log($message, $level, 'HOOK');
         }

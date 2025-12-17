@@ -42,7 +42,7 @@ class Anon_Container
     /**
      * 绑定接口或抽象类到具体实现
      * @param string $abstract 抽象类或接口名
-     * @param mixed $concrete 具体实现（类名、闭包或实例）
+     * @param mixed $concrete 具体实现，可以是类名、闭包或实例
      * @param bool $singleton 是否单例
      * @return void
      */
@@ -91,7 +91,7 @@ class Anon_Container
     /**
      * 解析依赖并创建实例
      * @param string $abstract 要解析的类名
-     * @param array $parameters 构造函数参数（可选）
+     * @param array $parameters 可选的构造函数参数
      * @return mixed
      * @throws RuntimeException
      */
@@ -134,7 +134,7 @@ class Anon_Container
     }
 
     /**
-     * 构建类实例（自动解析依赖）
+     * 自动解析依赖构建类实例
      * @param string $concrete 类名
      * @param array $parameters 手动提供的参数
      * @return object
@@ -230,7 +230,7 @@ class Anon_Container
     }
 
     /**
-     * 清空容器（主要用于测试）
+     * 主要用于测试的清空容器
      * @return void
      */
     public function flush(): void

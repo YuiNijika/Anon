@@ -21,7 +21,7 @@
 
 ## 调试端点
 
-- `GET /anon/debug/console` - 调试控制台（需要登录）
+- `GET /anon/debug/console` - 需要登录的调试控制台
 - `GET /anon/debug/login` - 调试控制台登录页
 - `GET /anon/debug/api/info` - 获取调试信息
 - `GET /anon/debug/api/performance` - 获取性能数据

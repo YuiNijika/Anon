@@ -46,7 +46,7 @@ return [
 
 ## 3. 创建路由
 
-**自动路由模式（推荐）**：
+**自动路由模式推荐**：
 
 创建 `server/app/Router/Test/Index.php`：
 
@@ -67,14 +67,14 @@ try {
 }
 ```
 
-访问：`GET /test/index`（自动注册，路径自动转为小写）
+访问：`GET /test/index` 自动注册，路径自动转为小写
 
 **路由规则**：
 
 - 文件路径：`app/Router/Test/Index.php` → 路由路径：`/test/index`
 - 文件路径：`app/Router/User/Profile/Index.php` → 路由路径：`/user/profile/index`
 - 所有路由路径自动转为小写，不区分文件大小写
-- **特殊处理**：文件名和目录名中的下划线（`_`）会自动转换为连字符（`-`）
+- **特殊处理**：文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
   - 文件路径：`app/Router/Aa_Bb/Cc_Dd.php` → 路由路径：`/aa-bb/cc-dd`
   - 文件路径：`app/Router/User_Profile/Index.php` → 路由路径：`/user-profile/index`
 

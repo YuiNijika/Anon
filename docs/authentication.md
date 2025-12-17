@@ -14,7 +14,7 @@ if (Anon_Check::isLoggedIn()) {
 // 获取用户 ID
 $userId = Anon_RequestHelper::getUserId();
 
-// 获取完整用户信息（需要登录）
+// 获取需要登录的完整用户信息
 $userInfo = Anon_RequestHelper::requireAuth();
 ```
 
@@ -91,28 +91,28 @@ try {
 - `enabled`: 是否启用 Token 验证
 - `refresh`: 是否在验证后自动刷新 Token
   - `true`: 每次验证成功后生成新 Token，通过响应头 `X-New-Token` 返回
-  - `false`: 不刷新，Token 保持到过期（推荐用于多设备场景）
+  - `false`: 不刷新，Token 保持到过期，推荐用于多设备场景
 - `whitelist`: Token 验证白名单路由
 
 ### 生成 Token
 
-**推荐使用 `getUserToken()`**（智能获取或生成）：
+**推荐使用智能获取或生成的 `getUserToken()`**：
 
 ```php
-// 智能获取或生成 Token（根据 refresh 配置决定）
+// 根据 refresh 配置决定智能获取或生成 Token
 // - refresh = false: 如果已有有效 Token，返回现有 Token；否则生成新 Token
 // - refresh = true: 总是生成新 Token
 $token = Anon_RequestHelper::getUserToken($userId, $username, $rememberMe);
 ```
 
-**直接生成新 Token**（登录时使用）：
+**登录时使用的直接生成新 Token**：
 
 ```php
-// 总是生成新 Token（登录时使用）
+// 登录时总是生成新 Token
 $token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
 ```
 
-**手动生成 Token**（不推荐，除非特殊需求）：
+**不推荐除非特殊需求的手动生成 Token**：
 
 ```php
 $token = Anon_Token::generate(['user_id' => 1], 3600); // 1小时
@@ -132,7 +132,7 @@ $token = Anon_Token::generate(['user_id' => 1], 86400 * 30); // 30天
 try {
     $userInfo = Anon_RequestHelper::requireAuth();
     
-    // 智能获取或生成 Token（根据 refresh 配置决定）
+    // 根据 refresh 配置决定智能获取或生成 Token
     $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     if ($token !== null) {
         $userInfo['token'] = $token;
@@ -164,7 +164,7 @@ Token 验证自动在路由执行前进行，验证失败返回 403。
 - 旧 Token 仍然有效，直到过期
 
 **适用场景**：
-- `refresh: false`（默认）：多设备登录、Web 应用（推荐）
+- `refresh: false` 默认：多设备登录、Web 应用推荐
 - `refresh: true`：单设备应用、移动 App、高安全要求场景
 
 ### 手动验证
