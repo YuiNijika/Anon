@@ -1,33 +1,37 @@
-# 用户认证
+﻿# 用户认证
 
-## 登录检查
+一句话：检查登录状态、获取用户信息、生成和验证Token。
+
+## 检查登录状态
 
 ```php
-if (Anon_Check::isLoggedIn()) {
-    // 已登录
-}
+// 检查是否已登录
+$isLoggedIn = Anon_Check::isLoggedIn();
+
+// 用户注销
+Anon_Check::logout();
+
+// 设置认证 Cookie
+Anon_Check::setAuthCookies($userId, $username, $rememberMe);
+// $rememberMe: true=30天, false=会话结束
+
+// 清除认证 Cookie
+Anon_Check::clearAuthCookies();
+
+// 启动会话
+Anon_Check::startSessionIfNotStarted();
 ```
 
 ## 获取当前用户
 
 ```php
-// 获取用户 ID
+// 获取用户ID（从会话或Cookie）
 $userId = Anon_RequestHelper::getUserId();
+// 返回: int|null
 
-// 获取需要登录的完整用户信息
+// 获取完整用户信息（未登录自动返回401）
 $userInfo = Anon_RequestHelper::requireAuth();
-```
-
-## 设置认证 Cookie
-
-```php
-Anon_Check::setAuthCookies($userId, $username, $rememberMe);
-```
-
-## 登出
-
-```php
-Anon_Check::logout();
+// 返回: ['uid' => 1, 'name' => 'admin', 'email' => '...', ...]
 ```
 
 ## 登录示例
@@ -52,7 +56,7 @@ try {
     $_SESSION['user_id'] = (int)$user['uid'];
     Anon_Check::setAuthCookies((int)$user['uid'], $user['name']);
     
-    // 登录时总是生成新 Token
+    // 登录时总是生成新Token
     $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name']);
     
     Anon_ResponseHelper::success([
@@ -66,17 +70,15 @@ try {
 }
 ```
 
-## Token 验证
-
-### 配置
+## Token 配置
 
 ```php
 // server/app/useApp.php
 'app' => [
     'token' => [
-        'enabled' => true,
-        'refresh' => false, // 是否在验证后自动刷新 Token
-        'whitelist' => [
+        'enabled' => true,                    // 是否启用Token验证
+        'refresh' => false,                   // 是否自动刷新Token
+        'whitelist' => [                      // Token验证白名单
             '/auth/login',
             '/auth/logout',
             '/auth/check-login',
@@ -87,52 +89,84 @@ try {
 ],
 ```
 
-**配置说明**：
-- `enabled`: 是否启用 Token 验证
-- `refresh`: 是否在验证后自动刷新 Token
-  - `true`: 每次验证成功后生成新 Token，通过响应头 `X-New-Token` 返回
-  - `false`: 不刷新，Token 保持到过期，推荐用于多设备场景
-- `whitelist`: Token 验证白名单路由
+**配置说明：**
+- `enabled`: 是否启用Token验证
+- `refresh`: 是否在验证后自动刷新Token
+  - `true`: 每次验证成功后生成新Token，通过响应头`X-New-Token`返回
+  - `false`: 不刷新，Token保持到过期（推荐多设备场景）
+- `whitelist`: Token验证白名单路由
 
-### 生成 Token
+## 生成 Token
 
-**推荐使用智能获取或生成的 `getUserToken()`**：
+### 智能获取或生成（推荐）
 
 ```php
-// 根据 refresh 配置决定智能获取或生成 Token
-// - refresh = false: 如果已有有效 Token，返回现有 Token；否则生成新 Token
-// - refresh = true: 总是生成新 Token
+// 根据refresh配置决定：有有效Token就返回，没有就生成
 $token = Anon_RequestHelper::getUserToken($userId, $username, $rememberMe);
 ```
 
-**登录时使用的直接生成新 Token**：
+### 强制生成新Token（登录时使用）
 
 ```php
-// 登录时总是生成新 Token
+// 登录时总是生成新Token
 $token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
 ```
 
-**不推荐除非特殊需求的手动生成 Token**：
+### 手动生成（不推荐）
 
 ```php
-$token = Anon_Token::generate(['user_id' => 1], 3600); // 1小时
-$token = Anon_Token::generate(['user_id' => 1], 86400 * 30); // 30天
+$token = Anon_Token::generate(['user_id' => 1], 3600);        // 1小时
+$token = Anon_Token::generate(['user_id' => 1], 86400 * 30);  // 30天
 ```
 
-**方法选择指南**：
+## 验证 Token
 
-- `getUserToken()`: 用于获取用户信息、获取 Token 等场景，会根据配置智能处理
-- `generateUserToken()`: 用于登录等需要强制生成新 Token 的场景
+Token验证自动在路由执行前进行，验证失败返回403。
 
-**使用示例**：
+**特性：**
+- Token验证通过后，如果包含用户信息，系统自动设置登录状态
+- 每个登录会话都有独立的Token
+- Token只能从HTTP Header获取：`X-API-Token` 或 `Authorization: Bearer`
+- 如果启用了`refresh`，验证成功后会在响应头返回新Token：`X-New-Token`
+
+### Token刷新机制
+
+当`token.refresh`设置为`true`时：
+- 每次Token验证成功后，自动生成新的Token
+- 新Token通过响应头`X-New-Token`返回给客户端
+- 客户端需要检查并更新本地存储的Token
+- 旧Token仍然有效，直到过期
+
+**适用场景：**
+- `refresh: false`（默认）：多设备登录、Web应用推荐
+- `refresh: true`：单设备应用、移动App、高安全要求场景
+
+### 手动验证
 
 ```php
-// 获取用户信息时使用 getUserToken()
+// 要求Token（无效自动返回403）
+Anon_RequestHelper::requireToken();
+
+// 手动验证Token
+$payload = Anon_Token::verify();
+if ($payload) {
+    $userId = $payload['data']['user_id'] ?? null;
+}
+
+// 从请求中获取Token
+$token = Anon_Token::getTokenFromRequest();
+// 从Header: X-API-Token 或 Authorization: Bearer
+```
+
+## 使用示例
+
+```php
+// 获取用户信息时使用getUserToken
 // server/app/Router/User/Info.php
 try {
     $userInfo = Anon_RequestHelper::requireAuth();
     
-    // 根据 refresh 配置决定智能获取或生成 Token
+    // 根据refresh配置决定智能获取或生成Token
     $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     if ($token !== null) {
         $userInfo['token'] = $token;
@@ -144,48 +178,12 @@ try {
 }
 ```
 
-### 验证 Token
-
-Token 验证自动在路由执行前进行，验证失败返回 403。
-
-**特性**：
-
-- Token 验证通过后，如果包含用户信息，系统自动设置登录状态
-- 每个登录会话都有独立的 Token
-- Token 只能从 HTTP Header 获取：`X-API-Token` 或 `Authorization: Bearer`
-- 如果启用了 `refresh`，验证成功后会在响应头返回新 Token：`X-New-Token`
-
-**Token 刷新机制**：
-
-当 `token.refresh` 设置为 `true` 时：
-- 每次 Token 验证成功后，自动生成新的 Token
-- 新 Token 通过响应头 `X-New-Token` 返回给客户端
-- 客户端需要检查并更新本地存储的 Token
-- 旧 Token 仍然有效，直到过期
-
-**适用场景**：
-- `refresh: false` 默认：多设备登录、Web 应用推荐
-- `refresh: true`：单设备应用、移动 App、高安全要求场景
-
-### 手动验证
-
-```php
-Anon_RequestHelper::requireToken();
-
-$payload = Anon_Token::verify();
-if ($payload) {
-    $userId = $payload['data']['user_id'] ?? null;
-}
-```
-
-### 白名单
+## 白名单
 
 支持精确匹配和通配符：
-
 - 精确匹配：`/api/public`
 - 通配符：`/api/public/*`
 
 ---
 
 [← 返回文档首页](../README.md)
-

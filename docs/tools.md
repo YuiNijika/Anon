@@ -1,45 +1,82 @@
-# 工具类
+﻿# 工具类
 
-## 辅助函数
+一句话：HTML转义、数据清理、文本处理、数组操作等常用工具函数。
 
-`Anon_Helper` 提供常用工具方法：
+## 辅助函数 (Anon_Helper)
+
+### HTML转义
 
 ```php
-// HTML 转义
+// HTML转义
 $escaped = Anon_Helper::escHtml('<script>alert("xss")</script>');
+// 返回: &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;
+
 $url = Anon_Helper::escUrl('https://example.com');
 $attr = Anon_Helper::escAttr('value with "quotes"');
 $js = Anon_Helper::escJs('alert("test")');
+```
 
+### 数据清理
+
+```php
 // 数据清理
 $clean = Anon_Helper::sanitizeText('<p>HTML</p>');
 $email = Anon_Helper::sanitizeEmail('user@example.com');
 $url = Anon_Helper::sanitizeUrl('https://example.com');
+```
 
+### 验证
+
+```php
 // 验证
 if (Anon_Helper::isValidEmail('user@example.com')) {
     // 有效邮箱
 }
 if (Anon_Helper::isValidUrl('https://example.com')) {
-    // 有效 URL
+    // 有效URL
 }
-
-// 文本处理
-$truncated = Anon_Helper::truncate('很长的文本', 10);
-$slug = Anon_Helper::slugify('Hello World!');
-$timeAgo = Anon_Helper::timeAgo(time() - 3600);
-
-// 格式化
-$size = Anon_Helper::formatBytes(1048576);
-$random = Anon_Helper::randomString(32);
-
-// 数组操作
-$value = Anon_Helper::get($array, 'user.profile.name', 'default');
-Anon_Helper::set($array, 'user.profile.name', 'value');
-$merged = Anon_Helper::merge($array1, $array2);
 ```
 
-## Utils 工具集
+### 文本处理
+
+```php
+// 文本处理
+$truncated = Anon_Helper::truncate('很长的文本', 10);
+// 返回: '很长的文本...'
+
+$slug = Anon_Helper::slugify('Hello World!');
+// 返回: 'hello-world'
+
+$timeAgo = Anon_Helper::timeAgo(time() - 3600);
+// 返回: '1小时前'
+```
+
+### 格式化
+
+```php
+// 格式化
+$size = Anon_Helper::formatBytes(1048576);
+// 返回: '1.00 MB'
+
+$random = Anon_Helper::randomString(32);
+// 返回: 32位随机字符串
+```
+
+### 数组操作
+
+```php
+// 数组操作
+$value = Anon_Helper::get($array, 'user.profile.name', 'default');
+// 支持点号分隔的嵌套键
+
+Anon_Helper::set($array, 'user.profile.name', 'value');
+// 设置嵌套键值
+
+$merged = Anon_Helper::merge($array1, $array2);
+// 深度合并数组
+```
+
+## Utils工具集
 
 工具类位于 `server/core/Widget/Utils/`，可直接使用：
 
@@ -79,4 +116,3 @@ Anon_Utils_Random::string(32);
 ---
 
 [← 返回文档首页](../README.md)
-

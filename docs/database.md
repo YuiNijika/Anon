@@ -1,91 +1,60 @@
-# 数据库操作
+﻿# 数据库操作
 
-## 基本使用
+一句话：用链式调用写SQL，自动防注入，支持Repository模式。
 
-```php
-$db = new Anon_Database();
-
-// 用户操作自动转发到 UserRepository
-$db->addUser('admin', 'admin@example.com', 'password', 'admin');
-$user = $db->getUserInfo(1);
-$user = $db->getUserInfoByName('admin');
-$isAdmin = $db->isUserAdmin(1);
-$db->updateUserGroup(1, 'admin');
-```
-
-## QueryBuilder 旧版
+## 快速开始
 
 ```php
 $db = new Anon_Database();
 
-// 查询
-$users = $db->db('users')
-    ->select(['uid', 'name', 'email'])
-    ->where('uid', '>', 10)
-    ->orderBy('uid', 'DESC')
-    ->limit(10)
-    ->get();
+// 查询所有用户
+$users = $db->db('users')->get();
 
-// 单条查询
-$user = $db->db('users')
-    ->where('uid', '=', 1)
-    ->first();
+// 查询单个用户
+$user = $db->db('users')->where('id', '=', 1)->first();
 
-// 插入
-$id = $db->db('users')
-    ->insert(['name' => 'admin', 'email' => 'admin@example.com'])
-    ->execute();
+// 插入数据
+$userId = $db->db('users')->insert([
+    'name' => 'John',
+    'email' => 'john@example.com'
+]);
 
-// 更新
-$affected = $db->db('users')
-    ->update(['email' => 'new@example.com'])
-    ->where('uid', '=', 1)
-    ->execute();
+// 更新数据
+$db->db('users')
+    ->where('id', '=', 1)
+    ->update(['name' => 'John Doe']);
 
-// 删除
-$affected = $db->db('users')
-    ->delete()
-    ->where('uid', '=', 1)
-    ->execute();
-
-// 计数
-$count = $db->db('users')
-    ->where('group', '=', 'admin')
-    ->count()
-    ->scalar();
-
-// 存在检查
-$exists = $db->db('users')
-    ->where('email', '=', 'admin@example.com')
-    ->exists()
-    ->scalar();
+// 删除数据
+$db->db('users')->where('id', '=', 1)->delete();
 ```
 
-## 现代查询构建器
-
-框架提供了流畅的查询构建器，支持链式调用和自动参数绑定。
+## 查询操作
 
 ### 基本查询
 
 ```php
-use Anon_Database;
-
-$db = new Anon_Database();
-
 // 查询所有记录
 $users = $db->db('users')->get();
 
-// 条件查询
-$user = $db->db('users')
-    ->where('id', '=', 1)
-    ->first();
+// 查询单条记录
+$user = $db->db('users')->where('id', '=', 1)->first();
 
-// 多条件查询
+// 查询指定字段
+$users = $db->db('users')
+    ->select(['id', 'name', 'email'])
+    ->get();
+
+// 条件查询
 $users = $db->db('users')
     ->where('status', '=', 'active')
     ->where('age', '>', 18)
+    ->get();
+
+// 排序和分页
+$users = $db->db('users')
     ->orderBy('created_at', 'DESC')
     ->limit(10)
+    ->offset(0)
     ->get();
 ```
 
@@ -119,10 +88,10 @@ $posts = $db->db('posts')
     ->get();
 ```
 
-### 插入、更新、删除
+## 增删改操作
 
 ```php
-// 插入
+// 插入单条
 $userId = $db->db('users')->insert([
     'name' => 'John',
     'email' => 'john@example.com'
@@ -145,7 +114,7 @@ $db->db('users')
     ->delete();
 ```
 
-### 聚合查询
+## 聚合查询
 
 ```php
 // 统计数量
@@ -162,20 +131,18 @@ $exists = $db->db('users')
 $name = $db->db('users')
     ->where('id', '=', 1)
     ->value('name');
+
+// 求和
+$total = $db->db('orders')
+    ->where('status', '=', 'paid')
+    ->sum('amount');
 ```
 
-### 调试 SQL
+## Repository 模式
 
-```php
-$query = $db->db('users')
-    ->where('status', '=', 'active')
-    ->where('age', '>', 18);
+一句话：把数据库操作封装到类里，自动发现和使用。
 
-// 获取带参数值的原始 SQL
-echo $query->toRawSql();
-```
-
-## 创建 Repository/Service
+### 创建 Repository
 
 创建 `server/app/Database/User.php`：
 
@@ -201,16 +168,40 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 }
 ```
 
-访问方式：
+### 使用 Repository
 
 ```php
 $db = new Anon_Database();
-$user = $db->getUserInfo(1);  // 自动转发
-// 或
-$user = $db->userRepository->getUserInfo(1);  // 直接访问
+
+// 自动转发到 UserRepository
+$user = $db->getUserInfo(1);
+
+// 直接访问 Repository
+$user = $db->userRepository->getUserInfo(1);
+```
+
+## 调试 SQL
+
+```php
+$query = $db->db('users')
+    ->where('status', '=', 'active')
+    ->where('age', '>', 18);
+
+// 获取带参数值的原始 SQL
+echo $query->toRawSql();
+// 输出: SELECT * FROM users WHERE status = 'active' AND age > 18
+```
+
+## 原始 SQL（不推荐）
+
+```php
+// 执行原始 SQL
+$result = $db->query('SELECT * FROM users WHERE id = 1');
+
+// 预处理语句
+$stmt = $db->prepare('SELECT * FROM users WHERE id = ?', [1]);
 ```
 
 ---
 
 [← 返回文档首页](../README.md)
-

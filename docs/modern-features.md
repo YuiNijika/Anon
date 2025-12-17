@@ -1,14 +1,12 @@
-# 现代特性
+﻿# 现代特性
+
+一句话：依赖注入容器、中间件系统、缓存层、CLI工具等现代PHP特性。
 
 ## 依赖注入容器
-
-框架提供了完整的依赖注入容器，支持自动解析依赖、单例绑定、别名等功能。
 
 ### 基本使用
 
 ```php
-use Anon_Container;
-
 $container = Anon_Container::getInstance();
 
 // 绑定接口到实现
@@ -27,6 +25,13 @@ $container->alias('db', 'Database');
 
 // 解析依赖
 $userRepo = $container->make('UserRepositoryInterface');
+$db = $container->make('Database', ['host' => 'localhost']);
+
+// 检查是否已绑定
+$bound = $container->bound('Database');
+
+// 清空容器
+$container->flush();
 ```
 
 ### 自动依赖解析
@@ -36,7 +41,7 @@ class UserService
 {
     private $userRepo;
     
-    // 容器会自动注入 UserRepository 实例
+    // 容器会自动注入UserRepository实例
     public function __construct(UserRepository $userRepo)
     {
         $this->userRepo = $userRepo;
@@ -48,8 +53,6 @@ $userService = $container->make('UserService');
 ```
 
 ## 中间件系统
-
-中间件系统允许你在请求处理前后执行代码，实现跨切面功能如日志、认证、限流等。
 
 ### 创建中间件
 
@@ -73,8 +76,6 @@ class AuthMiddleware implements Anon_MiddlewareInterface
 ### 注册中间件
 
 ```php
-use Anon_Middleware;
-
 // 注册全局中间件
 Anon_Middleware::global('AuthMiddleware');
 
@@ -99,7 +100,7 @@ const Anon_RouterMeta = [
 // 路由处理代码...
 ```
 
-## 缓存层
+## 缓存系统
 
 框架提供了灵活的缓存系统，支持文件缓存和内存缓存两种驱动。
 
@@ -108,13 +109,13 @@ const Anon_RouterMeta = [
 ```php
 use Anon_Cache;
 
-// 使用文件缓存默认
+// 使用文件缓存（默认）
 Anon_Cache::init('file', [
     'dir' => __DIR__ . '/../../cache',
     'ttl' => 3600, // 默认过期时间秒数
 ]);
 
-// 使用内存缓存单次请求有效
+// 使用内存缓存（单次请求有效）
 Anon_Cache::init('memory');
 ```
 
@@ -141,7 +142,7 @@ Anon_Cache::delete('user:1');
 Anon_Cache::clear();
 ```
 
-### 记住缓存缓存回调结果
+### 记住缓存（缓存回调结果）
 
 ```php
 // 如果缓存不存在，执行回调并缓存结果
@@ -150,17 +151,9 @@ $users = Anon_Cache::remember('users:all', function() {
 }, 3600);
 ```
 
-## 查询构建器
-
-框架提供了流畅的查询构建器，支持链式调用和自动参数绑定。
-
-详细文档请参考 [数据库操作文档](./database.md#现代查询构建器)。
-
 ## CLI 工具
 
-框架提供了命令行工具，用于执行框架命令。
-
-### 创建 CLI 入口
+### 创建CLI入口
 
 创建 `server/cli.php`：
 
@@ -217,4 +210,3 @@ Anon_Console::line('普通消息');
 ---
 
 [← 返回文档首页](../README.md)
-

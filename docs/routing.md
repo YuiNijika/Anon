@@ -1,8 +1,10 @@
-# 路由处理
+﻿# 路由处理
 
-## 自动路由
+一句话：文件路径自动映射为路由，用常量配置路由元数据。
 
-**启用方式**：
+## 自动路由（推荐）
+
+### 启用方式
 
 在 `server/app/useApp.php` 中设置：
 
@@ -12,37 +14,30 @@
 ],
 ```
 
-**工作原理**：
+### 工作原理
 
-- 自动扫描 `app/Router` 目录下的所有 PHP 文件
+- 自动扫描 `app/Router` 目录下的所有PHP文件
 - 根据文件结构自动生成路由路径
 - 所有路由路径自动转为小写
-- 通过 `Anon_RouterMeta` 常量配置路由元数据 Header、登录检查、HTTP 方法等
+- 通过 `Anon_RouterMeta` 常量配置路由元数据
 
-**示例**：
+### 路径映射规则
 
-```text
-app/Router/
-  ├── Auth/
-  │   ├── Login.php           → /auth/login
-  │   ├── Logout.php          → /auth/logout
-  │   └── Token.php           → /auth/token
-  ├── User/
-  │   └── Info.php             → /user/info
-  └── User_Profile/
-      ├── Index.php            → /user-profile/index
-      └── Update_Avatar.php    → /user-profile/update-avatar
+```
+文件路径                          → 路由路径
+app/Router/Auth/Login.php        → /auth/login
+app/Router/User/Info.php         → /user/info
+app/Router/User_Profile/Index.php → /user-profile/index
 ```
 
-**命名转换规则**：
-
+**命名转换规则：**
 - 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
 - 所有路径自动转为小写
 - 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
 
 ## 手动路由
 
-**启用方式**：
+### 启用方式
 
 在 `server/app/useApp.php` 中设置：
 
@@ -52,7 +47,7 @@ app/Router/
 ],
 ```
 
-**配置路由**：
+### 配置路由
 
 编辑 `server/app/useRouter.php`：
 
@@ -74,23 +69,23 @@ return [
 ];
 ```
 
-## 路由元数据配置（Anon_RouterMeta）
+## 路由元数据配置
 
-**推荐方式**：使用 `Anon_RouterMeta` 常量统一配置路由元数据，系统会自动应用这些配置。
+使用 `Anon_RouterMeta` 常量统一配置路由元数据，系统会自动应用这些配置。
 
-**配置项说明**：
+### 配置项说明
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `header` | bool | `true` | 是否设置响应头包括 CORS、Content-Type 等 |
+| `header` | bool | `true` | 是否设置响应头（包含CORS、Content-Type） |
 | `requireLogin` | bool | `false` | 是否需要登录验证 |
-| `method` | string\|array | `null` | 允许的 HTTP 方法，如 `'GET'` 或 `['GET', 'POST']` |
-| `cors` | bool | `true` | 是否设置 CORS 头 |
-| `response` | bool | `true` | 是否设置 JSON 响应头 |
-| `code` | int | `200` | HTTP 状态码 |
+| `method` | string\|array | `null` | 允许的HTTP方法，如 `'GET'` 或 `['GET', 'POST']` |
+| `cors` | bool | `true` | 是否设置CORS头 |
+| `response` | bool | `true` | 是否设置JSON响应头 |
+| `code` | int | `200` | HTTP状态码 |
 | `middleware` | array | `[]` | 中间件列表 |
 
-**示例：需要登录的 GET 接口**：
+### 示例：需要登录的GET接口
 
 ```php
 <?php
@@ -113,7 +108,7 @@ try {
 }
 ```
 
-**示例：不需要登录的 POST 接口**：
+### 示例：不需要登录的POST接口
 
 ```php
 <?php
@@ -143,7 +138,7 @@ try {
 }
 ```
 
-**示例：支持多种 HTTP 方法**：
+### 示例：支持多种HTTP方法
 
 ```php
 <?php
@@ -152,7 +147,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 const Anon_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
-    'method' => ['GET', 'POST'],  // 支持 GET 和 POST
+    'method' => ['GET', 'POST'],  // 支持GET和POST
 ];
 
 try {
@@ -172,7 +167,7 @@ try {
 }
 ```
 
-**示例：使用中间件**：
+### 示例：使用中间件
 
 ```php
 <?php
@@ -188,18 +183,15 @@ const Anon_RouterMeta = [
 // 路由处理代码...
 ```
 
-**注意**：
-
+**注意：**
 - `Anon_RouterMeta` 必须在路由文件顶部定义
-- 如果未定义 `Anon_RouterMeta`，系统会使用默认配置 `header: true`, `requireLogin: false`, `method: null`
-- HTTP 方法检查会在登录检查之前执行
-- 登录检查失败会自动返回 401 错误
+- 如果未定义 `Anon_RouterMeta`，系统会使用默认配置
 
 ## 动态注册路由
 
 ```php
 // server/app/useCode.php
-Anon_Config::addRoute('/api/custom', function () {
+Anon_Config::addRoute('/api/custom', function() {
     Anon_Common::Header();
     Anon_ResponseHelper::success(['message' => '自定义路由']);
 });
@@ -208,4 +200,3 @@ Anon_Config::addRoute('/api/custom', function () {
 ---
 
 [← 返回文档首页](../README.md)
-
