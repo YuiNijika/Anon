@@ -61,20 +61,18 @@ app/Router/Index.php              → /index 和 /
 ```php
 return [
     'auth' => [
-        'login' => [
-            'view' => 'Auth/Login',
-        ],
-        'logout' => [
-            'view' => 'Auth/Logout',
-        ],
+        'login' => 'Auth/Login',
+        'logout' => 'Auth/Logout',
     ],
     'user' => [
-        'info' => [
-            'view' => 'User/Info',
-        ],
+        'info' => 'User/Info',
     ],
 ];
 ```
+
+**配置格式说明：**
+- 直接使用字符串：`'login' => 'Auth/Login'` （推荐，更简洁）
+- 使用数组格式：`'login' => ['view' => 'Auth/Login']` （向后兼容）
 
 ## 路由元数据配置
 

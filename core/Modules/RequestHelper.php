@@ -50,9 +50,7 @@ class Anon_RequestHelper
         
         $data = $data ?: [];
         
-        if (class_exists('Anon_Hook')) {
-            $data = Anon_Hook::apply_filters('request_input', $data);
-        }
+        $data = Anon_Hook::apply_filters('request_input', $data);
         
         return $data;
     }
@@ -205,7 +203,7 @@ class Anon_RequestHelper
      */
     public static function generateUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+        if (!Anon_Token::isEnabled()) {
             return null;
         }
 
@@ -236,11 +234,11 @@ class Anon_RequestHelper
      */
     public static function getUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+        if (!Anon_Token::isEnabled()) {
             return null;
         }
 
-        // 如果启用了 Token 刷新，总是生成新 Token
+        // 如果启用了Token刷新，总是生成新Token
         if (Anon_Token::isRefreshEnabled()) {
             return self::generateUserToken($userId, $username, $rememberMe);
         }
@@ -266,8 +264,8 @@ class Anon_RequestHelper
      */
     public static function requireToken(bool $throwException = true): bool
     {
-        // 检查是否启用 Token 验证
-        if (!class_exists('Anon_Token') || !Anon_Token::isEnabled()) {
+        // 检查是否启用Token验证
+        if (!Anon_Token::isEnabled()) {
             return true; // 未启用则直接通过
         }
 

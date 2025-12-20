@@ -119,9 +119,7 @@ class Anon_Database
      */
     public function db($table)
     {
-        if (class_exists('Anon_QueryBuilder')) {
-            return new Anon_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
-        }
+        return new Anon_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
         
         // 回退到旧的 QueryBuilder
         return $this->getConnection()->db($table);

@@ -81,8 +81,8 @@ class Anon_Config
         self::addRoute('/anon/common/config', function() {
             Anon_Common::Header();
             $config = [
-                'token' => class_exists('Anon_Token') && Anon_Token::isEnabled(),
-                'captcha' => class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()
+                'token' => Anon_Token::isEnabled(),
+                'captcha' => Anon_Captcha::isEnabled()
             ];
             Anon_ResponseHelper::success($config, '获取配置信息成功');
         });
@@ -126,19 +126,17 @@ class Anon_Config
         }
 
         // 注册Debug路由
-        if (class_exists('Anon_Debug')) {
-            // API 路由
-            self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
-            self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
-            self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
-            self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
-            self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
-            self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
-            self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
-            // 页面路由
-            self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
-            self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
-        }
+        // API路由
+        self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
+        self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
+        self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
+        self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
+        self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
+        self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
+        self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
+        // 页面路由
+        self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
+        self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
 
         // 调试输出已注册的路由
         if (defined('ANON_DEBUG') && ANON_DEBUG) {

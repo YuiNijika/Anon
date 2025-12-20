@@ -9,25 +9,13 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     'auth' => [
-        'login' => [
-            'view' => 'Auth/Login',
-        ],
-        'logout' => [
-            'view' => 'Auth/Logout',
-        ],
-        'check-login' => [
-            'view' => 'Auth/CheckLogin',
-        ],
-        'token' => [
-            'view' => 'Auth/Token',
-        ],
-        'captcha' => [
-            'view' => 'Auth/Captcha',
-        ],
+        'login' => 'Auth/Login',
+        'logout' => 'Auth/Logout',
+        'check-login' => 'Auth/CheckLogin',
+        'token' => 'Auth/Token',
+        'captcha' => 'Auth/Captcha',
     ],
     'user' => [
-        'info' => [
-            'view' => 'User/Info',
-        ],
+        'info' => 'User/Info',
     ],
 ];

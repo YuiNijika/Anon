@@ -54,6 +54,10 @@ return [
 - `token.refresh`: 是否在验证后自动刷新Token生成新Token，新Token通过响应头`X-New-Token`返回
 - `token.whitelist`: Token验证白名单，这些路由不需要Token验证
 - `captcha.enabled`: 是否启用验证码功能
+- `public.enabled`: 是否启用public目录静态文件处理
+- `public.cache`: 静态文件缓存时间（秒），默认31536000（1年）
+- `public.compress`: 是否启用压缩，支持gzip和deflate，默认true
+- `public.types`: 自定义MIME类型映射，用于扩展文件类型支持
 
 ## 配置访问
 

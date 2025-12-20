@@ -103,11 +103,7 @@ class Anon_Console
 
         // 如果是类名，尝试从容器解析或直接实例化
         if (is_string($handler) && class_exists($handler)) {
-            if (class_exists('Anon_Container')) {
-                $instance = Anon_Container::getInstance()->make($handler);
-            } else {
-                $instance = new $handler();
-            }
+            $instance = Anon_Container::getInstance()->make($handler);
 
             if (method_exists($instance, 'handle')) {
                 return [$instance, 'handle'];

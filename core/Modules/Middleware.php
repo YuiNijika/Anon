@@ -77,11 +77,7 @@ class Anon_Middleware
 
             // 如果是类名，尝试从容器解析或直接实例化
             if (is_string($middleware) && class_exists($middleware)) {
-                if (class_exists('Anon_Container')) {
-                    $instance = Anon_Container::getInstance()->make($middleware);
-                } else {
-                    $instance = new $middleware();
-                }
+                $instance = Anon_Container::getInstance()->make($middleware);
 
                 if ($instance instanceof Anon_MiddlewareInterface) {
                     return [$instance, 'handle'];

@@ -69,7 +69,7 @@ LICENSE;
      */
     public static function defineConstantsFromEnv(): void
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+        if (Anon_Env::isInitialized()) {
             self::defineIfNotExists('ANON_DB_HOST', Anon_Env::get('system.db.host', 'localhost'));
             self::defineIfNotExists('ANON_DB_PORT', Anon_Env::get('system.db.port', 3306));
             self::defineIfNotExists('ANON_DB_PREFIX', Anon_Env::get('system.db.prefix', ''));
@@ -84,7 +84,7 @@ LICENSE;
             self::defineIfNotExists('ANON_TOKEN_WHITELIST', Anon_Env::get('app.token.whitelist', []));
             self::defineIfNotExists('ANON_CAPTCHA_ENABLED', Anon_Env::get('app.captcha.enabled', false));
         } else {
-            // 如果 Anon_Env 未初始化，使用默认值
+            // Anon_Env未初始化时使用默认值
             self::defineIfNotExists('ANON_DB_HOST', 'localhost');
             self::defineIfNotExists('ANON_DB_PORT', 3306);
             self::defineIfNotExists('ANON_DB_PREFIX', '');
@@ -259,10 +259,8 @@ class Anon_Check
      */
     public static function logout(): void
     {
-        if (class_exists('Anon_Hook')) {
-            $userId = $_SESSION['user_id'] ?? null;
-            Anon_Hook::do_action('auth_before_logout', $userId);
-        }
+        $userId = $_SESSION['user_id'] ?? null;
+        Anon_Hook::do_action('auth_before_logout', $userId);
         
         self::startSessionIfNotStarted();
 
@@ -285,9 +283,7 @@ class Anon_Check
 
         self::clearAuthCookies();
         
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('auth_after_logout', $userId ?? null);
-        }
+        Anon_Hook::do_action('auth_after_logout', $userId ?? null);
     }
 
     /**
@@ -299,9 +295,7 @@ class Anon_Check
      */
     public static function setAuthCookies(int $userId, string $username, bool $rememberMe = false): void
     {
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
-        }
+        Anon_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
         
         $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
                         parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
@@ -329,16 +323,12 @@ class Anon_Check
             $cookieOptions['expires'] = 0;
         }
 
-        if (class_exists('Anon_Hook')) {
-            $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
-        }
+        $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
 
         setcookie('user_id', (string)$userId, $cookieOptions);
         setcookie('username', $username, $cookieOptions);
         
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
-        }
+        Anon_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
     }
 
     /**

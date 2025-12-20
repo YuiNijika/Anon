@@ -7,7 +7,7 @@ return [
         'avatar' => 'https://www.cravatar.cn/avatar', // 头像源URL
         'debug' => [
             'global' => true, // 全局调试
-            'router' => false, // 路由调试
+            'router' => true, // 路由调试
         ],
         'token' => [
             'enabled' => true, // 是否启用 Token 验证
@@ -22,6 +22,6 @@ return [
         ],
         'captcha' => [
             'enabled' => true, // 是否启用验证码
-        ],
+        ]
     ],
 ];

@@ -40,9 +40,7 @@ class Anon_Widget
             ], $args),
         ];
         
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('widget_registered', $id, $name);
-        }
+        Anon_Hook::do_action('widget_registered', $id, $name);
         
         return true;
     }
@@ -52,9 +50,7 @@ class Anon_Widget
         if (isset($this->widgets[$id])) {
             unset($this->widgets[$id]);
             
-            if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('widget_unregistered', $id);
-            }
+            Anon_Hook::do_action('widget_unregistered', $id);
             
             return true;
         }
@@ -82,9 +78,7 @@ class Anon_Widget
         
         $widgetArgs = array_merge($widget['args'], $args);
         
-        if (class_exists('Anon_Hook')) {
-            $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
-        }
+        $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
         
         ob_start();
         $result = call_user_func($callback, $widgetArgs);
@@ -95,9 +89,7 @@ class Anon_Widget
             $output = is_string($result) ? $result : '';
         }
         
-        if (class_exists('Anon_Hook')) {
-            $output = Anon_Hook::apply_filters('widget_output', $output, $id);
-        }
+        $output = Anon_Hook::apply_filters('widget_output', $output, $id);
         
         return $output;
     }
@@ -123,9 +115,7 @@ class Anon_Widget
         
         $widgetArgs = array_merge($widget['args'], $args);
         
-        if (class_exists('Anon_Hook')) {
-            $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
-        }
+        $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
         
         // 执行回调
         $result = call_user_func($callback, $widgetArgs);
@@ -142,13 +132,13 @@ class Anon_Widget
             call_user_func($callback, $widgetArgs);
             $output = ob_get_clean();
             
-            // 尝试解析 JSON 输出
+            // 尝试解析JSON输出
             if (!empty($output)) {
                 $decoded = json_decode($output, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
                     $data = $decoded;
                 } else {
-                    // 如果不是 JSON，返回原始输出作为 data 字段
+                    // 如果不是JSON，返回原始输出作为data字段
                     $data = ['content' => $output];
                 }
             } else {
@@ -157,9 +147,7 @@ class Anon_Widget
         }
         
         // 应用过滤器
-        if (class_exists('Anon_Hook')) {
-            $data = Anon_Hook::apply_filters('widget_data', $data, $id);
-        }
+        $data = Anon_Hook::apply_filters('widget_data', $data, $id);
         
         return $data;
     }

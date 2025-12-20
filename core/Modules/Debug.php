@@ -534,10 +534,9 @@ class Anon_Debug
      */
     public static function getHookData()
     {
-        // 如果Hook类存在，获取其统计数据
-        if (class_exists('Anon_Hook')) {
-            $allHooks = Anon_Hook::getAllHooks();
-            $stats = Anon_Hook::getHookStats();
+        // 获取Hook统计数据
+        $allHooks = Anon_Hook::getAllHooks();
+        $stats = Anon_Hook::getHookStats();
             
             $actions = [];
             $filters = [];
@@ -565,22 +564,12 @@ class Anon_Debug
                 }
             }
             
-            return [
-                'actions' => $actions,
-                'filters' => $filters,
-                'total_actions' => count($actions),
-                'total_filters' => count($filters),
-                'stats' => $stats
-            ];
-        }
-        
         return [
-            'actions' => [],
-            'filters' => [],
-            'total_actions' => 0,
-            'total_filters' => 0,
-            'stats' => [],
-            'message' => 'Hook class not available'
+            'actions' => $actions,
+            'filters' => $filters,
+            'total_actions' => count($actions),
+            'total_filters' => count($filters),
+            'stats' => $stats
         ];
     }
 
@@ -711,7 +700,7 @@ class Anon_Debug
 
         $userId = null;
         
-        if (class_exists('Anon_Token') && Anon_Token::isEnabled()) {
+        if (Anon_Token::isEnabled()) {
             try {
                 $token = Anon_Token::getTokenFromRequest();
                 if ($token) {

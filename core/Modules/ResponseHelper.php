@@ -46,11 +46,9 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认200
      */
     public static function success($data = null, $message = '操作成功', $httpCode = 200) {
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('response_before_success', $data, $message, $httpCode);
-            $data = Anon_Hook::apply_filters('response_data', $data);
-            $message = Anon_Hook::apply_filters('response_message', $message);
-        }
+        Anon_Hook::do_action('response_before_success', $data, $message, $httpCode);
+        $data = Anon_Hook::apply_filters('response_data', $data);
+        $message = Anon_Hook::apply_filters('response_message', $message);
         
         http_response_code($httpCode);
         
@@ -63,9 +61,7 @@ class Anon_ResponseHelper {
             $response['data'] = $data;
         }
         
-        if (class_exists('Anon_Hook')) {
-            $response = Anon_Hook::apply_filters('response_success', $response);
-        }
+        $response = Anon_Hook::apply_filters('response_success', $response);
         
         self::logToConsole($response, 'success');
         
@@ -80,10 +76,8 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认400
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400) {
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('response_before_error', $message, $data, $httpCode);
-            $message = Anon_Hook::apply_filters('response_error_message', $message);
-        }
+        Anon_Hook::do_action('response_before_error', $message, $data, $httpCode);
+        $message = Anon_Hook::apply_filters('response_error_message', $message);
         
         http_response_code($httpCode);
         
@@ -100,9 +94,7 @@ class Anon_ResponseHelper {
             $response['data'] = $data;
         }
         
-        if (class_exists('Anon_Hook')) {
-            $response = Anon_Hook::apply_filters('response_error', $response);
-        }
+        $response = Anon_Hook::apply_filters('response_error', $response);
         
         self::logToConsole($response, 'error');
         

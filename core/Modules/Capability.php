@@ -52,9 +52,7 @@ class Anon_Capability
     
     public function init(): void
     {
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('capabilities_init', $this->capabilities);
-        }
+        Anon_Hook::do_action('capabilities_init', $this->capabilities);
     }
     
     public function addCapability(string $role, string $capability): void

@@ -169,19 +169,19 @@ class Anon_Token
      */
     public static function isEnabled(): bool
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+        if (Anon_Env::isInitialized()) {
             return Anon_Env::get('app.token.enabled', false);
         }
         return defined('ANON_TOKEN_ENABLED') ? ANON_TOKEN_ENABLED : false;
     }
 
     /**
-     * 检查是否启用 Token 刷新
+     * 检查是否启用Token刷新
      * @return bool
      */
     public static function isRefreshEnabled(): bool
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+        if (Anon_Env::isInitialized()) {
             return Anon_Env::get('app.token.refresh', false);
         }
         return false;
@@ -201,7 +201,7 @@ class Anon_Token
             '/anon/debug/console',
         ];
         
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+        if (Anon_Env::isInitialized()) {
             $whitelist = Anon_Env::get('app.token.whitelist', []);
             if (is_array($whitelist) && !empty($whitelist)) {
                 return array_merge($defaultWhitelist, $whitelist);

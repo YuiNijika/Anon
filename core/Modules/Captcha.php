@@ -146,7 +146,7 @@ class Anon_Captcha
      */
     public static function isEnabled(): bool
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+        if (Anon_Env::isInitialized()) {
             return Anon_Env::get('app.captcha.enabled', false);
         }
         return defined('ANON_CAPTCHA_ENABLED') ? ANON_CAPTCHA_ENABLED : false;
