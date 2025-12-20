@@ -496,10 +496,6 @@ class Anon_Router
             $requestPath = self::getRequestPath();
             self::debugLog("Request path: " . $requestPath);
 
-            if (self::serveStaticFile($requestPath)) {
-                return;
-            }
-
             if (self::isDebugEnabled()) {
                 error_log("Router: Processing request path: " . $requestPath);
                 error_log("Router: Available routes: " . json_encode(array_keys(self::$routes)));
