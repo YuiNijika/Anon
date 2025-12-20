@@ -382,27 +382,52 @@ class Anon_Router
         $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
         $viewPath = str_replace('.php', '', $relativePath);
 
-        // 注册前钩子
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('app_before_register_route', $routePath, $viewPath, false);
+        // 获取文件名
+        $fileName = pathinfo($filePath, PATHINFO_FILENAME);
+        $isIndex = strtolower($fileName) === 'index';
+
+        // 需要注册的路由路径列表
+        $routesToRegister = [$routePath];
+
+        // 如果是Index.php，同时注册父级路径
+        if ($isIndex) {
+            // 计算父级路径
+            if ($routePath === '/index') {
+                // 根目录下的Index.php，注册 /
+                $routesToRegister[] = '/';
+            } else {
+                // 子目录下的Index.php，注册父级路径
+                $parentPath = preg_replace('/\/index$/', '', $routePath);
+                if (!empty($parentPath)) {
+                    $routesToRegister[] = $parentPath;
+                }
+            }
         }
 
-        // 生成处理器
-        $handler = function () use ($viewPath, $routePath) {
-            Anon_Router::View($viewPath);
-        };
+        // 注册所有路由路径
+        foreach ($routesToRegister as $path) {
+            // 注册前钩子
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('app_before_register_route', $path, $viewPath, false);
+            }
 
-        // 注册到配置
-        Anon_Config::addRoute($routePath, $handler);
+            // 生成处理器
+            $handler = function () use ($viewPath, $path) {
+                Anon_Router::View($viewPath);
+            };
 
-        // 调试日志
-        if (self::isDebugEnabled()) {
-            self::debugLog("Auto registered route: {$routePath} -> {$viewPath}");
-        }
+            // 注册到配置
+            Anon_Config::addRoute($path, $handler);
 
-        // 注册后钩子
-        if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('app_after_register_route', $routePath, $viewPath, false);
+            // 调试日志
+            if (self::isDebugEnabled()) {
+                self::debugLog("Auto registered route: {$path} -> {$viewPath}");
+            }
+
+            // 注册后钩子
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('app_after_register_route', $path, $viewPath, false);
+            }
         }
     }
 

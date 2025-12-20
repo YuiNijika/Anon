@@ -27,13 +27,20 @@
 文件路径                          → 路由路径
 app/Router/Auth/Login.php        → /auth/login
 app/Router/User/Info.php         → /user/info
-app/Router/User_Profile/Index.php → /user-profile/index
+app/Router/User_Profile/Index.php → /user-profile/index 和 /user-profile
+app/Router/Index.php              → /index 和 /
 ```
 
 **命名转换规则：**
 - 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
 - 所有路径自动转为小写
 - 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
+
+**Index.php 特殊处理：**
+- 当文件名为 `Index.php` 时，会同时注册两个路由
+- 根目录下的 `Index.php` 会注册 `/` 和 `/index`
+- 子目录下的 `Index.php` 会注册父级路径和带 `/index` 的路径
+- 例如：`app/Router/User/Index.php` 会注册 `/user` 和 `/user/index`
 
 ## 手动路由
 
