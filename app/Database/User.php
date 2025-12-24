@@ -203,11 +203,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         
         $this->conn->begin_transaction();
         try {
+            $now = date('Y-m-d H:i:s');
             $id = $this->db('users')->insert([
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
                 '`group`' => $group,
+                'created_at' => $now,
+                'updated_at' => $now,
             ])->execute();
             $success = $id > 0;
             $this->conn->commit();

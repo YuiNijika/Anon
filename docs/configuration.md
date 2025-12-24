@@ -1,6 +1,6 @@
 ﻿# 配置说明
 
-一句话：系统配置在env.php，应用配置在useApp.php，用Anon_Env获取。
+一句话：系统配置在env.php，应用配置在useApp.php，SQL配置在useSQL.php，用Anon_Env获取。
 
 ## 系统配置 (env.php)
 
@@ -40,6 +40,26 @@ return [
         'captcha' => [
             'enabled' => true,  // 是否启用验证码
         ],
+        'public' => [
+            'enabled' => true,  // 是否启用静态文件服务
+            'cache' => 31536000,  // 缓存时间（秒），0 表示不缓存，默认1年
+            'compress' => true,  // 是否启用压缩（gzip/deflate）
+            'types' => [
+                'css' => 'text/css',
+                'js' => 'application/javascript',
+                'json' => 'application/json',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'svg' => 'image/svg+xml',
+                'ico' => 'image/x-icon',
+                'woff' => 'font/woff',
+                'woff2' => 'font/woff2',
+                'ttf' => 'font/ttf',
+                'eot' => 'application/vnd.ms-fontobject',
+            ],  // MIME 类型映射
+        ],
     ],
 ];
 ```
@@ -54,10 +74,36 @@ return [
 - `token.refresh`: 是否在验证后自动刷新Token生成新Token，新Token通过响应头`X-New-Token`返回
 - `token.whitelist`: Token验证白名单，这些路由不需要Token验证
 - `captcha.enabled`: 是否启用验证码功能
-- `public.enabled`: 是否启用public目录静态文件处理
-- `public.cache`: 静态文件缓存时间（秒），默认31536000（1年）
+- `public.enabled`: 是否启用静态文件服务，启用后可以通过根路径直接访问 `public` 目录下的文件
+- `public.cache`: 静态文件缓存时间（秒），默认31536000（1年），设为0表示不缓存
 - `public.compress`: 是否启用压缩，支持gzip和deflate，默认true
 - `public.types`: 自定义MIME类型映射，用于扩展文件类型支持
+
+## SQL 安装配置 (useSQL.php)
+
+安装时使用的 SQL 语句配置，用于创建数据库表结构。
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+return [
+    'users' => "CREATE TABLE IF NOT EXISTS `{prefix}users` (
+        `uid` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '用户 ID',
+        `name` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名',
+        `password` VARCHAR(255) NOT NULL COMMENT '密码哈希值',
+        `email` VARCHAR(255) NOT NULL UNIQUE COMMENT '邮箱地址',
+        `group` VARCHAR(255) NOT NULL DEFAULT 'member' COMMENT '用户组',
+        `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息表'"
+];
+```
+
+**配置说明：**
+- 使用 `{prefix}` 作为表前缀占位符，安装时会自动替换为 `env.php` 中配置的表前缀
+- 可以添加多个表的 SQL 语句，安装系统会自动执行所有 SQL
+- 每个表的 SQL 语句必须是完整的 CREATE TABLE 语句
 
 ## 配置访问
 

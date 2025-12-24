@@ -4,23 +4,27 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Install
 {
-    const sqlfile = __DIR__ . '/MySQL.sql';
-    const lockfile = __DIR__ . '/Install.lock';
     const envfile = __DIR__ . '/../../env.php';
+
     /**
-     * 读取 SQL 文件内容
+     * 获取数据库表创建 SQL 语句
+     * @param string $tablePrefix 表前缀
+     * @return array SQL 语句数组
      */
-    private static function getSqlContent(): string
+    private static function getSqlStatements(string $tablePrefix): array
     {
-        $sqlFile = self::sqlfile;
-        if (!file_exists($sqlFile)) {
-            throw new RuntimeException('安装SQL文件不存在: ' . $sqlFile);
+        $sqlConfigFile = __DIR__ . '/../../app/useSQL.php';
+        $installSql = file_exists($sqlConfigFile) ? require $sqlConfigFile : [];
+        
+        $sqlStatements = [];
+        foreach ($installSql as $tableName => $sql) {
+            if (is_string($sql)) {
+                $sql = str_replace('{prefix}', $tablePrefix, $sql);
+                $sqlStatements[] = $sql;
+            }
         }
-        $content = file_get_contents($sqlFile);
-        if ($content === false || trim($content) === '') {
-            throw new RuntimeException('安装SQL文件为空或无法读取: ' . $sqlFile);
-        }
-        return $content;
+        
+        return $sqlStatements;
     }
 
     /**
@@ -117,8 +121,8 @@ class Anon_Install
             }
             echo "数据库连接成功！<br>";
 
-            // 执行 SQL 文件
-            self::executeSqlContent($conn, $db_prefix);
+            // 执行 SQL 语句
+            self::executeSqlStatements($conn, $db_prefix);
             echo "数据表创建成功！<br>";
 
             // 创建初始用户
@@ -135,9 +139,6 @@ class Anon_Install
                 }
 
                 if (self::insertUserData($conn, $username, $password, $email, $db_prefix, 'admin')) {
-                    // 创建安装锁文件到 Install 目录
-                    $lockFile = self::lockfile;
-                    file_put_contents($lockFile, 'Installed at ' . date('Y-m-d H:i:s'));
                     echo "<script>alert('安装成功！'); window.location.href='/';</script>";
                     exit;
                 } else {
@@ -283,6 +284,9 @@ class Anon_Install
 <?php
     }
 
+    /**
+     * 更新配置文件
+     */
     private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
     {
         $configFile = self::envfile;
@@ -351,17 +355,16 @@ class Anon_Install
     }
 
     /**
-     * 读取执行SQL
+     * 执行 SQL 语句
      */
-    private static function executeSqlContent($conn, $tablePrefix)
+    private static function executeSqlStatements($conn, $tablePrefix)
     {
-        $sqlContent = str_replace('{prefix}', $tablePrefix, self::getSqlContent());
-
-            $queries = array_filter(array_map('trim', explode(';', $sqlContent)));
-        foreach ($queries as $query) {
-            if (!empty($query) && !$conn->query($query)) {
+        $sqlStatements = self::getSqlStatements($tablePrefix);
+        
+        foreach ($sqlStatements as $sql) {
+            if (!empty($sql) && !$conn->query($sql)) {
                 error_log("SQL 执行错误: " . $conn->error);
-                throw new RuntimeException("SQL 执行错误");
+                throw new RuntimeException("SQL 执行错误: " . $conn->error);
             }
         }
     }
@@ -372,7 +375,7 @@ class Anon_Install
     private static function insertUserData($conn, $username, $password, $email, $tablePrefix, $group = 'admin')
     {
         $tableName = $tablePrefix . 'users';
-        $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`) VALUES (?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
         if (!$stmt) {
             error_log("SQL 语句错误: " . $conn->error);
             throw new RuntimeException("SQL 语句错误");
@@ -395,8 +398,9 @@ class Anon_Install
      */
     private static function handleError($message)
     {
-        error_log($message); // 记录到日志
+        error_log($message);
         echo "发生错误，请稍后重试。";
         exit;
     }
 }
+

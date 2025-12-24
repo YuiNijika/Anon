@@ -202,6 +202,39 @@ Anon_Config::addRoute('/api/custom', function() {
 });
 ```
 
+## 静态文件服务
+
+系统支持直接从根路径访问 `public` 目录下的静态文件，无需在 URL 中包含 `/public` 前缀。
+
+### 启用方式
+
+在 `server/app/useApp.php` 中配置：
+
+```php
+'public' => [
+    'enabled' => true,  // 启用静态文件服务
+    'cache' => 31536000,  // 缓存时间（秒）
+    'compress' => true,  // 启用压缩
+    'types' => [
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        // ... 更多 MIME 类型
+    ],
+],
+```
+
+### 访问方式
+
+- 文件位置：`server/public/favicon.ico`
+- 访问路径：`/favicon.ico`（直接访问，无需 `/public` 前缀）
+
+### 功能特性
+
+- **自动 MIME 类型识别**：根据文件扩展名自动设置正确的 Content-Type
+- **缓存支持**：可配置缓存时间，减少服务器负载
+- **压缩支持**：自动压缩文本文件（CSS、JS、JSON 等），支持 gzip 和 deflate
+- **安全性**：防止路径遍历攻击，确保文件在 public 目录内
+
 ---
 
 [← 返回文档首页](../README.md)

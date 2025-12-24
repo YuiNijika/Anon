@@ -1,7 +1,11 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-if (!Anon_Config::isInstalled()) {
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+$requestPath = parse_url($requestUri, PHP_URL_PATH);
+$isInstallPath = strpos($requestPath, '/anon/install') === 0 || $requestPath === '/anon';
+
+if (!Anon_Config::isInstalled() && !$isInstallPath) {
     header('Location: /anon/install');
     exit;
 }
@@ -9,7 +13,7 @@ if (!Anon_Config::isInstalled()) {
 class Anon_Common
 {
     const NAME = 'Anon Framework';
-    const VERSION = '1.1.1';
+    const VERSION = '1.2.0';
     const AUTHOR = '鼠子(YuiNijika)';
     const AUTHOR_URL = 'https://github.com/YuiNijika';
     const GITHUB = 'https://github.com/YuiNijika/Anon';

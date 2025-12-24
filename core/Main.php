@@ -56,7 +56,7 @@ class Anon_Main
         require_once self::WIDGETS_DIR . 'Utils/Random.php';
         
         require_once self::MODULES_DIR . 'Database.php';
-        require_once self::MODULES_DIR . '../Install/Install.php';
+        require_once self::MODULES_DIR . 'Install.php';
         
         require_once self::MODULES_DIR . 'ResponseHelper.php';
         require_once self::MODULES_DIR . 'RequestHelper.php';

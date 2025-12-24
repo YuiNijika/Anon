@@ -22,6 +22,26 @@ return [
         ],
         'captcha' => [
             'enabled' => true, // 是否启用验证码
+        ],
+        'public' => [
+            'enabled' => true, // 是否启用静态文件服务
+            'cache' => 31536000, // 缓存时间（秒），0 表示不缓存
+            'compress' => true, // 是否启用压缩
+            'types' => [
+                'css' => 'text/css',
+                'js' => 'application/javascript',
+                'json' => 'application/json',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'svg' => 'image/svg+xml',
+                'ico' => 'image/x-icon',
+                'woff' => 'font/woff',
+                'woff2' => 'font/woff2',
+                'ttf' => 'font/ttf',
+                'eot' => 'application/vnd.ms-fontobject',
+            ], // MIME 类型配置
         ]
-    ],
+    ]
 ];

@@ -488,6 +488,113 @@ class Anon_Router
     }
 
     /**
+     * 处理静态文件请求
+     * @param string $requestPath 请求路径
+     * @return bool 如果成功处理静态文件返回true，否则返回false
+     */
+    private static function serveStaticFile(string $requestPath): bool
+    {
+        // 检查是否启用静态文件服务
+        if (!Anon_Env::get('app.public.enabled', false)) {
+            return false;
+        }
+
+        // 移除前导斜杠
+        $filePath = ltrim($requestPath, '/');
+        if (empty($filePath)) {
+            return false;
+        }
+
+        // 构建完整文件路径
+        $publicDir = __DIR__ . '/../../public/';
+        
+        // 检查 public 目录是否存在
+        if (!is_dir($publicDir)) {
+            if (self::isDebugEnabled()) {
+                self::debugLog("Public directory not found: " . $publicDir);
+            }
+            return false;
+        }
+
+        $publicDirReal = realpath($publicDir);
+        if ($publicDirReal === false) {
+            return false;
+        }
+
+        // 构建文件路径，防止路径遍历攻击
+        // 将 URL 路径中的正斜杠转换为系统路径分隔符
+        $filePath = str_replace(['../', '..\\', '/', '\\'], DIRECTORY_SEPARATOR, $filePath);
+        $filePath = ltrim($filePath, DIRECTORY_SEPARATOR);
+        $fullPath = $publicDirReal . DIRECTORY_SEPARATOR . $filePath;
+        $fullPath = realpath($fullPath);
+
+        // 确保文件在 public 目录内
+        if ($fullPath === false || strpos($fullPath, $publicDirReal) !== 0) {
+            if (self::isDebugEnabled()) {
+                self::debugLog("Static file path check failed: " . $requestPath);
+            }
+            return false;
+        }
+
+        // 检查文件是否存在且可读
+        if (!is_file($fullPath) || !is_readable($fullPath)) {
+            if (self::isDebugEnabled()) {
+                self::debugLog("Static file not found or not readable: " . $fullPath);
+            }
+            return false;
+        }
+
+        // 获取文件扩展名
+        $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+
+        // 获取 MIME 类型配置
+        $mimeTypes = Anon_Env::get('app.public.types', []);
+        $mimeType = $mimeTypes[$extension] ?? mime_content_type($fullPath) ?: 'application/octet-stream';
+
+        // 设置响应头
+        header('Content-Type: ' . $mimeType);
+        header('Content-Length: ' . filesize($fullPath));
+
+        // 设置缓存头
+        $cacheTime = Anon_Env::get('app.public.cache', 31536000);
+        if ($cacheTime > 0) {
+            header('Cache-Control: public, max-age=' . $cacheTime);
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+        }
+
+        // 检查是否启用压缩
+        $compress = Anon_Env::get('app.public.compress', true);
+        $compressibleTypes = ['text/html', 'text/css', 'text/javascript', 'application/javascript', 'application/json', 'text/xml', 'application/xml'];
+        $shouldCompress = $compress && in_array($mimeType, $compressibleTypes) && extension_loaded('zlib');
+
+        // 检查客户端是否支持压缩
+        if ($shouldCompress) {
+            $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+            $fileContent = file_get_contents($fullPath);
+            
+            if ($fileContent !== false) {
+                if (strpos($acceptEncoding, 'gzip') !== false) {
+                    $compressed = gzencode($fileContent);
+                    header('Content-Encoding: gzip');
+                    header('Content-Length: ' . strlen($compressed));
+                    echo $compressed;
+                    exit;
+                } elseif (strpos($acceptEncoding, 'deflate') !== false) {
+                    $compressed = gzdeflate($fileContent);
+                    header('Content-Encoding: deflate');
+                    header('Content-Length: ' . strlen($compressed));
+                    echo $compressed;
+                    exit;
+                }
+            }
+        }
+
+        // 直接输出文件
+        readfile($fullPath);
+        exit;
+    }
+
+    /**
      * 处理当前请求
      */
     private static function handleRequest(): void

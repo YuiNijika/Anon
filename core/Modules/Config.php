@@ -53,7 +53,7 @@ class Anon_Config
      */
     public static function isInstalled(): bool
     {
-        return ANON_INSTALLED;
+        return defined('ANON_INSTALLED') && ANON_INSTALLED;
     }
 
     /**
