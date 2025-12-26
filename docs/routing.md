@@ -32,11 +32,13 @@ app/Router/Index.php              → /index 和 /
 ```
 
 **命名转换规则：**
+
 - 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
 - 所有路径自动转为小写
 - 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
 
 **Index.php 特殊处理：**
+
 - 当文件名为 `Index.php` 时，会同时注册两个路由
 - 根目录下的 `Index.php` 会注册 `/` 和 `/index`
 - 子目录下的 `Index.php` 会注册父级路径和带 `/index` 的路径
@@ -71,6 +73,7 @@ return [
 ```
 
 **配置格式说明：**
+
 - 直接使用字符串：`'login' => 'Auth/Login'` （推荐，更简洁）
 - 使用数组格式：`'login' => ['view' => 'Auth/Login']` （向后兼容）
 
@@ -85,9 +88,10 @@ return [
 | `header` | bool | `true` | 是否设置响应头（包含CORS、Content-Type） |
 | `requireLogin` | bool | `false` | 是否需要登录验证 |
 | `method` | string\|array | `null` | 允许的HTTP方法，如 `'GET'` 或 `['GET', 'POST']` |
-| `cors` | bool | `true` | 是否设置CORS头 |
-| `response` | bool | `true` | 是否设置JSON响应头 |
-| `code` | int | `200` | HTTP状态码 |
+| `cors` | bool | `true` | 是否设置CORS头（可选，不设置时使用默认值true） |
+| `response` | bool | `true` | 是否设置JSON响应头（可选，不设置时使用默认值true） |
+| `code` | int | `200` | HTTP状态码（可选，不设置时使用默认值200） |
+| `token` | bool | - | 是否启用Token验证（可选），`true` 表示启用，`false` 表示禁用，不设置时使用全局配置 |
 | `middleware` | array | `[]` | 中间件列表 |
 
 ### 示例：需要登录的GET接口
@@ -188,9 +192,77 @@ const Anon_RouterMeta = [
 // 路由处理代码...
 ```
 
+### 示例：启用 Token 验证
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+    'token' => true,  // 启用 Token 验证
+];
+
+try {
+    // 需要提供有效的 Token 才能访问
+    Anon_ResponseHelper::success(['message' => '需要 Token 验证的接口']);
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+### 示例：禁用 Token 验证
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+    'token' => false,  // 禁用 Token 验证（即使全局启用了 Token）
+];
+
+try {
+    // 不需要 Token 即可访问
+    Anon_ResponseHelper::success(['message' => '不需要 Token 验证的接口']);
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+### 示例：自定义 HTTP 状态码
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+    'code' => 201,  // 自定义 HTTP 状态码为 201
+];
+
+try {
+    Anon_ResponseHelper::success(['message' => '创建成功'], '资源已创建', 201);
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
 **注意：**
+
 - `Anon_RouterMeta` 必须在路由文件顶部定义
 - 如果未定义 `Anon_RouterMeta`，系统会使用默认配置
+- `cors`、`response`、`token`、`code` 都是可选配置项
+  - `cors`：不设置时使用默认值 `true`
+  - `response`：不设置时使用默认值 `true`
+  - `token`：不设置时使用全局配置，`true` 表示启用，`false` 表示禁用
+  - `code`：不设置时使用默认值 `200`
 
 ## 动态注册路由
 

@@ -162,8 +162,6 @@ class Anon_Router
             'header' => true,
             'requireLogin' => false,
             'method' => null,
-            'cors' => true,
-            'response' => true,
         ];
 
         if (!file_exists($filePath)) {
@@ -182,18 +180,19 @@ class Anon_Router
                 // 先尝试 JSON 格式，如果失败则使用严格验证的 eval
                 $arrayStr = trim($matches[1]);
 
-                // 尝试 JSON 解析
-                $jsonStr = str_replace(['=>', "'"], [':', '"'], $arrayStr);
-                $jsonStr = preg_replace('/(\w+):/', '"$1":', $jsonStr);
-                $metaArray = json_decode($jsonStr, true);
-
-                // 如果 JSON 解析失败，使用严格验证的 eval 仅允许数组字面量
-                if (!is_array($metaArray)) {
-                    // 验证只包含安全的字符 数组、字符串、数字、布尔值、null
-                    if (preg_match('/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/', $arrayStr)) {
-                        // 移除所有可能的函数调用和变量
-                        if (!preg_match('/(\$|function|eval|exec|system|shell_exec|passthru|popen|proc_open|file_get_contents|file_put_contents|fopen|fwrite|unlink|include|require)/i', $arrayStr)) {
-                            $metaArray = eval('return ' . $arrayStr . ';');
+                // 使用 eval 解析数组
+                $metaArray = null;
+                // 验证只包含安全的字符
+                $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
+                $hasKeywords = preg_match('/(true|false|null)/i', $arrayStr);
+                $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
+                
+                if ((preg_match($safePattern, $arrayStr) || $hasKeywords) && !preg_match($unsafePattern, $arrayStr)) {
+                    try {
+                        $metaArray = eval('return ' . $arrayStr . ';');
+                    } catch (Throwable $e) {
+                        if (self::isDebugEnabled()) {
+                            Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                         }
                     }
                 }
@@ -204,12 +203,67 @@ class Anon_Router
             } catch (Throwable $e) {
                 // 解析失败时使用默认配置
                 if (self::isDebugEnabled()) {
-                    Anon_Debug::warning("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
+                    Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                 }
             }
         }
 
         return $defaultMeta;
+    }
+
+    /**
+     * 获取路由文件路径
+     * @param string $routeKey 路由标识
+     * @param callable $handler 路由处理器
+     * @return string|null 路由文件路径，如果无法获取则返回 null
+     */
+    private static function getRouteFilePath(string $routeKey, callable $handler): ?string
+    {
+        $routerBaseDir = __DIR__ . '/../../app/Router';
+        
+        // 尝试从闭包中提取视图路径（适用于手动路由和自动路由）
+        if ($handler instanceof Closure) {
+            $reflection = new ReflectionFunction($handler);
+            $uses = $reflection->getStaticVariables();
+            // 手动路由使用 $view，自动路由使用 $viewPath
+            $view = $uses['view'] ?? $uses['viewPath'] ?? null;
+            if ($view) {
+                $filePath = realpath($routerBaseDir . '/' . $view . '.php');
+                if ($filePath && file_exists($filePath)) {
+                    return $filePath;
+                }
+            }
+        }
+        
+        // 尝试根据路由路径推断文件路径
+        // 将路由路径转换为文件路径
+        // 例如：/user/profile -> User/Profile.php
+        $filePath = trim($routeKey, '/');
+        if (empty($filePath)) {
+            $filePath = 'Index';
+        } else {
+            // 将路径段转换为首字母大写的格式
+            $segments = explode('/', $filePath);
+            $segments = array_map(function($segment) {
+                // 将连字符转换为下划线，然后转换为首字母大写
+                $segment = str_replace('-', '_', $segment);
+                return ucfirst(strtolower($segment));
+            }, $segments);
+            $filePath = implode('/', $segments);
+        }
+        
+        $fullPath = $routerBaseDir . '/' . $filePath . '.php';
+        if (file_exists($fullPath)) {
+            return realpath($fullPath);
+        }
+        
+        // 尝试 Index.php
+        $indexPath = $routerBaseDir . '/' . $filePath . '/Index.php';
+        if (file_exists($indexPath)) {
+            return realpath($indexPath);
+        }
+        
+        return null;
     }
 
     /**
@@ -221,9 +275,21 @@ class Anon_Router
         // 设置 Header
         if ($meta['header'] ?? true) {
             $code = $meta['code'] ?? 200;
-            $response = $meta['response'] ?? true;
-            $cors = $meta['cors'] ?? true;
+            $response = isset($meta['response']) && $meta['response'] !== null ? $meta['response'] : true;
+            $cors = isset($meta['cors']) && $meta['cors'] !== null ? $meta['cors'] : true;
             Anon_Common::Header($code, $response, $cors);
+        }
+
+        // Token 验证
+        if (isset($meta['token'])) {
+            if ($meta['token'] === true) {
+                Anon_RequestHelper::requireToken(true);
+            }
+            // token 为 false 时，跳过 Token 验证
+            // token 为 null 时，使用全局配置
+        } elseif (Anon_Token::isEnabled()) {
+            // 如果路由元数据中没有设置 token，使用全局配置
+            Anon_RequestHelper::requireToken(true);
         }
 
         // 检查登录状态
@@ -710,10 +776,8 @@ class Anon_Router
         }
 
         try {
-            // Token验证
-            if (Anon_Token::isEnabled()) {
-                Anon_RequestHelper::requireToken(true);
-            }
+            // Token 验证将在 View 方法的 applyRouterMeta 中处理
+            // 这里不再提前验证，避免无法获取路由文件路径时使用全局配置
 
             // 执行路由执行前钩子
             Anon_Hook::do_action('router_before_dispatch', $routeKey, $handler);
@@ -832,10 +896,8 @@ class Anon_Router
         }
 
         try {
-            // Token验证
-            if (Anon_Token::isEnabled()) {
-                Anon_RequestHelper::requireToken(true);
-            }
+            // Token 验证将在 View 方法的 applyRouterMeta 中处理
+            // 这里不再提前验证，避免无法获取路由文件路径时使用全局配置
 
             // 将路由参数添加到$_GET
             foreach ($params as $key => $value) {
