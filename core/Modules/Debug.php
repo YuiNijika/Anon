@@ -308,7 +308,17 @@ class Anon_Debug
      */
     public static function isEnabled()
     {
-        return defined('ANON_DEBUG') && ANON_DEBUG === true;
+        if (!defined('ANON_DEBUG')) {
+            return false;
+        }
+        
+        $value = ANON_DEBUG;
+        
+        if ($value === true || $value === 1 || $value === '1' || $value === 'true') {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -404,12 +414,12 @@ class Anon_Debug
      */
     public static function checkDebugEnabled()
     {
-        return defined('ANON_DEBUG') && ANON_DEBUG === true && self::isEnabled();
+        return self::isEnabled();
     }
 
     /**
      * 检查debug权限
-     * @return bool
+     * @return bool|string 返回true表示有权限，返回'not_logged_in'表示未登录，返回false表示无权限
      */
     public static function checkPermission()
     {
@@ -446,11 +456,11 @@ class Anon_Debug
         }
         
         if (!$userId) {
-            return false;
+            return 'not_logged_in';
         }
 
         $db = new Anon_Database();
-        return $db->isUserAdmin($userId);
+        return $db->isUserAdmin($userId) ? true : false;
     }
 
     /**
@@ -468,8 +478,15 @@ class Anon_Debug
      */
     public static function debugInfo()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -485,8 +502,15 @@ class Anon_Debug
      */
     public static function performanceApi()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -510,8 +534,15 @@ class Anon_Debug
      */
     public static function logs()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -535,8 +566,15 @@ class Anon_Debug
      */
     public static function errors()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -560,8 +598,15 @@ class Anon_Debug
      */
     public static function hooks()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -621,8 +666,15 @@ class Anon_Debug
      */
     public static function tools()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -696,8 +748,15 @@ class Anon_Debug
      */
     public static function clearData()
     {
-        if (!self::checkPermission()) {
-            self::return403();
+        $permissionResult = self::checkPermission();
+        if ($permissionResult !== true) {
+            if ($permissionResult === 'not_logged_in') {
+                Anon_Common::Header(401);
+                Anon_ResponseHelper::unauthorized('请先登录');
+            } else {
+                self::return403();
+            }
+            exit;
         }
 
         Anon_Common::Header();
@@ -736,44 +795,23 @@ class Anon_Debug
      */
     public static function console()
     {
-        if (!self::checkPermission()) {
+        if (!self::checkDebugEnabled()) {
             Anon_Common::Header(403);
             Anon_ResponseHelper::forbidden('Debug 模式未启用');
-        }
-
-        $userId = null;
-        
-        if (Anon_Token::isEnabled()) {
-            try {
-                $token = Anon_Token::getTokenFromRequest();
-                if ($token) {
-                    $payload = Anon_Token::verify($token);
-                    if ($payload && isset($payload['data']['user_id'])) {
-                        $userId = (int)$payload['data']['user_id'];
-                        Anon_Check::startSessionIfNotStarted();
-                        $_SESSION['user_id'] = $userId;
-                        if (isset($payload['data']['username'])) {
-                            $_SESSION['username'] = $payload['data']['username'];
-                        }
-                    }
-                }
-            } catch (Exception $e) {
-            }
+            exit;
         }
         
-        if (!$userId && Anon_Check::isLoggedIn()) {
-            $userId = Anon_RequestHelper::getUserId();
-        }
+        $permissionResult = self::checkPermission();
         
-        if (!$userId) {
+        if ($permissionResult === 'not_logged_in') {
             header('Location: /anon/debug/login');
             exit;
         }
-
-        $db = new Anon_Database();
-        if (!$db->isUserAdmin($userId)) {
+        
+        if ($permissionResult !== true) {
             Anon_Common::Header(403);
-            Anon_ResponseHelper::forbidden('仅管理员可访问 Debug 控制台');
+            Anon_ResponseHelper::forbidden('需要管理员权限才能访问 Debug 控制台');
+            exit;
         }
 
         $debugFile = __FILE__;
