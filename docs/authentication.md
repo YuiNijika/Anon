@@ -7,6 +7,7 @@
 ```php
 // 检查是否已登录
 $isLoggedIn = Anon_Check::isLoggedIn();
+// 自动检查 Session 和 Cookie，如果 Cookie 有效会自动恢复 Session
 
 // 用户注销
 Anon_Check::logout();
@@ -14,6 +15,7 @@ Anon_Check::logout();
 // 设置认证 Cookie
 Anon_Check::setAuthCookies($userId, $username, $rememberMe);
 // $rememberMe: true=30天, false=会话结束
+// Cookie 自动设置顶级域名，支持跨子域名共享
 
 // 清除认证 Cookie
 Anon_Check::clearAuthCookies();
@@ -45,6 +47,9 @@ try {
         'password' => '密码不能为空',
     ]);
     
+    $inputData = Anon_RequestHelper::getInput();
+    $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    
     $db = new Anon_Database();
     $user = $db->getUserInfoByName($data['username']);
     
@@ -54,15 +59,18 @@ try {
     
     Anon_Check::startSessionIfNotStarted();
     $_SESSION['user_id'] = (int)$user['uid'];
-    Anon_Check::setAuthCookies((int)$user['uid'], $user['name']);
+    $_SESSION['username'] = $user['name'];
+    
+    // 设置认证 Cookie，支持跨端共享登录状态
+    Anon_Check::setAuthCookies((int)$user['uid'], $user['name'], $rememberMe);
     
     // 登录时总是生成新Token
-    $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name']);
+    $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name'], $rememberMe);
     
     Anon_ResponseHelper::success([
         'user_id' => (int)$user['uid'],
         'username' => $user['name'],
-        'token' => $token,
+        'token' => $token ?? '',
     ], '登录成功');
     
 } catch (Exception $e) {
@@ -263,6 +271,80 @@ try {
     Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
 } catch (Exception $e) {
     Anon_ResponseHelper::handleException($e, '获取用户信息发生错误');
+}
+```
+
+## 跨端登录状态共享
+
+系统支持"一端登录，多端都有状态"的功能，用户在一个客户端登录并选择"记住我"后，其他客户端访问 API 时会自动获得登录状态。
+
+### 工作原理
+
+1. **Cookie 自动设置**
+   - 登录时设置认证 Cookie（`user_id` 和 `username`）
+   - Cookie 自动设置顶级域名（如 `.example.com`），支持跨子域名共享
+   - 选择"记住我"时，Cookie 有效期 30 天；否则为会话 Cookie
+
+2. **自动验证和恢复**
+   - `Anon_Check::isLoggedIn()` 会自动检查 Cookie
+   - 如果 Cookie 有效，自动恢复 Session，用户自动登录
+   - Cookie 验证会查询数据库确保用户存在且用户名匹配
+
+3. **跨域支持**
+   - 跨域请求时，Cookie 的 `SameSite` 自动设置为 `None`（需要 HTTPS）
+   - CORS 配置自动设置 `Access-Control-Allow-Credentials: true`
+   - 前端需要设置 `credentials: 'include'`（前端已自动配置）
+
+### Cookie 配置
+
+Cookie 自动根据环境配置：
+
+- **同域名/子域名**：`SameSite=Lax`，支持跨子域名（如 `app.example.com` 和 `api.example.com`）
+- **跨域 HTTPS**：`SameSite=None`，`Secure=true`，支持完全跨域
+- **Domain 设置**：自动设置为顶级域名（如 `.example.com`），IP 地址使用完整域名
+
+### 前端配置
+
+前端已自动配置 `credentials: 'include'`，确保 Cookie 自动发送：
+
+```typescript
+// Vue / React / Next.js / Nuxt
+const response = await fetch('/api/endpoint', {
+  credentials: 'include'  // 自动发送 Cookie
+});
+```
+
+### 使用场景
+
+1. **同一域名下的不同子域名**
+   - 用户在 `app.example.com` 登录
+   - 访问 `api.example.com` 时自动获得登录状态
+
+2. **跨域请求（需要 HTTPS）**
+   - 用户在 `https://app.example.com` 登录
+   - 从 `https://mobile.example.com` 访问 API 时自动获得登录状态
+
+3. **不同端口**
+   - 同一域名下的不同端口自动共享 Cookie
+
+### 安全说明
+
+- Cookie 使用 `HttpOnly` 标志，防止 JavaScript 访问
+- Cookie 验证时会查询数据库，确保用户存在且有效
+- 跨域时要求 HTTPS，确保传输安全
+- 支持通过 Hook 自定义 Cookie 选项：`auth_cookie_options`
+
+### 示例
+
+```php
+// 登录时设置记住我
+$rememberMe = true;
+Anon_Check::setAuthCookies($userId, $username, $rememberMe);
+
+// 其他客户端访问 API 时
+$isLoggedIn = Anon_Check::isLoggedIn();  // 自动从 Cookie 恢复登录状态
+if ($isLoggedIn) {
+    $userId = Anon_RequestHelper::getUserId();  // 自动获取用户ID
 }
 ```
 

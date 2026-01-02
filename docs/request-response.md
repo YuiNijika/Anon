@@ -49,11 +49,13 @@ $isGet = Anon_RequestHelper::isGet();
 // 从会话或Cookie获取当前用户ID
 $userId = Anon_RequestHelper::getUserId();
 // 返回: int|null
+// 自动检查 Session 和 Cookie，Cookie 有效时自动恢复 Session
 
 // 获取需要登录的当前用户信息
 $userInfo = Anon_RequestHelper::requireAuth();
 // 未登录自动返回401错误
 // 返回: ['uid' => 1, 'name' => 'admin', 'email' => '...', ...]
+// 支持跨端登录状态共享，Cookie 有效时自动恢复登录状态
 
 // 验证API Token（防止API被刷）
 Anon_RequestHelper::requireToken();

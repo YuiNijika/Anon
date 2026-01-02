@@ -13,7 +13,7 @@ if (!Anon_Config::isInstalled() && !$isInstallPath) {
 class Anon_Common
 {
     const NAME = 'Anon Framework';
-    const VERSION = '1.2.0';
+    const VERSION = '1.2.1';
     const AUTHOR = '鼠子(YuiNijika)';
     const AUTHOR_URL = 'https://github.com/YuiNijika';
     const GITHUB = 'https://github.com/YuiNijika/Anon';
@@ -155,12 +155,23 @@ LICENSE;
      */
     private static function setCorsHeaders(): void
     {
-        $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
         
-        header("Access-Control-Allow-Origin: " . $origin);
+        if ($origin) {
+            header("Access-Control-Allow-Origin: " . $origin);
+        } else {
+            $host = $_SERVER['HTTP_HOST'] ?? '';
+            if (!empty($host)) {
+                $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+                header("Access-Control-Allow-Origin: " . $scheme . "://" . $host);
+            } else {
+                header("Access-Control-Allow-Origin: *");
+            }
+        }
+        
         header("Access-Control-Allow-Credentials: true");
-        header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+        header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Token");
         header("Access-Control-Max-Age: 3600");
     }
 
@@ -327,6 +338,25 @@ class Anon_Check
             $cookieOptions['expires'] = 0;
         }
 
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        if (!empty($host)) {
+            $hostParts = explode(':', $host);
+            $hostName = $hostParts[0];
+            
+            if (preg_match('/^[\d.]+$/', $hostName)) {
+                $cookieOptions['domain'] = $hostName;
+            } elseif (preg_match('/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/', $hostName)) {
+                $domainParts = explode('.', $hostName);
+                if (count($domainParts) >= 2) {
+                    $cookieOptions['domain'] = '.' . implode('.', array_slice($domainParts, -2));
+                } else {
+                    $cookieOptions['domain'] = $hostName;
+                }
+            } else {
+                $cookieOptions['domain'] = $hostName;
+            }
+        }
+
         $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
 
         setcookie('user_id', (string)$userId, $cookieOptions);
@@ -340,6 +370,21 @@ class Anon_Check
      */
     public static function clearAuthCookies(): void
     {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $domain = null;
+        
+        if (!empty($host)) {
+            $hostParts = explode(':', $host);
+            $hostName = $hostParts[0];
+            
+            if (preg_match('/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/', $hostName)) {
+                $domainParts = explode('.', $hostName);
+                if (count($domainParts) >= 2) {
+                    $domain = '.' . implode('.', array_slice($domainParts, -2));
+                }
+            }
+        }
+        
         $cookieOptions = [
             'expires'  => time() - 3600,
             'path'     => '/',
@@ -347,6 +392,10 @@ class Anon_Check
             'secure'   => defined('ANON_SITE_HTTPS') ? ANON_SITE_HTTPS : false,
             'samesite' => 'Lax'
         ];
+        
+        if ($domain) {
+            $cookieOptions['domain'] = $domain;
+        }
 
         setcookie('user_id', '', $cookieOptions);
         setcookie('username', '', $cookieOptions);

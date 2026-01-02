@@ -157,13 +157,17 @@ try {
 // 检查用户是否已登录
 $isLoggedIn = Anon_Check::isLoggedIn();
 // 返回：bool
+// 自动检查 Session 和 Cookie，Cookie 有效时自动恢复 Session
 
 // 用户注销
 Anon_Check::logout();
 
 // 设置认证Cookie
 Anon_Check::setAuthCookies($userId, $username, $rememberMe);
-// $rememberMe为true表示30天，false表示会话结束
+// $userId: 用户ID
+// $username: 用户名
+// $rememberMe: true=30天，false=会话结束
+// Cookie 自动设置顶级域名，支持跨子域名共享登录状态
 
 // 清除认证Cookie
 Anon_Check::clearAuthCookies();
