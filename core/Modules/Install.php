@@ -375,7 +375,7 @@ class Anon_Install
     private static function insertUserData($conn, $username, $password, $email, $tablePrefix, $group = 'admin')
     {
         $tableName = $tablePrefix . 'users';
-        $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+        $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`, display_name, avatar, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, NULL, NOW(), NOW())");
         if (!$stmt) {
             error_log("SQL 语句错误: " . $conn->error);
             throw new RuntimeException("SQL 语句错误");

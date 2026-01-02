@@ -45,6 +45,7 @@ try {
     $username = trim($data['username']);
     $email = trim($data['email']);
     $password = $data['password'];
+    $displayName = trim($inputData['display_name'] ?? '');
     
     // 验证用户名格式
     if (strlen($username) < 3 || strlen($username) > 20) {
@@ -53,6 +54,11 @@ try {
     
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
         Anon_ResponseHelper::error('用户名只能包含字母、数字和下划线', [], 400);
+    }
+    
+    // 验证显示名字长度
+    if (!empty($displayName) && strlen($displayName) > 255) {
+        Anon_ResponseHelper::error('显示名字长度不能超过255个字符', [], 400);
     }
     
     // 验证邮箱格式
@@ -80,12 +86,15 @@ try {
     // 加密密码
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
     
-    // 创建用户
-    $success = $db->addUser($username, $email, $hashedPassword, 'user');
+    // 创建用户，displayName 为空时使用 null（数据库会使用默认值）
+    $success = $db->addUser($username, $email, $hashedPassword, 'user', empty($displayName) ? null : $displayName);
     
     if (!$success) {
         Anon_ResponseHelper::error('注册失败，请稍后重试', [], 500);
     }
+    
+    // 获取新创建的用户信息
+    $newUser = $db->getUserInfoByName($username);
     
     // 注册成功后可选清除限制，根据需求决定
     // Anon_RateLimit::clearIpLimit();
@@ -93,7 +102,9 @@ try {
     
     Anon_ResponseHelper::success([
         'username' => $username,
+        'display_name' => $newUser['display_name'] ?? $username,
         'email' => $email,
+        'avatar' => $newUser['avatar'] ?? '',
         'remaining' => $rateLimitResult['remaining'] ?? 0
     ], '注册成功');
     

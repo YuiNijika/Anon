@@ -55,10 +55,14 @@ try {
     // 记录登录成功
     $db->logLogin($userId, $user['name'], true, '登录成功');
     
+    $userInfo = $db->getUserInfo($userId);
+    
     $userData = [
         'user_id' => $userId,
         'username' => $user['name'],
+        'display_name' => $userInfo['display_name'] ?? $user['name'],
         'email' => $user['email'],
+        'avatar' => $userInfo['avatar'] ?? '',
         'logged_in' => true,
         'token' => $token ?? ''
     ];

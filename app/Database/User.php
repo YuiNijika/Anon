@@ -25,7 +25,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         
         $row = $this->db('users')
-            ->select(['uid', 'name', 'email', '`group`'])
+            ->select(['uid', 'name', 'display_name', 'email', 'avatar', '`group`'])
             ->where('uid', '=', (int)$uid)
             ->first();
 
@@ -36,11 +36,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             return null;
         }
         
+        $avatar = !empty($row['avatar']) ? $row['avatar'] : $this->buildAvatar($row['email']);
+        
         $userInfo = [
             'uid' => $row['uid'],
             'name' => $row['name'],
+            'display_name' => $row['display_name'] ?? $row['name'],
             'email' => $row['email'],
-            'avatar' => $this->buildAvatar($row['email']),
+            'avatar' => $avatar,
             'group' => $row['group'],
         ];
         
@@ -148,7 +151,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         
         $row = $this->db('users')
-            ->select(['uid', 'name', 'password', 'email', '`group`'])
+            ->select(['uid', 'name', 'display_name', 'password', 'email', 'avatar', '`group`'])
             ->where('name', '=', $name)
             ->first();
         
@@ -159,11 +162,15 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             return false;
         }
         
+        $avatar = !empty($row['avatar']) ? $row['avatar'] : $this->buildAvatar($row['email']);
+        
         $userInfo = [
             'uid' => $row['uid'],
             'name' => $row['name'],
+            'display_name' => $row['display_name'] ?? $row['name'],
             'password' => $row['password'],
             'email' => $row['email'],
+            'avatar' => $avatar,
             'group' => $row['group']
         ];
         
@@ -187,7 +194,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         
         $row = $this->db('users')
-            ->select(['uid', 'name', 'password', 'email', '`group`'])
+            ->select(['uid', 'name', 'display_name', 'password', 'email', 'avatar', '`group`'])
             ->where('email', '=', $email)
             ->first();
         
@@ -198,11 +205,15 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             return false;
         }
         
+        $avatar = !empty($row['avatar']) ? $row['avatar'] : $this->buildAvatar($row['email']);
+        
         $userInfo = [
             'uid' => $row['uid'],
             'name' => $row['name'],
+            'display_name' => $row['display_name'] ?? $row['name'],
             'password' => $row['password'],
             'email' => $row['email'],
+            'avatar' => $avatar,
             'group' => $row['group']
         ];
         
@@ -220,9 +231,11 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      * @param string $email
      * @param string $password
      * @param string $group
+     * @param string|null $displayName 显示名字，为空时使用用户名
+     * @param string|null $avatar 头像URL，为空时使用邮箱生成
      * @return bool 添加成功返回true，否则返回false
      */
-    public function addUser($name, $email, $password, $group = 'user')
+    public function addUser($name, $email, $password, $group = 'user', $displayName = null, $avatar = null)
     {
         if (class_exists('Anon_Hook')) {
             Anon_Hook::do_action('user_before_add', $name, $email, $group);
@@ -243,14 +256,24 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         $this->conn->begin_transaction();
         try {
             $now = date('Y-m-d H:i:s');
-            $id = $this->db('users')->insert([
+            $insertData = [
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
                 '`group`' => $group,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->execute();
+            ];
+            
+            if ($displayName !== null) {
+                $insertData['display_name'] = $displayName;
+            }
+            
+            if ($avatar !== null) {
+                $insertData['avatar'] = $avatar;
+            }
+            
+            $id = $this->db('users')->insert($insertData)->execute();
             $success = $id > 0;
             $this->conn->commit();
             
