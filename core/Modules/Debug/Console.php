@@ -1,3 +1,6 @@
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
