@@ -399,12 +399,58 @@ class Anon_Debug
     public static function fatal($message, $context = []) { self::log('FATAL', $message, $context); }
 
     /**
+     * 检查 Debug 模式是否启用
+     * @return bool
+     */
+    public static function checkDebugEnabled()
+    {
+        return defined('ANON_DEBUG') && ANON_DEBUG === true && self::isEnabled();
+    }
+
+    /**
      * 检查debug权限
      * @return bool
      */
     public static function checkPermission()
     {
-        return defined('ANON_DEBUG') && ANON_DEBUG === true && self::isEnabled();
+        if (!self::checkDebugEnabled()) {
+            return false;
+        }
+
+        $userId = null;
+        
+        if (class_exists('Anon_Token') && Anon_Token::isEnabled()) {
+            try {
+                $token = Anon_Token::getTokenFromRequest();
+                if ($token) {
+                    $payload = Anon_Token::verify($token);
+                    if ($payload && isset($payload['data']['user_id'])) {
+                        $userId = (int)$payload['data']['user_id'];
+                        if (class_exists('Anon_Check')) {
+                            Anon_Check::startSessionIfNotStarted();
+                            $_SESSION['user_id'] = $userId;
+                            if (isset($payload['data']['username'])) {
+                                $_SESSION['username'] = $payload['data']['username'];
+                            }
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+            }
+        }
+        
+        if (!$userId && class_exists('Anon_Check') && Anon_Check::isLoggedIn()) {
+            if (class_exists('Anon_RequestHelper')) {
+                $userId = Anon_RequestHelper::getUserId();
+            }
+        }
+        
+        if (!$userId) {
+            return false;
+        }
+
+        $db = new Anon_Database();
+        return $db->isUserAdmin($userId);
     }
 
     /**
@@ -413,10 +459,7 @@ class Anon_Debug
     public static function return403()
     {
         Anon_Common::Header(403);
-        echo json_encode([
-            'code' => 403,
-            'message' => 'Debug mode is disabled or not allowed'
-        ]);
+        Anon_ResponseHelper::forbidden('需要管理员权限才能访问 Debug 控制台');
         exit;
     }
 
@@ -670,7 +713,7 @@ class Anon_Debug
      */
     public static function login()
     {
-        if (!self::checkPermission()) {
+        if (!self::checkDebugEnabled()) {
             Anon_Common::Header(403);
             Anon_ResponseHelper::forbidden('Debug 模式未启用');
         }

@@ -1,5 +1,11 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+if (Anon_Check::isLoggedIn()) {
+    header('Location: /anon/debug/console');
+    exit;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -29,6 +35,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
                     required 
                     :disabled="loading"
                     autocomplete="username"
+                    placeholder="请输入用户名"
                 />
             </div>
             
@@ -40,6 +47,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
                     required 
                     :disabled="loading"
                     autocomplete="current-password"
+                    placeholder="请输入密码"
                 />
             </div>
             
