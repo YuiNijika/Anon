@@ -274,38 +274,60 @@ Anon_Config::addRoute('/api/custom', function() {
 });
 ```
 
-## 静态文件服务
+## 静态文件路由
 
-系统支持直接从根路径访问 `public` 目录下的静态文件，无需在 URL 中包含 `/public` 前缀。
+系统提供了 `Anon_Config::addStaticRoute()` 方法来注册静态文件路由，支持自动缓存和压缩。
 
-### 启用方式
+### 使用方法
 
-在 `server/app/useApp.php` 中配置：
+在 `server/core/Modules/Config.php` 的 `initSystemRoutes()` 方法中注册：
 
 ```php
-'public' => [
-    'enabled' => true,  // 启用静态文件服务
-    'cache' => 31536000,  // 缓存时间（秒）
-    'compress' => true,  // 启用压缩
-    'types' => [
-        'css' => 'text/css',
-        'js' => 'application/javascript',
-        // ... 更多 MIME 类型
-    ],
-],
+// 注册静态文件路由
+$staticDir = __DIR__ . '/../Static/';
+
+Anon_Config::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css');
+Anon_Config::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript');
+Anon_Config::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
 ```
 
-### 访问方式
+### 方法签名
 
-- 文件位置：`server/public/favicon.ico`
-- 访问路径：`/favicon.ico`（直接访问，无需 `/public` 前缀）
+```php
+Anon_Config::addStaticRoute(
+    string $route,        // 路由路径
+    string $filePath,     // 文件完整路径
+    string $mimeType,     // MIME类型
+    int $cacheTime = 31536000,  // 缓存时间（秒），0表示不缓存，默认1年
+    bool $compress = true       // 是否启用压缩，默认true
+)
+```
 
 ### 功能特性
 
-- **自动 MIME 类型识别**：根据文件扩展名自动设置正确的 Content-Type
-- **缓存支持**：可配置缓存时间，减少服务器负载
-- **压缩支持**：自动压缩文本文件（CSS、JS、JSON 等），支持 gzip 和 deflate
-- **安全性**：防止路径遍历攻击，确保文件在 public 目录内
+- **自动文件检查**：自动检查文件是否存在且可读，不存在返回 404
+- **MIME 类型设置**：自动设置正确的 Content-Type 响应头
+- **缓存支持**：可配置缓存时间，默认 1 年（31536000 秒）
+- **压缩支持**：自动压缩文本文件（CSS、JS、JSON 等），支持 gzip
+- **性能优化**：使用 `readfile()` 直接输出文件，减少内存占用
+
+### 示例：自定义静态文件路由
+
+```php
+// 在 useCode.php 中注册自定义静态文件路由
+$customDir = __DIR__ . '/../assets/';
+
+Anon_Config::addStaticRoute('/assets/logo.png', $customDir . 'logo.png', 'image/png', 86400, false);
+Anon_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css', 'text/css', 31536000, true);
+```
+
+### 系统默认静态文件路由
+
+系统在 `Config.php` 中已注册以下静态文件路由：
+
+- `/anon/static/debug/css` → `server/core/Static/debug.css`
+- `/anon/static/debug/js` → `server/core/Static/debug.js`
+- `/anon/static/vue` → `server/core/Static/vue.global.prod.js`
 
 ---
 

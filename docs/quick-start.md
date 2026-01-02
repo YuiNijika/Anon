@@ -42,11 +42,6 @@ return [
         'captcha' => [
             'enabled' => true, // 是否启用验证码
         ],
-        'public' => [
-            'enabled' => true, // 是否启用静态文件服务
-            'cache' => 31536000, // 缓存时间（秒）
-            'compress' => true, // 是否启用压缩
-        ],
     ],
 ];
 ```

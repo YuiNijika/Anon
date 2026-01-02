@@ -40,25 +40,19 @@ return [
         'captcha' => [
             'enabled' => true,  // 是否启用验证码
         ],
-        'public' => [
-            'enabled' => true,  // 是否启用静态文件服务
-            'cache' => 31536000,  // 缓存时间（秒），0 表示不缓存，默认1年
-            'compress' => true,  // 是否启用压缩（gzip/deflate）
-            'types' => [
-                'css' => 'text/css',
-                'js' => 'application/javascript',
-                'json' => 'application/json',
-                'png' => 'image/png',
-                'jpg' => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'gif' => 'image/gif',
-                'svg' => 'image/svg+xml',
-                'ico' => 'image/x-icon',
-                'woff' => 'font/woff',
-                'woff2' => 'font/woff2',
-                'ttf' => 'font/ttf',
-                'eot' => 'application/vnd.ms-fontobject',
-            ],  // MIME 类型映射
+        'rateLimit' => [
+            'register' => [
+                'ip' => [
+                    'enabled' => true,        // 是否启用IP限制
+                    'maxAttempts' => 5,        // 每小时最大注册次数
+                    'windowSeconds' => 3600,   // 时间窗口（秒）
+                ],
+                'device' => [
+                    'enabled' => true,         // 是否启用设备指纹限制
+                    'maxAttempts' => 3,        // 每小时最大注册次数
+                    'windowSeconds' => 3600,   // 时间窗口（秒）
+                ],
+            ],
         ],
     ],
 ];
@@ -74,10 +68,12 @@ return [
 - `token.refresh`: 是否在验证后自动刷新Token生成新Token，新Token通过响应头`X-New-Token`返回
 - `token.whitelist`: Token验证白名单，这些路由不需要Token验证
 - `captcha.enabled`: 是否启用验证码功能
-- `public.enabled`: 是否启用静态文件服务，启用后可以通过根路径直接访问 `public` 目录下的文件
-- `public.cache`: 静态文件缓存时间（秒），默认31536000（1年），设为0表示不缓存
-- `public.compress`: 是否启用压缩，支持gzip和deflate，默认true
-- `public.types`: 自定义MIME类型映射，用于扩展文件类型支持
+- `rateLimit.register.ip.enabled`: 是否启用IP限制，防止同一IP频繁注册
+- `rateLimit.register.ip.maxAttempts`: IP限制的最大尝试次数，默认5次
+- `rateLimit.register.ip.windowSeconds`: IP限制的时间窗口（秒），默认3600（1小时）
+- `rateLimit.register.device.enabled`: 是否启用设备指纹限制，防止同一设备频繁注册
+- `rateLimit.register.device.maxAttempts`: 设备限制的最大尝试次数，默认3次
+- `rateLimit.register.device.windowSeconds`: 设备限制的时间窗口（秒），默认3600（1小时）
 
 ## SQL 安装配置 (useSQL.php)
 

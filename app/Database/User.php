@@ -176,6 +176,45 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
+     * 通过邮箱获取用户信息
+     * @param string $email 邮箱地址
+     * @return array|bool 返回用户信息数组或false
+     */
+    public function getUserInfoByEmail($email)
+    {
+        if (class_exists('Anon_Hook')) {
+            Anon_Hook::do_action('user_before_get_info_by_email', $email);
+        }
+        
+        $row = $this->db('users')
+            ->select(['uid', 'name', 'password', 'email', '`group`'])
+            ->where('email', '=', $email)
+            ->first();
+        
+        if (!$row) {
+            if (class_exists('Anon_Hook')) {
+                Anon_Hook::do_action('user_not_found_by_email', $email);
+            }
+            return false;
+        }
+        
+        $userInfo = [
+            'uid' => $row['uid'],
+            'name' => $row['name'],
+            'password' => $row['password'],
+            'email' => $row['email'],
+            'group' => $row['group']
+        ];
+        
+        if (class_exists('Anon_Hook')) {
+            $userInfo = Anon_Hook::apply_filters('user_info_by_email', $userInfo, $email);
+            Anon_Hook::do_action('user_after_get_info_by_email', $userInfo, $email);
+        }
+        
+        return $userInfo;
+    }
+
+    /**
      * 添加支持不同用户组的用户
      * @param string $name
      * @param string $email
@@ -320,6 +359,166 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->exists()
             ->where('email', '=', $email)
             ->scalar();
+    }
+
+    /**
+     * 记录用户登录
+     * @param int|null $uid 用户ID，登录失败时为null
+     * @param string|null $username 用户名
+     * @param bool $status 登录状态：true=成功，false=失败
+     * @param string|null $message 登录信息
+     * @return bool 记录成功返回true，否则返回false
+     */
+    public function logLogin($uid = null, $username = null, $status = true, $message = null)
+    {
+        try {
+            // 验证IP地址格式，无效IP设为默认值
+            $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                $ip = '0.0.0.0';
+            }
+            
+            // 获取并清理域名，优先使用HTTP_HOST，其次使用SERVER_NAME
+            $domain = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
+            if ($domain !== null) {
+                $domain = mb_substr(trim($domain), 0, 255, 'UTF-8');
+            }
+            
+            // 清理并限制User-Agent长度最大500字符
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+            if ($userAgent !== null) {
+                $userAgent = mb_substr(trim($userAgent), 0, 500, 'UTF-8');
+            }
+            
+            // 防止XSS清理用户名并限制长度最大255字符
+            if ($username !== null) {
+                $username = mb_substr(trim($username), 0, 255, 'UTF-8');
+            }
+            
+            // 防止XSS清理消息并限制长度最大255字符
+            if ($message !== null) {
+                $message = mb_substr(trim($message), 0, 255, 'UTF-8');
+            }
+            
+            $id = $this->db('login_logs')->insert([
+                'uid' => $uid,
+                'username' => $username,
+                'ip' => $ip,
+                'domain' => $domain,
+                'user_agent' => $userAgent,
+                'status' => $status ? 1 : 0,
+                'message' => $message,
+            ])->execute();
+            
+            return $id > 0;
+        } catch (Exception $e) {
+            // 记录失败不影响登录流程，仅记录错误日志
+            if (class_exists('Anon_Debug')) {
+                Anon_Debug::error("Failed to log login: " . $e->getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 清理数组中的null值
+     * @param array $data 原始数据
+     * @return array 清理后的数据
+     */
+    private function cleanNullInArray(array $data): array
+    {
+        $cleaned = [];
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                $cleaned[$key] = '';
+            } elseif (is_array($value)) {
+                $cleaned[$key] = $this->cleanNullInArray($value);
+            } else {
+                $cleaned[$key] = $value;
+            }
+        }
+        return $cleaned;
+    }
+
+    /**
+     * 获取用户登录记录
+     * @param int $uid 用户ID
+     * @param int $limit 限制数量（最大100）
+     * @param int $offset 偏移量
+     * @return array 登录记录数组
+     */
+    public function getLoginLogs($uid, $limit = 20, $offset = 0)
+    {
+        // 参数验证和限制，limit范围1-100，offset不能为负数
+        $uid = (int)$uid;
+        $limit = max(1, min(100, (int)$limit));
+        $offset = max(0, (int)$offset);
+        
+        $logs = $this->db('login_logs')
+            ->select(['id', 'uid', 'username', 'ip', 'domain', 'user_agent', 'status', 'message', 'created_at'])
+            ->where('uid', '=', $uid)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->offset($offset)
+            ->get();
+        
+        // 清理null值
+        return array_map([$this, 'cleanNullInArray'], $logs);
+    }
+
+    /**
+     * 获取IP登录记录
+     * @param string $ip IP地址
+     * @param int $limit 限制数量（最大100）
+     * @param int $offset 偏移量
+     * @return array 登录记录数组
+     */
+    public function getLoginLogsByIp($ip, $limit = 20, $offset = 0)
+    {
+        // 验证IP地址格式，无效IP返回空数组
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return [];
+        }
+        
+        // 参数验证和限制，limit范围1-100，offset不能为负数
+        $limit = max(1, min(100, (int)$limit));
+        $offset = max(0, (int)$offset);
+        
+        $logs = $this->db('login_logs')
+            ->select(['id', 'uid', 'username', 'ip', 'domain', 'user_agent', 'status', 'message', 'created_at'])
+            ->where('ip', '=', $ip)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->offset($offset)
+            ->get();
+        
+        // 清理null值
+        return array_map([$this, 'cleanNullInArray'], $logs);
+    }
+
+    /**
+     * 清理过期的登录记录
+     * @param int $days 保留天数，默认90天
+     * @return int 删除的记录数
+     */
+    public function cleanExpiredLoginLogs($days = 90)
+    {
+        try {
+            $days = max(1, (int)$days);
+            $date = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+            
+            $affected = $this->db('login_logs')
+                ->where('created_at', '<', $date)
+                ->delete();
+            
+            return $affected;
+        } catch (Exception $e) {
+            // 清理失败不影响主流程，仅记录错误日志
+            if (class_exists('Anon_Debug')) {
+                Anon_Debug::error("Failed to clean expired login logs: " . $e->getMessage());
+            }
+            return 0;
+        }
     }
 
     private function buildAvatar($email = null, $size = 640)

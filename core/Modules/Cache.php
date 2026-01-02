@@ -86,7 +86,7 @@ class Anon_FileCache implements Anon_CacheInterface
             throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
         }
         
-        // 使用更安全的哈希，虽然 MD5 对缓存键足够安全，但可以考虑使用 hash()
+        // 使用更安全的哈希，虽然MD5对缓存键足够安全，但可以考虑使用hash函数
         $hash = hash('sha256', $key);
         $subDir = substr($hash, 0, 2);
         $dir = $this->cacheDir . '/' . $subDir;

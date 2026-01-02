@@ -18,11 +18,11 @@ try {
     
     if (class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()) {
         if (empty($inputData['captcha'] ?? '')) {
-            Anon_ResponseHelper::error('验证码不能为空', null, 400);
+            Anon_ResponseHelper::error('验证码不能为空', [], 400);
         }
         
         if (!Anon_Captcha::verify($inputData['captcha'] ?? '')) {
-            Anon_ResponseHelper::error('验证码错误', null, 400);
+            Anon_ResponseHelper::error('验证码错误', [], 400);
         }
         
         Anon_Captcha::clear();
@@ -36,6 +36,8 @@ try {
     $user = $db->getUserInfoByName($username);
     
     if (!$user || !password_verify($password, $user['password'])) {
+        // 记录登录失败
+        $db->logLogin(null, $username, false, '用户名或密码错误');
         Anon_ResponseHelper::unauthorized('用户名或密码错误');
     }
     
@@ -50,16 +52,16 @@ try {
     
     $token = Anon_RequestHelper::generateUserToken($userId, $user['name'], $rememberMe);
     
+    // 记录登录成功
+    $db->logLogin($userId, $user['name'], true, '登录成功');
+    
     $userData = [
         'user_id' => $userId,
         'username' => $user['name'],
         'email' => $user['email'],
-        'logged_in' => true
+        'logged_in' => true,
+        'token' => $token ?? ''
     ];
-    
-    if ($token !== null) {
-        $userData['token'] = $token;
-    }
     
     Anon_ResponseHelper::success($userData, '登录成功');
     

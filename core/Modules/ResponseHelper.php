@@ -40,6 +40,30 @@ class Anon_ResponseHelper {
     }
     
     /**
+     * 清理数据中的null值，替换为合适的默认值
+     * @param mixed $data 原始数据
+     * @return mixed 清理后的数据
+     */
+    private static function cleanNullValues($data) {
+        if ($data === null) {
+            return [];
+        }
+        
+        if (is_array($data)) {
+            $cleaned = [];
+            foreach ($data as $key => $value) {
+                if ($value === null) {
+                    continue;
+                }
+                $cleaned[$key] = self::cleanNullValues($value);
+            }
+            return $cleaned;
+        }
+        
+        return $data;
+    }
+
+    /**
      * 发送成功响应
      * @param mixed $data 响应数据
      * @param string $message 响应消息
@@ -54,12 +78,9 @@ class Anon_ResponseHelper {
         
         $response = [
             'success' => true,
-            'message' => $message
+            'message' => $message,
+            'data' => self::cleanNullValues($data)
         ];
-        
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
         
         $response = Anon_Hook::apply_filters('response_success', $response);
         
@@ -87,12 +108,9 @@ class Anon_ResponseHelper {
         
         $response = [
             'success' => false,
-            'message' => $message
+            'message' => $message,
+            'data' => self::cleanNullValues($data)
         ];
-        
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
         
         $response = Anon_Hook::apply_filters('response_error', $response);
         
@@ -134,7 +152,7 @@ class Anon_ResponseHelper {
         if (!empty($allowedMethods)) {
             $message .= '，允许的方法：' . $allowedMethods;
         }
-        self::error($message, null, 405);
+        self::error($message, [], 405);
     }
     
     /**
@@ -143,7 +161,7 @@ class Anon_ResponseHelper {
      * @param array $errors 可选的具体验证错误
      */
     public static function validationError($message = '参数验证失败', $errors = null) {
-        self::error($message, $errors, 422);
+        self::error($message, $errors ?? [], 422);
     }
     
     /**
@@ -151,7 +169,7 @@ class Anon_ResponseHelper {
      * @param string $message 未授权消息
      */
     public static function unauthorized($message = '未授权访问') {
-        self::error($message, null, 401);
+        self::error($message, [], 401);
     }
     
     /**
@@ -159,7 +177,7 @@ class Anon_ResponseHelper {
      * @param string $message 禁止访问消息
      */
     public static function forbidden($message = '禁止访问') {
-        self::error($message, null, 403);
+        self::error($message, [], 403);
     }
     
     /**
@@ -167,7 +185,7 @@ class Anon_ResponseHelper {
      * @param string $message 未找到消息
      */
     public static function notFound($message = '资源未找到') {
-        self::error($message, null, 404);
+        self::error($message, [], 404);
     }
     
     /**
@@ -185,7 +203,7 @@ class Anon_ResponseHelper {
         
         // 生产环境不返回具体错误信息
         $isDevelopment = defined('ANON_DEBUG') && ANON_DEBUG;
-        $responseData = $isDevelopment ? $data : null;
+        $responseData = $isDevelopment ? $data : [];
         
         self::error($message, $responseData, 500);
     }
@@ -216,7 +234,7 @@ class Anon_ResponseHelper {
             'file' => $exception->getFile(),
             'line' => $exception->getLine(),
             'trace' => $exception->getTraceAsString()
-        ] : null;
+        ] : [];
         
         self::error($message, $data, $httpCode);
     }

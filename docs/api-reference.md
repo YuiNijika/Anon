@@ -17,6 +17,7 @@
 - [中间件](#中间件)
 - [调试工具](#调试工具)
 - [控制台工具](#控制台工具)
+- [防刷限制](#防刷限制)
 - [工具类](#工具类)
 - [配置管理](#配置管理)
 - [通用功能](#通用功能)
@@ -590,6 +591,80 @@ $commands = Anon_Console::getCommands();
 
 ---
 
+## 防刷限制
+
+### Anon_RateLimit
+
+#### 获取客户端信息
+
+```php
+// 获取客户端IP
+$ip = Anon_RateLimit::getClientIp();
+// 返回：string，如 '127.0.0.1'
+
+// 生成设备指纹
+$fingerprint = Anon_RateLimit::generateDeviceFingerprint();
+// 返回：string，基于User-Agent、Accept-Language、Accept-Encoding和IP生成的SHA256哈希
+```
+
+#### 检查限制
+
+```php
+// 检查是否超过限制（通用方法）
+$result = Anon_RateLimit::checkLimit($key, $maxAttempts, $windowSeconds);
+// $key: 限制键，如 'register_ip:xxx'
+// $maxAttempts: 最大尝试次数
+// $windowSeconds: 时间窗口（秒）
+// 返回：['allowed' => bool, 'remaining' => int, 'resetAt' => int, 'count' => int]
+
+// 检查注册限制（IP + 设备指纹）
+$config = Anon_Env::get('app.rateLimit.register', []);
+$result = Anon_RateLimit::checkRegisterLimit($config);
+// 返回：['allowed' => bool, 'message' => string, 'remaining' => int, 'resetAt' => int, 'type' => string]
+// allowed: 是否允许
+// message: 提示信息
+// remaining: 剩余次数
+// resetAt: 重置时间戳
+// type: 限制类型（'ip'、'device'、'success'）
+```
+
+#### 清除限制
+
+```php
+// 清除指定限制记录
+Anon_RateLimit::clearLimit('register_ip:xxx');
+
+// 清除IP限制
+Anon_RateLimit::clearIpLimit();           // 清除当前IP的限制
+Anon_RateLimit::clearIpLimit('1.2.3.4');  // 清除指定IP的限制
+
+// 清除设备指纹限制
+Anon_RateLimit::clearDeviceLimit();                    // 清除当前设备的限制
+Anon_RateLimit::clearDeviceLimit($fingerprint);        // 清除指定设备的限制
+```
+
+#### 使用示例
+
+```php
+// 在注册接口中使用
+$rateLimitConfig = Anon_Env::get('app.rateLimit.register', []);
+$rateLimitResult = Anon_RateLimit::checkRegisterLimit($rateLimitConfig);
+
+if (!$rateLimitResult['allowed']) {
+    Anon_ResponseHelper::error($rateLimitResult['message'], [
+        'remaining' => $rateLimitResult['remaining'],
+        'resetAt' => $rateLimitResult['resetAt'],
+        'type' => $rateLimitResult['type']
+    ], 429);
+}
+
+// 注册成功后可选清除限制
+// Anon_RateLimit::clearIpLimit();
+// Anon_RateLimit::clearDeviceLimit();
+```
+
+---
+
 ## 工具类
 
 ### Anon_Helper
@@ -636,6 +711,15 @@ $merged = Anon_Helper::merge($array1, $array2);
 Anon_Config::addRoute('/api/custom', function() {
     Anon_ResponseHelper::success(['message' => '自定义路由']);
 });
+
+// 添加静态文件路由
+Anon_Config::addStaticRoute(
+    '/anon/static/debug/css',  // 路由路径
+    __DIR__ . '/../Static/debug.css',  // 文件完整路径
+    'text/css',  // MIME类型
+    31536000,  // 缓存时间（秒），0表示不缓存，默认1年
+    true  // 是否启用压缩，默认true
+);
 
 // 添加错误处理器
 Anon_Config::addErrorHandler(404, function() {

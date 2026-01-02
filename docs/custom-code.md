@@ -20,6 +20,15 @@ Anon_Config::addRoute('/api/custom', function() {
     Anon_ResponseHelper::success(['message' => '自定义路由']);
 });
 
+// 注册静态文件路由
+Anon_Config::addStaticRoute(
+    '/assets/logo.png',
+    __DIR__ . '/../assets/logo.png',
+    'image/png',
+    86400,  // 缓存1天
+    false   // 不压缩图片
+);
+
 // 注册错误处理器
 Anon_Config::addErrorHandler(404, function() {
     Anon_ResponseHelper::notFound('页面不存在');

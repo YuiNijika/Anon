@@ -39,6 +39,50 @@ class Anon_Config
     }
 
     /**
+     * 注册静态文件路由
+     * @param string $route 路由路径
+     * @param string $filePath 文件完整路径
+     * @param string $mimeType MIME类型
+     * @param int $cacheTime 缓存时间（秒），0表示不缓存
+     * @param bool $compress 是否启用压缩
+     */
+    public static function addStaticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true)
+    {
+        self::addRoute($route, function() use ($filePath, $mimeType, $cacheTime, $compress) {
+            if (!is_file($filePath) || !is_readable($filePath)) {
+                http_response_code(404);
+                exit;
+            }
+            
+            header('Content-Type: ' . $mimeType);
+            header('Content-Length: ' . filesize($filePath));
+            
+            if ($cacheTime > 0) {
+                header('Cache-Control: public, max-age=' . $cacheTime);
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+            }
+            
+            if ($compress && extension_loaded('zlib')) {
+                $compressibleTypes = ['text/html', 'text/css', 'text/javascript', 'application/javascript', 'application/json', 'text/xml', 'application/xml'];
+                if (in_array($mimeType, $compressibleTypes)) {
+                    $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
+                    $fileContent = file_get_contents($filePath);
+                    if ($fileContent !== false && strpos($acceptEncoding, 'gzip') !== false) {
+                        $compressed = gzencode($fileContent);
+                        header('Content-Encoding: gzip');
+                        header('Content-Length: ' . strlen($compressed));
+                        echo $compressed;
+                        exit;
+                    }
+                }
+            }
+            
+            readfile($filePath);
+            exit;
+        });
+    }
+
+    /**
      * 获取路由配置
      * @return array 路由配置数组
      */
@@ -76,7 +120,8 @@ class Anon_Config
         });
         self::addRoute('/anon/common/client-ip', function() {
             Anon_Common::Header();
-            Anon_ResponseHelper::success(Anon_Common::GetClientIp(), '获取客户端IP成功');
+            $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
+            Anon_ResponseHelper::success(['ip' => $ip], '获取客户端IP成功');
         });
         self::addRoute('/anon/common/config', function() {
             Anon_Common::Header();
@@ -90,6 +135,13 @@ class Anon_Config
             Anon_Common::Header();
             Anon_ResponseHelper::success(Anon_Common::Ciallo(), '恰喽~');
         });
+
+        // 注册静态文件路由
+        $staticDir = __DIR__ . '/../Static/';
+        
+        self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css');
+        self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript');
+        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
 
         // 注册Install路由
         self::addRoute('/anon/install', [Anon_Install::class, 'index']);
@@ -111,7 +163,7 @@ class Anon_Config
         
         // 调试输出已注册的路由
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log("Registered routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
+            error_log("Registered system routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
     }
 

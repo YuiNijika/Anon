@@ -62,6 +62,7 @@ class Anon_Main
         require_once self::MODULES_DIR . 'RequestHelper.php';
         require_once self::MODULES_DIR . 'Token.php';
         require_once self::MODULES_DIR . 'Captcha.php';
+        require_once self::MODULES_DIR . 'RateLimit.php';
         require_once self::MODULES_DIR . 'Debug.php';
         require_once self::MODULES_DIR . 'Hook.php';
         require_once self::MODULES_DIR . 'Helper.php';

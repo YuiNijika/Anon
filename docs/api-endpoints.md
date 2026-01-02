@@ -27,6 +27,7 @@
 ## 认证端点
 
 - `POST /auth/login` - 用户登录
+- `POST /auth/register` - 用户注册（支持防刷限制）
 - `POST /auth/logout` - 用户注销
 - `GET /auth/check-login` - 检查登录状态
 - `GET /auth/token` - 获取Token
@@ -38,8 +39,11 @@
 
 ## 静态文件
 
-- `GET /favicon.ico` - 网站图标（需放在public目录）
-- `GET /{filename}` - 其他静态文件（需放在public目录）
+- `GET /anon/static/debug/css` - 调试控制台样式文件
+- `GET /anon/static/debug/js` - 调试控制台脚本文件
+- `GET /anon/static/vue` - Vue.js 生产版本
+
+**说明：** 静态文件路由通过 `Anon_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
 
 ---
 

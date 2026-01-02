@@ -119,7 +119,7 @@ class Anon_Token
             }
         }
 
-        // 兼容环境 getallheaders() 不可用时从 $_SERVER 获取
+        // 兼容环境getallheaders不可用时从$_SERVER获取
         if (isset($_SERVER['HTTP_X_API_TOKEN'])) {
             return trim($_SERVER['HTTP_X_API_TOKEN']);
         }
