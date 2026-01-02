@@ -103,7 +103,9 @@ class Anon_Captcha
      */
     public static function verify(string $inputCode, bool $caseSensitive = false): bool
     {
-        Anon_Check::startSessionIfNotStarted();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         
         if (!isset($_SESSION['captcha_code'])) {
             return false;
@@ -125,7 +127,9 @@ class Anon_Captcha
      */
     public static function saveToSession(string $code): void
     {
-        Anon_Check::startSessionIfNotStarted();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         $_SESSION['captcha_code'] = $code;
         $_SESSION['captcha_time'] = time();
     }
@@ -135,7 +139,9 @@ class Anon_Captcha
      */
     public static function clear(): void
     {
-        Anon_Check::startSessionIfNotStarted();
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
         unset($_SESSION['captcha_code']);
         unset($_SESSION['captcha_time']);
     }

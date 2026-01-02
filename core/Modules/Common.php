@@ -312,49 +312,19 @@ class Anon_Check
     {
         Anon_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
         
-        $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
-                        parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
-        
         $isHttps = defined('ANON_SITE_HTTPS') && ANON_SITE_HTTPS;
-        
-        if ($isCrossOrigin && $isHttps) {
-            $sameSite = 'None';
-            $secure = true;
-        } else {
-            $sameSite = 'Lax';
-            $secure = $isHttps;
-        }
         
         $cookieOptions = [
             'path'     => '/',
             'httponly' => true,
-            'secure'   => $secure,
-            'samesite' => $sameSite
+            'secure'   => $isHttps,
+            'samesite' => 'Lax'
         ];
 
         if ($rememberMe) {
             $cookieOptions['expires'] = time() + (86400 * 30);
         } else {
             $cookieOptions['expires'] = 0;
-        }
-
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        if (!empty($host)) {
-            $hostParts = explode(':', $host);
-            $hostName = $hostParts[0];
-            
-            if (preg_match('/^[\d.]+$/', $hostName)) {
-                $cookieOptions['domain'] = $hostName;
-            } elseif (preg_match('/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/', $hostName)) {
-                $domainParts = explode('.', $hostName);
-                if (count($domainParts) >= 2) {
-                    $cookieOptions['domain'] = '.' . implode('.', array_slice($domainParts, -2));
-                } else {
-                    $cookieOptions['domain'] = $hostName;
-                }
-            } else {
-                $cookieOptions['domain'] = $hostName;
-            }
         }
 
         $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
@@ -370,21 +340,6 @@ class Anon_Check
      */
     public static function clearAuthCookies(): void
     {
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        $domain = null;
-        
-        if (!empty($host)) {
-            $hostParts = explode(':', $host);
-            $hostName = $hostParts[0];
-            
-            if (preg_match('/^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/', $hostName)) {
-                $domainParts = explode('.', $hostName);
-                if (count($domainParts) >= 2) {
-                    $domain = '.' . implode('.', array_slice($domainParts, -2));
-                }
-            }
-        }
-        
         $cookieOptions = [
             'expires'  => time() - 3600,
             'path'     => '/',
@@ -392,10 +347,6 @@ class Anon_Check
             'secure'   => defined('ANON_SITE_HTTPS') ? ANON_SITE_HTTPS : false,
             'samesite' => 'Lax'
         ];
-        
-        if ($domain) {
-            $cookieOptions['domain'] = $domain;
-        }
 
         setcookie('user_id', '', $cookieOptions);
         setcookie('username', '', $cookieOptions);
@@ -433,25 +384,12 @@ class Anon_Check
     public static function startSessionIfNotStarted(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
-            // 检测是否为跨域请求
-            $isCrossOrigin = !empty($_SERVER['HTTP_ORIGIN']) && 
-                             parse_url($_SERVER['HTTP_ORIGIN'], PHP_URL_HOST) !== ($_SERVER['HTTP_HOST'] ?? '');
-            
             $isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-            
-            // 跨域且 HTTPS 时使用 None，否则使用 Lax
-            if ($isCrossOrigin && $isHttps) {
-                $sameSite = 'None';
-                $secure = true;
-            } else {
-                $sameSite = 'Lax';
-                $secure = $isHttps;
-            }
             
             session_start([
                 'cookie_httponly' => true,
-                'cookie_secure'   => $secure,
-                'cookie_samesite' => $sameSite
+                'cookie_secure'   => $isHttps,
+                'cookie_samesite' => 'Lax'
             ]);
         }
     }

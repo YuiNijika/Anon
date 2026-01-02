@@ -17,6 +17,10 @@ try {
     $inputData = Anon_RequestHelper::getInput();
     
     if (class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()) {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
         if (empty($inputData['captcha'] ?? '')) {
             Anon_ResponseHelper::error('验证码不能为空', [], 400);
         }
@@ -27,6 +31,8 @@ try {
         
         Anon_Captcha::clear();
     }
+    
+    Anon_Check::startSessionIfNotStarted();
     
     $username = $data['username'];
     $password = $data['password'];
@@ -41,7 +47,6 @@ try {
         Anon_ResponseHelper::unauthorized('用户名或密码错误');
     }
     
-    Anon_Check::startSessionIfNotStarted();
     session_regenerate_id(true);
     
     $userId = (int)$user['uid'];
