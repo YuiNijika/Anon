@@ -1,5 +1,19 @@
 {
 	"dependencies": {
+		"scss": "^0.2.4",
+		"typescript": "^5.9.3",
 		"vue": "^3.5.26"
+	},
+	"devDependencies": {
+		"esbuild": "^0.19.12",
+		"sass": "^1.97.1"
+	},
+	"scripts": {
+		"build:debug": "pnpm run build:debug:css && pnpm run build:debug:js",
+		"build:debug:css": "sass tools/scss/debug.scss core/Static/debug.css --style compressed --no-source-map",
+		"build:debug:js": "esbuild tools/typescript/debug.ts --bundle --format=iife --outfile=core/Static/debug.js --minify",
+		"watch:debug": "pnpm run watch:debug:css",
+		"watch:debug:css": "sass --watch tools/scss/debug.scss:core/Static/debug.css --no-source-map",
+		"watch:debug:js": "esbuild tools/typescript/debug.ts --bundle --format=iife --global-name=DebugModules --outfile=core/Static/debug.js --watch"
 	}
 }
