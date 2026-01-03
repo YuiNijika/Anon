@@ -60,6 +60,10 @@ class Anon_Config
             if ($cacheTime > 0) {
                 header('Cache-Control: public, max-age=' . $cacheTime);
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+            } else {
+                header('Cache-Control: no-cache, no-store, must-revalidate');
+                header('Pragma: no-cache');
+                header('Expires: 0');
             }
             
             if ($compress && extension_loaded('zlib')) {
@@ -140,8 +144,13 @@ class Anon_Config
         // 注册静态文件路由
         $staticDir = __DIR__ . '/../Static/';
         
-        self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css');
-        self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript');
+        // 获取 debug 缓存配置
+        $debugCacheEnabled = Anon_Env::get('app.debug.cache.enabled', false);
+        $debugCacheTime = Anon_Env::get('app.debug.cache.time', 0);
+        $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
+        
+        self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime);
+        self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime);
         self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
 
         // 注册Install路由

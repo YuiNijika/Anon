@@ -834,6 +834,9 @@ class Anon_Debug
             Anon_ResponseHelper::forbidden('Debug 模式未启用');
         }
         
+        // 设置缓存控制头
+        self::setCacheHeaders();
+        
         $debugFile = __FILE__;
         $debugDir = dirname($debugFile);
         $viewPath = $debugDir . DIRECTORY_SEPARATOR . 'Debug' . DIRECTORY_SEPARATOR . 'Login.php';
@@ -871,6 +874,9 @@ class Anon_Debug
             exit;
         }
 
+        // 设置缓存控制头
+        self::setCacheHeaders();
+
         $debugFile = __FILE__;
         $debugDir = dirname($debugFile);
         $viewPath = $debugDir . DIRECTORY_SEPARATOR . 'Debug' . DIRECTORY_SEPARATOR . 'Console.php';
@@ -882,5 +888,23 @@ class Anon_Debug
             Anon_ResponseHelper::error('控制台页面文件不存在: ' . $viewPath);
         }
         exit;
+    }
+
+    /**
+     * 设置缓存控制头
+     */
+    private static function setCacheHeaders()
+    {
+        $cacheEnabled = Anon_Env::get('app.debug.cache.enabled', false);
+        $cacheTime = Anon_Env::get('app.debug.cache.time', 0);
+        
+        if ($cacheEnabled && $cacheTime > 0) {
+            header('Cache-Control: public, max-age=' . $cacheTime);
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+        } else {
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+        }
     }
 }

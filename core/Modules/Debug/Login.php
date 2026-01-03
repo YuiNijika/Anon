@@ -12,7 +12,7 @@ if (Anon_Check::isLoggedIn()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anon Debug Console</title>
+    <title>Anon Debug Login</title>
     <link rel="stylesheet" href="/anon/static/debug/css">
     <script src="/anon/static/vue"></script>
 </head>
