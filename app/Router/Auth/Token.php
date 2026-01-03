@@ -5,6 +5,10 @@ const Anon_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => 'GET',
+    'cache' => [
+        'enabled' => false,
+        'time' => 0, 
+    ],
 ];
 
 try {
