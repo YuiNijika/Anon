@@ -63,6 +63,21 @@ class Anon_QueryBuilder
     private $bindings = [];
 
     /**
+     * @var bool 是否启用查询缓存
+     */
+    private $cacheEnabled = false;
+
+    /**
+     * @var int|null 查询缓存时间（秒）
+     */
+    private $cacheTtl = null;
+
+    /**
+     * @var string|null 查询缓存键
+     */
+    private $cacheKey = null;
+
+    /**
      * @param Anon_Database_Connection|mysqli $connection 数据库连接
      * @param string $table 表名
      */
@@ -469,6 +484,16 @@ class Anon_QueryBuilder
      */
     public function get(): array
     {
+        // 检查查询缓存
+        if ($this->cacheEnabled) {
+            $cacheKey = $this->getCacheKey();
+            $cached = Anon_Cache::get($cacheKey);
+            if ($cached !== null) {
+                return $cached;
+            }
+        }
+
+        $startTime = microtime(true);
         $sql = $this->toSql();
         
         // 如果连接有 prepare 方法，使用预处理语句
@@ -481,18 +506,104 @@ class Anon_QueryBuilder
                 while ($row = $result->fetch_assoc()) {
                     $rows[] = $row;
                 }
-                $result->free(); // 释放结果集
-                $stmt->close(); // 关闭语句
+                $result->free();
+                $stmt->close();
+                
+                $duration = (microtime(true) - $startTime) * 1000;
+                
+                // 记录查询性能
+                if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                    Anon_Debug::query($sql, $this->bindings, $duration);
+                    
+                    // 慢查询检测和索引建议
+                    if ($duration > 100) { // 超过 100ms 视为慢查询
+                        self::analyzeSlowQuery($sql, $this->table, $duration);
+                    }
+                }
+                
+                // 保存到缓存
+                if ($this->cacheEnabled) {
+                    $cacheKey = $this->getCacheKey();
+                    Anon_Cache::set($cacheKey, $rows, $this->cacheTtl);
+                }
+                
                 return $rows;
             }
         }
         
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
-            return $this->connection->query($sql);
+            $result = $this->connection->query($sql);
+            $duration = (microtime(true) - $startTime) * 1000;
+            
+            // 记录查询性能
+            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                Anon_Debug::query($sql, $this->bindings, $duration);
+                
+                // 慢查询检测
+                if ($duration > 100) {
+                    self::analyzeSlowQuery($sql, $this->table, $duration);
+                }
+            }
+            
+            // 保存到缓存
+            if ($this->cacheEnabled && is_array($result)) {
+                $cacheKey = $this->getCacheKey();
+                Anon_Cache::set($cacheKey, $result, $this->cacheTtl);
+            }
+            
+            return $result;
         }
         
         throw new RuntimeException("不支持的数据库连接类型");
+    }
+
+    /**
+     * 分析慢查询并建议索引
+     * @param string $sql SQL 语句
+     * @param string $table 表名
+     * @param float $duration 查询耗时（毫秒）
+     */
+    private static function analyzeSlowQuery(string $sql, string $table, float $duration): void
+    {
+        // 提取 WHERE 条件中的字段
+        $suggestedIndexes = [];
+        
+        // 检测 WHERE 条件中的字段
+        if (preg_match('/WHERE\s+([^ORDER|GROUP|LIMIT]+)/i', $sql, $matches)) {
+            $whereClause = $matches[1];
+            
+            // 提取字段名
+            if (preg_match_all('/(\w+)\s*[=<>!]+/i', $whereClause, $fieldMatches)) {
+                foreach ($fieldMatches[1] as $field) {
+                    $field = trim($field);
+                    if (!in_array($field, ['AND', 'OR', 'IN', 'NOT', 'NULL', 'IS'])) {
+                        $suggestedIndexes[] = $field;
+                    }
+                }
+            }
+        }
+        
+        // 检测 ORDER BY 中的字段
+        if (preg_match('/ORDER\s+BY\s+(\w+)/i', $sql, $matches)) {
+            $orderField = trim($matches[1]);
+            if (!in_array($orderField, $suggestedIndexes)) {
+                $suggestedIndexes[] = $orderField;
+            }
+        }
+        
+        if (!empty($suggestedIndexes)) {
+            $indexSuggestion = "CREATE INDEX idx_" . implode('_', $suggestedIndexes) . " ON {$table} (" . implode(', ', $suggestedIndexes) . ")";
+            
+            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                Anon_Debug::warn("慢查询检测", [
+                    'sql' => substr($sql, 0, 200),
+                    'duration' => round($duration, 2) . 'ms',
+                    'table' => $table,
+                    'suggested_index' => $indexSuggestion
+                ]);
+            }
+        }
     }
 
     /**
@@ -591,7 +702,7 @@ class Anon_QueryBuilder
     }
 
     /**
-     * 批量插入
+     * 批量插入（内部方法）
      * @param array $data 数据数组
      * @return int|false 插入的行数或false
      */
@@ -750,6 +861,219 @@ class Anon_QueryBuilder
         }
         
         throw new RuntimeException("无法获取 mysqli 连接对象");
+    }
+
+    /**
+     * 游标分页 - 使用主键游标
+     * @param int $limit 每页数量
+     * @param int|string|null $cursor 游标值（主键ID）
+     * @param string $cursorColumn 游标字段名，默认为 id
+     * @return array 包含 data 和 next_cursor
+     */
+    public function cursorPaginate(int $limit = 20, $cursor = null, string $cursorColumn = 'id'): array
+    {
+        // 验证游标字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $cursorColumn)) {
+            throw new InvalidArgumentException("无效的游标字段名: {$cursorColumn}");
+        }
+
+        // 如果有游标，添加 WHERE 条件
+        if ($cursor !== null) {
+            $this->where($cursorColumn, '>', $cursor);
+        }
+
+        // 确保按游标字段排序
+        $hasOrder = false;
+        foreach ($this->orders as $order) {
+            if ($order['column'] === $cursorColumn) {
+                $hasOrder = true;
+                break;
+            }
+        }
+        if (!$hasOrder) {
+            $this->orderBy($cursorColumn, 'ASC');
+        }
+
+        // 查询 limit + 1 条，用于判断是否有下一页
+        $this->limit($limit + 1);
+        $results = $this->get();
+
+        // 判断是否有下一页
+        $hasNext = count($results) > $limit;
+        if ($hasNext) {
+            array_pop($results); // 移除多余的一条
+        }
+
+        // 获取下一页游标
+        $nextCursor = null;
+        if ($hasNext && !empty($results)) {
+            $lastItem = end($results);
+            $nextCursor = $lastItem[$cursorColumn] ?? null;
+        }
+
+        return [
+            'data' => $results,
+            'next_cursor' => $nextCursor,
+            'has_next' => $hasNext
+        ];
+    }
+
+    /**
+     * 游标分页 - 使用时间戳游标
+     * @param int $limit 每页数量
+     * @param int|string|null $cursor 游标值（时间戳）
+     * @param string $cursorColumn 游标字段名，默认为 created_at
+     * @return array 包含 data 和 next_cursor
+     */
+    public function cursorPaginateByTime(int $limit = 20, $cursor = null, string $cursorColumn = 'created_at'): array
+    {
+        // 验证游标字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $cursorColumn)) {
+            throw new InvalidArgumentException("无效的游标字段名: {$cursorColumn}");
+        }
+
+        // 如果有游标，添加 WHERE 条件
+        if ($cursor !== null) {
+            $this->where($cursorColumn, '<', $cursor);
+        }
+
+        // 确保按时间戳降序排序
+        $hasOrder = false;
+        foreach ($this->orders as $order) {
+            if ($order['column'] === $cursorColumn) {
+                $hasOrder = true;
+                break;
+            }
+        }
+        if (!$hasOrder) {
+            $this->orderBy($cursorColumn, 'DESC');
+        }
+
+        // 查询 limit + 1 条，用于判断是否有上一页
+        $this->limit($limit + 1);
+        $results = $this->get();
+
+        // 判断是否有上一页
+        $hasPrev = count($results) > $limit;
+        if ($hasPrev) {
+            array_pop($results); // 移除多余的一条
+        }
+
+        // 获取上一页游标
+        $prevCursor = null;
+        if ($hasPrev && !empty($results)) {
+            $lastItem = end($results);
+            $prevCursor = $lastItem[$cursorColumn] ?? null;
+        }
+
+        return [
+            'data' => $results,
+            'prev_cursor' => $prevCursor,
+            'has_prev' => $hasPrev
+        ];
+    }
+
+    /**
+     * 启用查询缓存
+     * @param int|null $ttl 缓存时间（秒），null 表示使用默认值
+     * @param string|null $key 自定义缓存键，null 表示自动生成
+     * @return $this
+     */
+    public function cache(?int $ttl = null, ?string $key = null)
+    {
+        $this->cacheEnabled = true;
+        $this->cacheTtl = $ttl ?? 3600; // 默认 1 小时
+        $this->cacheKey = $key;
+        return $this;
+    }
+
+    /**
+     * 批量插入数据
+     * @param array $data 数据数组，支持单次插入 1000+ 条
+     * @param int $batchSize 批次大小，默认 1000
+     * @return int 成功插入的总行数
+     */
+    public function batchInsert(array $data, int $batchSize = 1000): int
+    {
+        if (empty($data)) {
+            return 0;
+        }
+
+        $totalInserted = 0;
+        $batches = array_chunk($data, $batchSize);
+
+        foreach ($batches as $batch) {
+            $result = $this->insertBatch($batch);
+            if ($result !== false) {
+                $totalInserted += $result;
+            }
+        }
+
+        return $totalInserted;
+    }
+
+    /**
+     * 批量更新数据
+     * @param array $data 数据数组，格式：[['id' => 1, 'name' => 'xxx'], ...]
+     * @param string $keyColumn 主键字段名，默认为 id
+     * @param int $batchSize 批次大小，默认 1000
+     * @return int 成功更新的总行数
+     */
+    public function batchUpdate(array $data, string $keyColumn = 'id', int $batchSize = 1000): int
+    {
+        if (empty($data)) {
+            return 0;
+        }
+
+        // 验证主键字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $keyColumn)) {
+            throw new InvalidArgumentException("无效的主键字段名: {$keyColumn}");
+        }
+
+        $totalUpdated = 0;
+        $batches = array_chunk($data, $batchSize);
+
+        foreach ($batches as $batch) {
+            $updated = 0;
+            foreach ($batch as $row) {
+                if (!isset($row[$keyColumn])) {
+                    continue;
+                }
+
+                $keyValue = $row[$keyColumn];
+                unset($row[$keyColumn]);
+
+                if (empty($row)) {
+                    continue;
+                }
+
+                // 创建新的查询构建器实例
+                $query = new self($this->connection, $this->table);
+                $result = $query->where($keyColumn, '=', $keyValue)->update($row);
+                if ($result !== false) {
+                    $updated += $result;
+                }
+            }
+            $totalUpdated += $updated;
+        }
+
+        return $totalUpdated;
+    }
+
+    /**
+     * 获取查询缓存键
+     * @return string
+     */
+    private function getCacheKey(): string
+    {
+        if ($this->cacheKey !== null) {
+            return $this->cacheKey;
+        }
+
+        // 基于 SQL 和参数生成缓存键
+        $sql = $this->toSql();
+        $key = 'query:' . md5($sql . serialize($this->bindings));
+        return $key;
     }
 }
 

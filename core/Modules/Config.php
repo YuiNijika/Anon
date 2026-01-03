@@ -127,7 +127,8 @@ class Anon_Config
             Anon_Common::Header();
             $config = [
                 'token' => Anon_Token::isEnabled(),
-                'captcha' => Anon_Captcha::isEnabled()
+                'captcha' => Anon_Captcha::isEnabled(),
+                'csrfToken' => class_exists('Anon_Csrf') ? Anon_Csrf::generateToken() : null
             ];
             Anon_ResponseHelper::success($config, '获取配置信息成功');
         });

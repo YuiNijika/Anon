@@ -332,13 +332,70 @@ class Anon_Debug
         }
 
         $logFile = $logDir . '/debug_' . date('Y-m-d') . '.log';
+        
+        // 格式化时间戳，包含毫秒
+        $timestamp = $logData['timestamp'];
+        $dateTime = date('Y-m-d H:i:s', (int)$timestamp);
+        $microseconds = sprintf('%03d', (int)(($timestamp - (int)$timestamp) * 1000));
+        $formattedTime = "{$dateTime}.{$microseconds}";
+        
+        // 格式化日志级别，添加图标
+        $levelIcons = [
+            'DEBUG' => '🔍',
+            'INFO' => 'ℹ️',
+            'WARN' => '⚠️',
+            'ERROR' => '❌',
+            'FATAL' => '💀'
+        ];
+        $levelIcon = $levelIcons[$logData['level']] ?? '•';
+        $formattedLevel = "{$levelIcon} {$logData['level']}";
+        
+        // 格式化请求ID
+        $requestId = $logData['request_id'] ?? 'unknown';
+        $shortRequestId = substr($requestId, 0, 20);
+        
+        // 格式化内存信息
+        $memory = self::formatBytes($logData['memory'] ?? 0);
+        $peakMemory = self::formatBytes($logData['peak_memory'] ?? 0);
+        
+        // 格式化上下文数据
+        $contextStr = '';
+        if (!empty($logData['context'])) {
+            // 移除冗余的 request_id，因为已经在日志行中显示
+            $context = $logData['context'];
+            unset($context['request_id']);
+            
+            // 格式化上下文为更易读的格式
+            if (!empty($context)) {
+                $contextParts = [];
+                foreach ($context as $key => $value) {
+                    if (is_array($value)) {
+                        // 对于数组，使用 JSON 但限制长度
+                        $jsonStr = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        if (strlen($jsonStr) > 200) {
+                            $jsonStr = substr($jsonStr, 0, 200) . '...';
+                        }
+                        $contextParts[] = "{$key}={$jsonStr}";
+                    } elseif (is_object($value)) {
+                        $contextParts[] = "{$key}=" . get_class($value);
+                    } else {
+                        $contextParts[] = "{$key}={$value}";
+                    }
+                }
+                $contextStr = ' | ' . implode(' | ', $contextParts);
+            }
+        }
+        
+        // 构建日志行
         $logLine = sprintf(
-            "[%s] %s.%s: %s %s\n",
-            date('Y-m-d H:i:s', (int)$logData['timestamp']),
-            $logData['level'],
-            $logData['request_id'],
+            "[%s] %-12s [%s] %s | mem:%s peak:%s%s\n",
+            $formattedTime,
+            $formattedLevel,
+            $shortRequestId,
             $logData['message'],
-            !empty($logData['context']) ? json_encode($logData['context'], JSON_UNESCAPED_UNICODE) : ''
+            $memory,
+            $peakMemory,
+            $contextStr
         );
 
         file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);

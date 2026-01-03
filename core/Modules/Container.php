@@ -28,6 +28,11 @@ class Anon_Container
     private $aliases = [];
 
     /**
+     * @var array 反射类缓存
+     */
+    private static $reflectionCache = [];
+
+    /**
      * 获取容器单例
      * @return Anon_Container
      */
@@ -147,8 +152,11 @@ class Anon_Container
             throw new RuntimeException("类不存在: {$concrete}");
         }
 
-        // 获取反射类
-        $reflector = new ReflectionClass($concrete);
+        // 使用缓存的反射类，避免重复创建
+        if (!isset(self::$reflectionCache[$concrete])) {
+            self::$reflectionCache[$concrete] = new ReflectionClass($concrete);
+        }
+        $reflector = self::$reflectionCache[$concrete];
 
         // 检查是否可以实例化
         if (!$reflector->isInstantiable()) {

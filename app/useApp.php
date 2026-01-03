@@ -36,6 +36,19 @@ return [
                     'windowSeconds' => 3600, // 时间窗口秒数
                 ],
             ],
+        ],
+        'security' => [
+            'csrf' => [
+                'enabled' => true, // 是否启用 CSRF 防护
+            ],
+            'xss' => [
+                'enabled' => true, // 是否启用 XSS 自动过滤
+                'stripHtml' => true, // 是否移除 HTML 标签
+                'skipFields' => ['password', 'token', 'csrf_token'], // 跳过的字段（不进行过滤）
+            ],
+            'sql' => [
+                'validateInDebug' => true, // 在调试模式下验证 SQL 查询安全性
+            ],
         ]
     ]
 ];

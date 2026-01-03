@@ -119,10 +119,38 @@ class Anon_Database
      */
     public function db($table)
     {
+        // 检查分库分表配置
+        if (class_exists('Anon_Sharding') && Anon_Sharding::isSharded($table)) {
+            // 如果启用了分片，需要在查询时指定分片键
+            // 这里返回基础表名，实际分片在查询时处理
+        }
+
         return new Anon_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
-        
-        // 回退到旧的 QueryBuilder
-        return $this->getConnection()->db($table);
+    }
+
+    /**
+     * 批量插入数据
+     * @param string $table 表名
+     * @param array $data 数据数组
+     * @param int $batchSize 批次大小
+     * @return int 成功插入的总行数
+     */
+    public function batchInsert(string $table, array $data, int $batchSize = 1000): int
+    {
+        return $this->db($table)->batchInsert($data, $batchSize);
+    }
+
+    /**
+     * 批量更新数据
+     * @param string $table 表名
+     * @param array $data 数据数组
+     * @param string $keyColumn 主键字段名
+     * @param int $batchSize 批次大小
+     * @return int 成功更新的总行数
+     */
+    public function batchUpdate(string $table, array $data, string $keyColumn = 'id', int $batchSize = 1000): int
+    {
+        return $this->db($table)->batchUpdate($data, $keyColumn, $batchSize);
     }
 
     /**

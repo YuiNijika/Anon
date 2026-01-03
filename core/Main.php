@@ -40,12 +40,14 @@ class Anon_Main
         ];
         $envConfig = array_merge_recursive($envConfig, $appConfig);
         
+        // 核心模块 - 必须立即加载
         require_once self::MODULES_DIR . 'Env.php';
         Anon_Env::init($envConfig);
         require_once self::MODULES_DIR . 'Config.php';
         require_once self::MODULES_DIR . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
+        // 工具类 - 按需加载
         require_once self::WIDGETS_DIR . 'Connection.php';
         require_once self::WIDGETS_DIR . 'Utils/Escape.php';
         require_once self::WIDGETS_DIR . 'Utils/Sanitize.php';
@@ -55,28 +57,40 @@ class Anon_Main
         require_once self::WIDGETS_DIR . 'Utils/Array.php';
         require_once self::WIDGETS_DIR . 'Utils/Random.php';
         
+        // 核心功能模块 - 延迟加载
         require_once self::MODULES_DIR . 'Database.php';
         require_once self::MODULES_DIR . 'Install.php';
-        
         require_once self::MODULES_DIR . 'ResponseHelper.php';
         require_once self::MODULES_DIR . 'RequestHelper.php';
-        require_once self::MODULES_DIR . 'Token.php';
-        require_once self::MODULES_DIR . 'Captcha.php';
-        require_once self::MODULES_DIR . 'RateLimit.php';
-        require_once self::MODULES_DIR . 'Debug.php';
         require_once self::MODULES_DIR . 'Hook.php';
         require_once self::MODULES_DIR . 'Helper.php';
         require_once self::MODULES_DIR . 'Widget.php';
-        require_once self::MODULES_DIR . 'Capability.php';
-        
         require_once self::MODULES_DIR . 'Container.php';
         require_once self::MODULES_DIR . 'Middleware.php';
         require_once self::MODULES_DIR . 'Cache.php';
         require_once self::MODULES_DIR . 'QueryBuilder.php';
+        require_once self::MODULES_DIR . 'QueryOptimizer.php';
+        require_once self::MODULES_DIR . 'Sharding.php';
+        
+        // 可选功能模块 - 按需加载
+        require_once self::MODULES_DIR . 'Token.php';
+        require_once self::MODULES_DIR . 'Captcha.php';
+        require_once self::MODULES_DIR . 'RateLimit.php';
+        require_once self::MODULES_DIR . 'Csrf.php';
+        require_once self::MODULES_DIR . 'Security.php';
+        require_once self::MODULES_DIR . 'Capability.php';
         require_once self::MODULES_DIR . 'Console.php';
         
-        Anon_Debug::init();
+        // Debug 模块 - 仅在启用时初始化
+        require_once self::MODULES_DIR . 'Debug.php';
+        if (defined('ANON_DEBUG') && Anon_Debug::isEnabled()) {
+            Anon_Debug::init();
+        }
+        
+        // 能力系统 - 延迟初始化
         Anon_Capability::getInstance()->init();
+        
+        // 路由初始化 - 延迟到 Router 模块加载时
         Anon_Config::initSystemRoutes();
         Anon_Config::initAppRoutes();
         

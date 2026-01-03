@@ -29,6 +29,16 @@ class Anon_Router
     private static $logInitialized = false;
 
     /**
+     * @var array 路由匹配结果缓存
+     */
+    private static $routeMatchCache = [];
+
+    /**
+     * @var string|null 缓存的请求路径
+     */
+    private static $cachedRequestPath = null;
+
+    /**
      * 初始化路由系统
      * @throws RuntimeException 如果路由配置无效
      */
@@ -585,9 +595,42 @@ class Anon_Router
                 Anon_Debug::startPerformance('route_matching');
             }
 
+            // 检查路由匹配缓存
+            if (isset(self::$routeMatchCache[$requestPath])) {
+                $cachedMatch = self::$routeMatchCache[$requestPath];
+                if ($cachedMatch['type'] === 'exact') {
+                    if (self::isDebugEnabled()) {
+                        Anon_Debug::endPerformance('route_matching');
+                        Anon_Debug::info("Route matched (cached): " . $requestPath);
+                    }
+                    Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
+                    self::dispatch($requestPath);
+                    return;
+                } elseif ($cachedMatch['type'] === 'param' && $cachedMatch['route']) {
+                    if (self::isDebugEnabled()) {
+                        Anon_Debug::endPerformance('route_matching');
+                        Anon_Debug::info("Parameter route matched (cached): " . $cachedMatch['route']['route']);
+                    }
+                    Anon_Hook::do_action('router_param_route_matched', $cachedMatch['route']['route'], $cachedMatch['route']['params']);
+                    self::dispatchWithParams($cachedMatch['route']['route'], $cachedMatch['route']['params']);
+                    return;
+                } elseif ($cachedMatch['type'] === 'none') {
+                    if (self::isDebugEnabled()) {
+                        Anon_Debug::endPerformance('route_matching');
+                        Anon_Debug::warn("No route matched (cached): " . $requestPath);
+                    }
+                    Anon_Hook::do_action('router_no_match', $requestPath);
+                    self::handleError(404);
+                    return;
+                }
+            }
+
             // 精确匹配
             if (isset(self::$routes[$requestPath])) {
                 self::debugLog("Matched route: " . $requestPath);
+
+                // 缓存匹配结果
+                self::$routeMatchCache[$requestPath] = ['type' => 'exact', 'route' => $requestPath];
 
                 if (self::isDebugEnabled()) {
                     error_log("Router: Route matched: " . $requestPath);
@@ -608,6 +651,9 @@ class Anon_Router
                 if ($matchedRoute) {
                     self::debugLog("Matched parameter route: " . $matchedRoute['route']);
 
+                    // 缓存匹配结果
+                    self::$routeMatchCache[$requestPath] = ['type' => 'param', 'route' => $matchedRoute];
+
                     if (self::isDebugEnabled()) {
                         Anon_Debug::endPerformance('route_matching');
                         Anon_Debug::info("Parameter route matched: " . $matchedRoute['route'], [
@@ -621,6 +667,9 @@ class Anon_Router
                     self::dispatchWithParams($matchedRoute['route'], $matchedRoute['params']);
                 } else {
                     self::debugLog("No route matched for: " . $requestPath);
+
+                    // 缓存未匹配结果
+                    self::$routeMatchCache[$requestPath] = ['type' => 'none', 'route' => null];
 
                     if (self::isDebugEnabled()) {
                         error_log("Router: No route matched for: " . $requestPath);
@@ -721,6 +770,11 @@ class Anon_Router
      */
     private static function getRequestPath(): string
     {
+        // 使用缓存避免重复解析
+        if (self::$cachedRequestPath !== null) {
+            return self::$cachedRequestPath;
+        }
+
         // 优先从 GET 参数 s 获取路径
         if (isset($_GET['s']) && !empty($_GET['s'])) {
             $path = $_GET['s'];
@@ -742,6 +796,8 @@ class Anon_Router
             $path = '/' . $path;
         }
 
+        // 缓存结果
+        self::$cachedRequestPath = $path;
         return $path;
     }
 
