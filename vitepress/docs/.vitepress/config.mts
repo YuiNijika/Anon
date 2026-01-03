@@ -10,7 +10,7 @@ export default defineConfig({
       'link', { rel: 'icon', href: './sets/favicon.jpg' } // 站点图标
     ],
   ],
-  base: 'Anon/',
+  base: '/Anon/',
   lastUpdated: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
