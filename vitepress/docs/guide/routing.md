@@ -79,6 +79,7 @@ return [
 | `code` | int | `200` | HTTP状态码（可选，不设置时使用默认值200） |
 | `token` | bool | - | 是否启用Token验证（可选），`true` 表示启用，`false` 表示禁用，不设置时使用全局配置 |
 | `middleware` | array | `[]` | 中间件列表 |
+| `cache` | array | `['enabled' => false, 'time' => 0]` | 缓存控制配置，`enabled` 为是否启用缓存，`time` 为缓存时间（秒），0 表示不缓存 |
 
 ### 示例：需要登录的GET接口
 
@@ -240,6 +241,53 @@ try {
 }
 ```
 
+### 示例：启用缓存控制
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+    'cache' => [
+        'enabled' => true,  // 启用缓存
+        'time' => 3600,     // 缓存 1 小时（3600 秒）
+    ],
+];
+
+try {
+    // 这个接口的响应会被缓存 1 小时
+    Anon_ResponseHelper::success(['data' => '缓存的数据'], '获取成功');
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
+
+### 示例：禁用缓存
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => false,
+    'method' => 'GET',
+    'cache' => [
+        'enabled' => false, // 禁用缓存（默认值）
+        'time' => 0,        // 缓存时间为 0（默认值）
+    ],
+];
+
+try {
+    // 这个接口的响应不会被缓存
+    Anon_ResponseHelper::success(['data' => '实时数据'], '获取成功');
+} catch (Exception $e) {
+    Anon_ResponseHelper::handleException($e);
+}
+```
 
 ## 动态注册路由
 
