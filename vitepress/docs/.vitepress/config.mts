@@ -7,7 +7,7 @@ export default defineConfig({
   description: "一个简单快速的 PHP API 开发框架",
   head: [
     [
-      'link', { rel: 'icon', href: './sets/favicon.jpg' } // 站点图标
+      'link', { rel: 'icon', href: './assets/favicon.jpg' } // 站点图标
     ],
   ],
   base: '/Anon/',

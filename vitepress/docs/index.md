@@ -1,15 +1,13 @@
 ---
 # https://vitepress.dev/reference/default-theme-home-page
 title: Anon Framework
-titleTemplate: 一个简单快速的 PHP API 开发框架
+titleTemplate: 适用于中小项目的 PHP API 开发框架
 
 layout: home
 
 hero:
   name: "Anon Framework"
-  text: 简单快速
-  textsuffix: "的 PHP API 开发框架"
-  tagline: 专注于性能与开发体验的现代化 PHP 框架
+  tagline: This is an API development framework for PHP.
   image:
     src: /assets/anon.gif
     alt: Anon Framework
