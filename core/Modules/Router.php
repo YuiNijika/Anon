@@ -172,6 +172,10 @@ class Anon_Router
             'header' => true,
             'requireLogin' => false,
             'method' => null,
+            'cache' => [
+                'enabled' => false,
+                'time' => 0,
+            ],
         ];
 
         if (!file_exists($filePath)) {
@@ -319,6 +323,22 @@ class Anon_Router
                     'received' => $requestMethod
                 ], 405);
                 exit;
+            }
+        }
+
+        // 设置缓存控制头
+        if (isset($meta['cache'])) {
+            $cacheConfig = $meta['cache'];
+            $cacheEnabled = $cacheConfig['enabled'] ?? false;
+            $cacheTime = $cacheConfig['time'] ?? 0;
+            
+            if ($cacheEnabled && $cacheTime > 0) {
+                header('Cache-Control: public, max-age=' . $cacheTime);
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+            } else {
+                header('Cache-Control: no-cache, no-store, must-revalidate');
+                header('Pragma: no-cache');
+                header('Expires: 0');
             }
         }
     }
