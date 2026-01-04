@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'server/vitepress/**'
+      - 'vitepress/**'
   workflow_dispatch:
 
 permissions:
