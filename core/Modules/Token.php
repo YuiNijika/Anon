@@ -123,13 +123,16 @@ class Anon_Token
             }
 
             // 时间戳验证
-            // 如果时间戳差异超过5分钟，记录警告但不拒绝 允许时钟偏差
+            // 如果时间戳差异超过2分钟，拒绝 Token 防止重放攻击
             $timestampDiff = abs(time() - $payload['timestamp']);
-            if ($timestampDiff > 300) {
-                // 记录时间戳异常，但不拒绝 Token允许时钟偏差
+            $maxTimestampDiff = 120; // 2分钟时间窗口
+            
+            if ($timestampDiff > $maxTimestampDiff) {
+                // 记录时间戳异常并拒绝 Token
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    error_log("Token timestamp diff: {$timestampDiff} seconds");
+                    error_log("Token timestamp diff too large: {$timestampDiff} seconds, rejected");
                 }
+                return false;
             }
 
             // 缓存验证结果，有效期设置为 Token 剩余有效期的 80%，避免缓存过期时间超过 Token 本身

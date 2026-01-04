@@ -263,6 +263,9 @@ class Anon_Check
                 $_SESSION['user_id'] = (int)$_COOKIE['user_id'];
                 $_SESSION['username'] = $_COOKIE['username'];
                 return true;
+            } else {
+                // Cookie 验证失败，清除无效的 Cookie
+                self::clearAuthCookies();
             }
         }
 
@@ -329,8 +332,15 @@ class Anon_Check
 
         $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
 
+        // 生成 Cookie 签名，防止 Cookie 被篡改
+        $secret = self::getCookieSecret();
+        $expires = $cookieOptions['expires'] ?? 0;
+        $signature = hash_hmac('sha256', (string)$userId . '|' . $username . '|' . $expires, $secret);
+        
         setcookie('user_id', (string)$userId, $cookieOptions);
         setcookie('username', $username, $cookieOptions);
+        setcookie('auth_signature', $signature, $cookieOptions);
+        setcookie('auth_expires', (string)$expires, $cookieOptions);
         
         Anon_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
     }
@@ -350,6 +360,8 @@ class Anon_Check
 
         setcookie('user_id', '', $cookieOptions);
         setcookie('username', '', $cookieOptions);
+        setcookie('auth_signature', '', $cookieOptions);
+        setcookie('auth_expires', '', $cookieOptions);
     }
 
     /**
@@ -371,11 +383,53 @@ class Anon_Check
             return false;
         }
 
-        // 可以添加更严格的验证，例如查询数据库验证用户是否存在
+        // 验证 Cookie 签名，防止 Cookie 被篡改
+        $signature = $_COOKIE['auth_signature'] ?? '';
+        if (empty($signature)) {
+            return false;
+        }
+
+        $cookieExpires = isset($_COOKIE['user_id']) ? ($_COOKIE['auth_expires'] ?? 0) : 0;
+        $secret = self::getCookieSecret();
+        $expectedSignature = hash_hmac('sha256', (string)$userId . '|' . $username . '|' . $cookieExpires, $secret);
+        
+        if (!hash_equals($expectedSignature, $signature)) {
+            return false;
+        }
+
+        // 查询数据库验证用户是否存在且用户名匹配
         $db = Anon_Database::getInstance();
         $userInfo = $db->getUserInfo((int)$userId);
 
         return $userInfo && $userInfo['name'] === $username;
+    }
+
+    /**
+     * 获取 Cookie 签名密钥
+     * @return string
+     */
+    private static function getCookieSecret(): string
+    {
+        // 优先使用配置的密钥
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $secret = Anon_Env::get('app.security.cookieSecret', null);
+            if ($secret !== null) {
+                return $secret;
+            }
+        }
+
+        // 使用环境变量
+        if (defined('ANON_COOKIE_SECRET') && !empty(ANON_COOKIE_SECRET)) {
+            return ANON_COOKIE_SECRET;
+        }
+
+        // 使用应用密钥
+        if (defined('ANON_SECRET_KEY') && !empty(ANON_SECRET_KEY)) {
+            return ANON_SECRET_KEY;
+        }
+
+        // 回退到默认密钥（不推荐，但保持向后兼容）
+        return 'anon_default_cookie_secret_change_in_production';
     }
 
     /**

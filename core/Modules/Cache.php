@@ -71,6 +71,8 @@ class Anon_FileCache implements Anon_CacheInterface
         // 创建缓存目录
         if (!is_dir($this->cacheDir)) {
             mkdir($this->cacheDir, 0755, true);
+            // 设置目录权限为 755，防止其他用户写入
+            @chmod($this->cacheDir, 0755);
         }
     }
 
@@ -81,18 +83,20 @@ class Anon_FileCache implements Anon_CacheInterface
      */
     private function getCachePath(string $key): string
     {
-        // 验证缓存键安全性防止路径遍历
-        if (strpos($key, '..') !== false || strpos($key, '/') !== false || strpos($key, '\\') !== false) {
+        // 验证缓存键安全性防止路径遍历，使用更严格的正则验证
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $key)) {
             throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
         }
         
-        // 使用更安全的哈希，虽然MD5对缓存键足够安全，但可以考虑使用hash函数
+        // 使用 SHA256 哈希，避免直接使用用户输入作为路径
         $hash = hash('sha256', $key);
         $subDir = substr($hash, 0, 2);
         $dir = $this->cacheDir . '/' . $subDir;
         
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
+            // 设置目录权限为 755，防止其他用户写入
+            @chmod($dir, 0755);
         }
 
         return $dir . '/' . $hash . '.cache';
@@ -112,10 +116,19 @@ class Anon_FileCache implements Anon_CacheInterface
             return $default;
         }
 
-        $data = @unserialize(file_get_contents($path));
-
-        if ($data === false) {
+        // 使用 JSON 序列化替代 unserialize，防止反序列化漏洞
+        $content = @file_get_contents($path);
+        if ($content === false) {
             return $default;
+        }
+
+        $data = @json_decode($content, true);
+        if ($data === null || json_last_error() !== JSON_ERROR_NONE) {
+            // 兼容旧格式的序列化数据，但仅允许基本类型
+            $data = @unserialize($content, ['allowed_classes' => false]);
+            if ($data === false) {
+                return $default;
+            }
         }
 
         // 检查是否过期
@@ -145,7 +158,19 @@ class Anon_FileCache implements Anon_CacheInterface
             'expires_at' => $ttl > 0 ? time() + $ttl : null,
         ];
 
-        return file_put_contents($path, serialize($data), LOCK_EX) !== false;
+        // 使用 JSON 序列化替代 serialize，防止反序列化漏洞
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            return false;
+        }
+
+        // 设置文件权限为 600，仅所有者可读写
+        $result = file_put_contents($path, $json, LOCK_EX);
+        if ($result !== false) {
+            @chmod($path, 0600);
+        }
+
+        return $result !== false;
     }
 
     /**
@@ -201,10 +226,19 @@ class Anon_FileCache implements Anon_CacheInterface
             return false;
         }
 
-        $data = @unserialize(file_get_contents($path));
-
-        if ($data === false) {
+        // 使用 JSON 序列化替代 unserialize，防止反序列化漏洞
+        $content = @file_get_contents($path);
+        if ($content === false) {
             return false;
+        }
+
+        $data = @json_decode($content, true);
+        if ($data === null || json_last_error() !== JSON_ERROR_NONE) {
+            // 兼容旧格式的序列化数据，但仅允许基本类型
+            $data = @unserialize($content, ['allowed_classes' => false]);
+            if ($data === false) {
+                return false;
+            }
         }
 
         // 检查是否过期

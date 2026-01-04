@@ -34,8 +34,15 @@ class Anon_RequestHelper
     {
         $input = file_get_contents('php://input');
         
-        if (strlen($input) > 10485760) {
-            throw new RuntimeException("请求体过大，最大允许 10MB");
+        // 获取配置的请求体大小限制，默认 2MB
+        $maxSize = 2097152; // 2MB
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $maxSize = Anon_Env::get('app.request.maxBodySize', 2097152);
+        }
+        
+        if (strlen($input) > $maxSize) {
+            $maxSizeMB = round($maxSize / 1048576, 2);
+            throw new RuntimeException("请求体过大，最大允许 {$maxSizeMB}MB");
         }
         
         $data = json_decode($input, true);

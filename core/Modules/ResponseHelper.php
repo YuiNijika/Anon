@@ -241,12 +241,23 @@ class Anon_ResponseHelper {
             $httpCode = 400;
         }
         
-        $isDevelopment = defined('ANON_DEBUG') && ANON_DEBUG;
-        if ($isDevelopment && empty($data)) {
+        // 检查是否允许记录详细错误信息
+        $logDetailed = false;
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $logDetailed = Anon_Env::get('app.debug.logDetailedErrors', false);
+        }
+        
+        // 仅在明确启用详细错误记录时返回文件路径和堆栈跟踪
+        if ($logDetailed && empty($data)) {
             $data = [
                 'file' => $exception->getFile(),
                 'line' => $exception->getLine(),
                 'trace' => $exception->getTraceAsString()
+            ];
+        } elseif (defined('ANON_DEBUG') && ANON_DEBUG && empty($data)) {
+            // 调试模式下仅返回简化的错误信息，不包含文件路径
+            $data = [
+                'type' => get_class($exception)
             ];
         }
         
