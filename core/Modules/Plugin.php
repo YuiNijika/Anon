@@ -151,7 +151,7 @@ class Anon_Plugin
 
     /**
      * 读取插件元数据
-     * 使用简单直接的方法：先加载文件，然后读取常量
+     * 从文件头注释中解析元数据
      * @param string $pluginFile 插件文件路径
      * @return array|null 插件元数据，失败返回 null
      */
@@ -164,28 +164,30 @@ class Anon_Plugin
                 return null;
             }
 
-            // 使用正则表达式提取常量定义
-            // 匹配 const Anon_PluginMeta = [...];
-            if (!preg_match('/const\s+Anon_PluginMeta\s*=\s*\[(.*?)\];/s', $content, $matches)) {
-                return null;
-            }
-
-            $arrayContent = $matches[1];
-            
-            // 解析数组内容，提取键值对
             $meta = [];
             
-            // 匹配 'key' => 'value' 或 "key" => "value"
-            // 使用更精确的正则表达式
-            $pattern = "/(?:['\"])([a-zA-Z_][a-zA-Z0-9_]*)(?:['\"])\s*=>\s*(?:['\"])([^'\"]*)(?:['\"])/";
-            if (preg_match_all($pattern, $arrayContent, $matches, PREG_SET_ORDER)) {
-                foreach ($matches as $match) {
-                    $key = $match[1];
-                    $value = $match[2];
-                    $meta[$key] = $value;
-                }
+            // 从文件头注释中提取元数据
+            // 支持格式：Plugin Name: xxx 或 Plugin Name:xxx
+            if (preg_match('/Plugin Name:\s*(.+)/i', $content, $matches)) {
+                $meta['name'] = trim($matches[1]);
             }
-
+            
+            if (preg_match('/Plugin Description:\s*(.+)/i', $content, $matches)) {
+                $meta['description'] = trim($matches[1]);
+            }
+            
+            if (preg_match('/Version:\s*(.+)/i', $content, $matches)) {
+                $meta['version'] = trim($matches[1]);
+            }
+            
+            if (preg_match('/Author:\s*(.+)/i', $content, $matches)) {
+                $meta['author'] = trim($matches[1]);
+            }
+            
+            if (preg_match('/Plugin URI:\s*(.+)/i', $content, $matches)) {
+                $meta['url'] = trim($matches[1]);
+            }
+            
             // 验证必需的字段
             if (empty($meta['name'])) {
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -193,7 +195,7 @@ class Anon_Plugin
                 }
                 return null;
             }
-
+            
             return $meta;
         } catch (Throwable $e) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -201,6 +203,70 @@ class Anon_Plugin
             }
             return null;
         }
+    }
+
+    /**
+     * 将 PHP 数组语法安全转换为 JSON 格式
+     * 参考 Router.php 的 convertPhpArrayToJson 方法
+     * @param string $phpArrayStr PHP 数组字符串
+     * @return string|null JSON 字符串，转换失败返回 null
+     */
+    private static function convertPhpArrayToJson(string $phpArrayStr): ?string
+    {
+        // 移除注释和多余空白
+        $phpArrayStr = preg_replace('/\/\*.*?\*\//s', '', $phpArrayStr);
+        $phpArrayStr = preg_replace('/\/\/.*$/m', '', $phpArrayStr);
+        $phpArrayStr = trim($phpArrayStr);
+        
+        // 验证只包含安全的字符和结构
+        $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
+        
+        if (preg_match($unsafePattern, $phpArrayStr)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::debug("Plugin meta contains unsafe code", ['content' => substr($phpArrayStr, 0, 100)]);
+            }
+            return null;
+        }
+        
+        // 验证基本结构：应该包含数组括号和键值对（支持多行）
+        if (!preg_match('/\[[\s\S]*\]/', $phpArrayStr)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::debug("Plugin meta is not a valid array structure", ['content' => substr($phpArrayStr, 0, 200)]);
+            }
+            return null;
+        }
+        
+        // 将 PHP 数组语法转换为 JSON
+        // 使用与 Router.php 相同的简单方法，但改进以支持 URL
+        // 步骤1: 单引号转双引号（使用非贪婪匹配，支持 URL 中的 //）
+        $jsonStr = preg_replace("/(['\"])(.*?)\\1/s", '"$2"', $phpArrayStr);
+        
+        // 步骤2: 处理 => 转换为 :
+        $jsonStr = preg_replace('/\s*=>\s*/', ':', $jsonStr);
+        
+        // 步骤3: 处理未加引号的键名（在 => 转换之后）
+        $jsonStr = preg_replace('/([a-zA-Z_][a-zA-Z0-9_]*)\s*:/', '"$1":', $jsonStr);
+        
+        // 步骤4: PHP 布尔值和 null
+        $jsonStr = preg_replace('/\btrue\b/i', 'true', $jsonStr);
+        $jsonStr = preg_replace('/\bfalse\b/i', 'false', $jsonStr);
+        $jsonStr = preg_replace('/\bnull\b/i', 'null', $jsonStr);
+        
+        // 验证 JSON 格式
+        $testDecode = json_decode($jsonStr, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($testDecode)) {
+            return json_encode($testDecode, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            Anon_Debug::debug("Plugin meta JSON conversion failed", [
+                'error' => json_last_error_msg(),
+                'original' => substr($phpArrayStr, 0, 200),
+                'converted' => substr($jsonStr, 0, 200)
+            ]);
+        }
+        
+        return null;
     }
 
     /**
@@ -259,10 +325,18 @@ class Anon_Plugin
         Anon_Hook::do_action('plugin_before_load', $pluginSlug, $meta);
 
         try {
+            // 检查插件是否已加载
+            if (isset(self::$loadedPlugins[$pluginSlug])) {
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    Anon_Debug::debug("Plugin already loaded, skipping", ['plugin' => $pluginSlug]);
+                }
+                return;
+            }
+
             // 加载插件文件
             require_once $pluginFile;
 
-            // 获取插件类名（从目录名生成，不区分大小写）
+            // 获取插件类名
             $className = self::getPluginClassName($dirName);
             $pluginInstance = null;
 

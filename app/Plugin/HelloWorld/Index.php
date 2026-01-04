@@ -1,13 +1,12 @@
 <?php
+/**
+ * Plugin Name: HelloWorld
+ * Plugin Description: Hello World
+ * Version: 1.0.0
+ * Author: YuiNijika
+ * Plugin URI: https://github.com/YuiNijika
+ */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-const Anon_PluginMeta = [
-    'name' => 'HelloWorld',
-    'description' => 'Hello World',
-    'version' => '1.0.0',
-    'author' => 'YuiNijika',
-    'url' => 'https://github.com/YuiNijika',
-];
 
 class Anon_Plugin_HelloWorld
 {
