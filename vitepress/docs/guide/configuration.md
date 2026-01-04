@@ -40,6 +40,29 @@ return [
         'captcha' => [
             'enabled' => true,  // 是否启用验证码
         ],
+        'cache' => [
+            'enabled' => true,  // 是否启用全局缓存
+            'time' => 3600,     // 全局缓存时间（秒）
+            'exclude' => [
+                '/auth/',           // 所有认证相关接口
+                '/anon/debug/',     // Debug 接口
+                '/anon/install',    // 安装接口
+            ], // 自动排除缓存的路径模式
+        ],
+        'security' => [
+            'csrf' => [
+                'enabled' => true,      // 是否启用 CSRF 防护
+                'stateless' => true,    // 是否使用无状态 Token（推荐）
+            ],
+            'xss' => [
+                'enabled' => true,      // 是否启用 XSS 自动过滤
+                'stripHtml' => true,    // 是否移除 HTML 标签
+                'skipFields' => ['password', 'token', 'csrf_token'], // 跳过的字段
+            ],
+            'sql' => [
+                'validateInDebug' => true, // 在调试模式下验证 SQL 查询安全性
+            ],
+        ],
         'rateLimit' => [
             'register' => [
                 'ip' => [
@@ -89,11 +112,16 @@ return [
 ### Anon_Env
 
 ```php
-// 获取配置值
+// 获取配置值（自动缓存，首次解析后存入内存）
 $enabled = Anon_Env::get('app.token.enabled', false);
 $host = Anon_Env::get('system.db.host', 'localhost');
 $whitelist = Anon_Env::get('app.token.whitelist', []);
+
+// 清除配置缓存
+Anon_Env::clearCache();
 ```
+
+**性能优化：** 配置值会自动缓存，首次解析后存入内存，后续调用直接读取缓存，提升性能。
 
 ### Anon_Config
 

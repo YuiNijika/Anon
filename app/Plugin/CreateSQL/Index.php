@@ -27,7 +27,7 @@ class Anon_Plugin_CreateSQL
                 return;
             }
 
-            $db = new Anon_Database();
+            $db = Anon_Database::getInstance();
             if (!$db->isUserAdmin($userId)) {
                 Anon::error('需要管理员权限才能执行此操作', [], 403);
                 return;

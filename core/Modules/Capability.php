@@ -45,7 +45,7 @@ class Anon_Capability
     private function getDatabase(): Anon_Database
     {
         if ($this->db === null) {
-            $this->db = new Anon_Database();
+            $this->db = Anon_Database::getInstance();
         }
         return $this->db;
     }
@@ -55,6 +55,11 @@ class Anon_Capability
         Anon_Hook::do_action('capabilities_init', $this->capabilities);
     }
     
+    /**
+     * 添加权限（支持资源级权限，如 'user:read', 'post:edit'）
+     * @param string $role 角色
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'（如 'user:read'）
+     */
     public function addCapability(string $role, string $capability): void
     {
         if (!isset($this->capabilities[$role])) {
@@ -86,13 +91,42 @@ class Anon_Capability
         return $this->roleCan($role, $capability);
     }
     
+    /**
+     * 检查角色是否有权限（支持资源级权限）
+     * @param string $role 角色
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'（如 'user:read'）
+     * @return bool
+     */
     public function roleCan(string $role, string $capability): bool
     {
         if (!isset($this->capabilities[$role])) {
             return false;
         }
         
-        return in_array($capability, $this->capabilities[$role]);
+        // 直接匹配
+        if (in_array($capability, $this->capabilities[$role])) {
+            return true;
+        }
+        
+        // 支持资源级权限：如果请求 'user:read'，检查是否有 'user:*' 或 '*:read' 或 '*:*'
+        if (strpos($capability, ':') !== false) {
+            list($resource, $action) = explode(':', $capability, 2);
+            
+            // 检查通配符权限
+            $wildcardChecks = [
+                "{$resource}:*",  // 资源的所有操作
+                "*:{$action}",    // 所有资源的该操作
+                '*:*'             // 所有权限
+            ];
+            
+            foreach ($wildcardChecks as $wildcard) {
+                if (in_array($wildcard, $this->capabilities[$role])) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
     
     public function currentUserCan(string $capability): bool

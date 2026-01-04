@@ -28,9 +28,11 @@ return [
         'debug' => [
             'global' => false, // 全局debug
             'router' => false, // 路由debug
+            'logDetailedErrors' => false, // 是否记录详细错误信息
         ],
         'token' => [
             'enabled' => true, // 是否启用token
+            'refresh' => false, // 是否在验证后自动刷新Token
             'whitelist' => [   // 白名单路由
                 '/auth/login',
                 '/auth/logout',
@@ -41,6 +43,12 @@ return [
         ],
         'captcha' => [
             'enabled' => true, // 是否启用验证码
+        ],
+        'security' => [
+            'csrf' => [
+                'enabled' => true,      // 是否启用 CSRF 防护
+                'stateless' => true,    // 是否使用无状态 Token（推荐）
+            ],
         ],
     ],
 ];

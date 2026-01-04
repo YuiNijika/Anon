@@ -71,7 +71,7 @@ try {
         Anon_ResponseHelper::error('密码长度至少6个字符', [], 400);
     }
     
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     
     // 检查用户名是否已存在
     if ($db->getUserInfoByName($username)) {

@@ -50,7 +50,7 @@ try {
     $inputData = Anon_RequestHelper::getInput();
     $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     $user = $db->getUserInfoByName($data['username']);
     
     if (!$user || !password_verify($data['password'], $user['password'])) {
@@ -134,7 +134,7 @@ try {
         Anon_ResponseHelper::error('密码长度至少6个字符', null, 400);
     }
     
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     
     // 检查用户名是否已存在
     if ($db->getUserInfoByName($username)) {

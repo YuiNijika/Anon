@@ -48,7 +48,7 @@ class Anon_QueryOptimizer
             $relatedData = self::$eagerLoaded[$cacheKey];
         } else {
             // 批量查询关联数据
-            $db = new Anon_Database();
+            $db = Anon_Database::getInstance();
             $query = $db->db($table)->whereIn($foreignKey, $keys);
 
             // 如果有自定义回调，应用它
@@ -121,7 +121,7 @@ class Anon_QueryOptimizer
         if (isset(self::$eagerLoaded[$cacheKey])) {
             $relatedData = self::$eagerLoaded[$cacheKey];
         } else {
-            $db = new Anon_Database();
+            $db = Anon_Database::getInstance();
             $relatedData = $db->db($table)->whereIn($foreignKey, $keys)->get();
 
             $grouped = [];

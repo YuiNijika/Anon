@@ -1,5 +1,9 @@
 # 安全功能
 
+一句话：CSRF 防护、XSS 过滤、SQL 注入防护、接口限流等安全功能。
+
+---
+
 ## CSRF 防护
 
 ### 启用 CSRF 防护
@@ -9,7 +13,8 @@
 ```php
 'security' => [
     'csrf' => [
-        'enabled' => true, // 是否启用 CSRF 防护
+        'enabled' => true,      // 是否启用 CSRF 防护
+        'stateless' => true,     // 是否使用无状态 Token（推荐，减少 Session 锁竞争）
     ],
 ]
 ```
@@ -23,6 +28,13 @@ $token = Anon_Csrf::generateToken();
 // 获取当前 Token（如果不存在则生成）
 $token = Anon_Csrf::getToken();
 ```
+
+**无状态 Token 说明：**
+
+- 默认启用无状态 Token，基于 HMAC 签名，无需存储在 Session 中
+- 减少 Session 锁竞争，提高并发性能
+- Token 包含时间戳、随机数和 Session ID，有效期 2 小时
+- 可通过配置 `stateless => false` 切换为传统 Session 存储模式
 
 ### 验证 CSRF Token
 
@@ -143,8 +155,8 @@ if (Anon_Security::containsXss($userInput)) {
 
 ```php
 // 使用查询构建器（推荐）
-$db = new Anon_Database();
-$users = $db->table('users')
+$db = Anon_Database::getInstance();
+$users = $db->db('users')
     ->where('name', '=', $username)
     ->where('email', '=', $email)
     ->get();
@@ -171,7 +183,7 @@ $isSafe = Anon_Security::isUsingPreparedStatement($sql, $params);
 ```php
 // 转义 LIKE 查询中的特殊字符
 $search = Anon_Security::escapeLike($userInput);
-$users = $db->table('users')
+$users = $db->db('users')
     ->where('name', 'LIKE', "%{$search}%")
     ->get();
 ```
@@ -296,15 +308,16 @@ Anon_Middleware::global(
 ```php
 'security' => [
     'csrf' => [
-        'enabled' => true,
+        'enabled' => true,      // 是否启用 CSRF 防护
+        'stateless' => true,    // 是否使用无状态 Token（推荐，减少 Session 锁竞争）
     ],
     'xss' => [
-        'enabled' => true,
-        'stripHtml' => true,
-        'skipFields' => ['password', 'token'],
+        'enabled' => true,      // 是否启用 XSS 自动过滤
+        'stripHtml' => true,   // 是否移除 HTML 标签
+        'skipFields' => ['password', 'token', 'csrf_token'], // 跳过的字段
     ],
     'sql' => [
-        'validateInDebug' => true,
+        'validateInDebug' => true, // 在调试模式下验证 SQL 查询安全性
     ],
 ],
 ```

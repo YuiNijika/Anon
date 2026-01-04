@@ -30,7 +30,7 @@ $widget = Anon_Widget::getInstance();
 
 // 注册回调函数返回数组或对象的JSON API组件
 $widget->register('user_stats', '用户统计', function($args) {
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     $userId = $args['user_id'] ?? 0;
     
     return [

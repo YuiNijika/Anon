@@ -21,6 +21,20 @@ class Anon_Hook {
      * @var array
      */
     private static $currentHook = [];
+
+    /**
+     * 钩子回调缓存
+     * 缓存已解析的回调函数信息，避免重复解析
+     * @var array
+     */
+    private static $callbackCache = [];
+
+    /**
+     * 钩子执行结果缓存
+     * 缓存过滤器的执行结果，减少重复计算
+     * @var array
+     */
+    private static $resultCache = [];
     
     /**
      * 添加动作钩子
@@ -274,8 +288,23 @@ class Anon_Hook {
             self::debugLog("无效的回调函数: {$hook_name}", 'ERROR');
             return false;
         }
+
+        // 优先使用命名函数或类方法，避免闭包
+        if ($callback instanceof Closure) {
+            self::debugLog("警告: 使用闭包作为钩子回调可能影响性能，建议使用命名函数或类方法: {$hook_name}", 'WARN');
+        }
         
         $hook_id = self::getHookId($callback);
+        
+        // 缓存回调函数信息
+        if (!isset(self::$callbackCache[$hook_id])) {
+            self::$callbackCache[$hook_id] = [
+                'callback' => $callback,
+                'is_closure' => $callback instanceof Closure,
+                'is_string' => is_string($callback),
+                'is_array' => is_array($callback)
+            ];
+        }
         
         self::$hooks[$hook_name][$priority][$hook_id] = [
             'callback' => $callback,
@@ -286,6 +315,11 @@ class Anon_Hook {
         
         // 按优先级排序
         ksort(self::$hooks[$hook_name]);
+        
+        // 清除该钩子的结果缓存
+        if (isset(self::$resultCache[$hook_name])) {
+            unset(self::$resultCache[$hook_name]);
+        }
         
         self::debugLog("添加{$type}钩子: {$hook_name} (优先级: {$priority})");
         return true;

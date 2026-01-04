@@ -210,10 +210,11 @@ class Anon_ResponseHelper {
     
     /**
      * 处理异常并发送错误响应
-     * @param Exception $exception 异常对象
+     * @param Throwable $exception 异常对象
      * @param string $customMessage 可选的自定义错误消息
      */
-    public static function handleException($exception, $customMessage = null) {
+    public static function handleException(Throwable $exception, ?string $customMessage = null): void
+    {
         $message = $customMessage ?: $exception->getMessage();
         
         // 记录异常日志
@@ -221,20 +222,33 @@ class Anon_ResponseHelper {
         
         // 根据异常类型返回不同的HTTP状态码
         $httpCode = 500;
-        if ($exception instanceof InvalidArgumentException) {
-            $httpCode = 400;
-        } elseif ($exception instanceof UnauthorizedAccessException) {
+        $data = [];
+        
+        if ($exception instanceof Anon_Exception) {
+            // 使用框架异常类
+            $httpCode = $exception->getHttpCode();
+            $data = $exception->getData();
+        } elseif ($exception instanceof Anon_UnauthorizedException) {
             $httpCode = 401;
-        } elseif ($exception instanceof NotFoundException) {
+        } elseif ($exception instanceof Anon_ForbiddenException) {
+            $httpCode = 403;
+        } elseif ($exception instanceof Anon_NotFoundException) {
             $httpCode = 404;
+        } elseif ($exception instanceof Anon_ValidationException) {
+            $httpCode = 422;
+            $data = $exception->getData();
+        } elseif ($exception instanceof InvalidArgumentException) {
+            $httpCode = 400;
         }
         
         $isDevelopment = defined('ANON_DEBUG') && ANON_DEBUG;
-        $data = $isDevelopment ? [
-            'file' => $exception->getFile(),
-            'line' => $exception->getLine(),
-            'trace' => $exception->getTraceAsString()
-        ] : [];
+        if ($isDevelopment && empty($data)) {
+            $data = [
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString()
+            ];
+        }
         
         self::error($message, $data, $httpCode);
     }

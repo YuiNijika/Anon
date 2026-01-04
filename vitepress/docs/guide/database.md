@@ -2,10 +2,14 @@
 
 一句话：用链式调用写SQL，自动防注入，支持Repository模式。
 
+---
+
 ## 快速开始
 
+**注意：** 推荐使用单例模式获取数据库实例，确保同一请求生命周期内复用连接，提升性能。
+
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 查询所有用户
 $users = $db->db('users')->get();
@@ -171,7 +175,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 ### 使用 Repository
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 自动转发到 UserRepository
 $user = $db->getUserInfo(1);
@@ -251,7 +255,7 @@ $users = Anon_QueryOptimizer::eagerLoad($users, 'user_id', 'orders', 'id');
 ### 创建表
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 使用数组定义字段
 $db->createTable('user_stats', [

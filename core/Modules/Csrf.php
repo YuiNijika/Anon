@@ -4,15 +4,54 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 /**
  * CSRF 防护模块
  * 用于防止跨站请求伪造攻击
+ * 支持无状态设计，基于 HMAC 的 Token 无需存储在 Session 中
  */
 class Anon_Csrf
 {
     /**
+     * 是否使用无状态 Token
+     * 无状态 Token 基于 HMAC，无需存储在 Session 中，减少锁竞争
+     * @var bool
+     */
+    private static $statelessEnabled = null;
+
+    /**
+     * 检查是否启用无状态 Token
+     * @return bool
+     */
+    private static function isStatelessEnabled(): bool
+    {
+        if (self::$statelessEnabled === null) {
+            if (Anon_Env::isInitialized()) {
+                self::$statelessEnabled = Anon_Env::get('app.security.csrf.stateless', true);
+            } else {
+                self::$statelessEnabled = defined('ANON_CSRF_STATELESS') ? ANON_CSRF_STATELESS : true;
+            }
+        }
+        return self::$statelessEnabled;
+    }
+
+    /**
+     * 获取 CSRF 密钥
+     * @return string
+     */
+    private static function getSecretKey(): string
+    {
+        $key = defined('ANON_SECRET_KEY') ? ANON_SECRET_KEY : (defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : 'anon_default_key_change_in_production');
+        return hash('sha256', $key . 'csrf');
+    }
+
+    /**
      * 生成 CSRF Token
+     * 优先使用无状态 Token，基于 HMAC 无需存储在 Session 中
      * @return string Token 字符串
      */
     public static function generateToken(): string
     {
+        if (self::isStatelessEnabled()) {
+            return self::generateStatelessToken();
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -23,6 +62,29 @@ class Anon_Csrf
         }
         
         return $_SESSION['csrf_token'];
+    }
+
+    /**
+     * 生成无状态 CSRF Token
+     * 基于 HMAC 的 Token，包含时间戳和随机数，无需存储在 Session 中
+     * @return string Token 字符串
+     */
+    private static function generateStatelessToken(): string
+    {
+        $timestamp = time();
+        $nonce = bin2hex(random_bytes(16));
+        $sessionId = session_id() ?: 'anonymous';
+        
+        $data = [
+            'timestamp' => $timestamp,
+            'nonce' => $nonce,
+            'session_id' => $sessionId
+        ];
+        
+        $payload = base64_encode(json_encode($data));
+        $signature = hash_hmac('sha256', $payload, self::getSecretKey());
+        
+        return base64_encode($payload . '.' . $signature);
     }
     
     /**
@@ -46,12 +108,7 @@ class Anon_Csrf
      */
     public static function verify(?string $token = null, bool $throwException = true): bool
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
         if ($token === null) {
-            // 从请求中获取 Token，支持 header 和 body
             $token = self::getTokenFromRequest();
         }
         
@@ -61,6 +118,14 @@ class Anon_Csrf
                 Anon_ResponseHelper::forbidden('CSRF Token 未提供');
             }
             return false;
+        }
+
+        if (self::isStatelessEnabled()) {
+            return self::verifyStatelessToken($token, $throwException);
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
         
         if (!isset($_SESSION['csrf_token'])) {
@@ -80,7 +145,91 @@ class Anon_Csrf
             return false;
         }
         
+        // 验证通过后立即失效，生成新 Token（一次性使用）
+        self::refreshToken();
+        
         return true;
+    }
+
+    /**
+     * 验证无状态 CSRF Token
+     * @param string $token Token 字符串
+     * @param bool $throwException 验证失败时是否抛出异常
+     * @return bool 验证成功返回 true，失败返回 false
+     */
+    private static function verifyStatelessToken(string $token, bool $throwException = true): bool
+    {
+        try {
+            $decoded = base64_decode($token, true);
+            if ($decoded === false) {
+                if ($throwException) {
+                    Anon_Common::Header(403);
+                    Anon_ResponseHelper::forbidden('CSRF Token 格式错误');
+                }
+                return false;
+            }
+
+            $parts = explode('.', $decoded, 2);
+            if (count($parts) !== 2) {
+                if ($throwException) {
+                    Anon_Common::Header(403);
+                    Anon_ResponseHelper::forbidden('CSRF Token 格式错误');
+                }
+                return false;
+            }
+
+            list($payload, $signature) = $parts;
+
+            // 验证签名
+            $expectedSignature = hash_hmac('sha256', $payload, self::getSecretKey());
+            if (!hash_equals($expectedSignature, $signature)) {
+                if ($throwException) {
+                    Anon_Common::Header(403);
+                    Anon_ResponseHelper::forbidden('CSRF Token 验证失败');
+                }
+                return false;
+            }
+
+            // 解析 payload
+            $data = json_decode(base64_decode($payload, true), true);
+            if (!is_array($data) || !isset($data['timestamp']) || !isset($data['nonce'])) {
+                if ($throwException) {
+                    Anon_Common::Header(403);
+                    Anon_ResponseHelper::forbidden('CSRF Token 数据错误');
+                }
+                return false;
+            }
+
+            // 验证时间戳，Token 有效期 2 小时
+            $maxAge = 7200;
+            if (time() - $data['timestamp'] > $maxAge) {
+                if ($throwException) {
+                    Anon_Common::Header(403);
+                    Anon_ResponseHelper::forbidden('CSRF Token 已过期，请刷新页面重试');
+                }
+                return false;
+            }
+
+            // 验证 Session ID 匹配（如果存在 Session）
+            if (session_status() === PHP_SESSION_ACTIVE && isset($data['session_id'])) {
+                $currentSessionId = session_id();
+                if ($currentSessionId && $data['session_id'] !== $currentSessionId) {
+                    if ($throwException) {
+                        Anon_Common::Header(403);
+                        Anon_ResponseHelper::forbidden('CSRF Token Session 不匹配');
+                    }
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception $e) {
+            if ($throwException) {
+                Anon_Common::Header(403);
+                Anon_ResponseHelper::forbidden('CSRF Token 验证异常');
+            }
+            return false;
+        }
     }
     
     /**

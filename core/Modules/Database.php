@@ -49,18 +49,50 @@ anon_require_all_database_files(DatabaseDir);
 class Anon_Database
 {
     /**
+     * 单例实例
+     * @var Anon_Database|null
+     */
+    private static $instance = null;
+
+    /**
      * 动态实例容器
      * 包含 Repository/Service 实例
-     * 不再使用固定 private 属性
      */
     protected $instances = [];
 
     /**
-     * 构造函数自动发现并实例化所有仓库与服务类
+     * 私有构造函数防止外部实例化
      */
-    public function __construct()
+    private function __construct()
     {
         $this->bootstrapInstances();
+    }
+
+    /**
+     * 获取单例实例
+     * @return Anon_Database
+     */
+    public static function getInstance(): self
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    /**
+     * 防止克隆
+     */
+    private function __clone()
+    {
+    }
+
+    /**
+     * 防止反序列化
+     */
+    public function __wakeup()
+    {
+        throw new RuntimeException('Cannot unserialize singleton');
     }
 
     private static $bootstrapedClasses = [];
@@ -155,9 +187,31 @@ class Anon_Database
 
     /**
      * 执行查询并返回结果
+     * ⚠️ 警告：直接执行原生 SQL 存在 SQL 注入风险，请优先使用 QueryBuilder
+     * @param string $sql SQL 语句
+     * @param bool $allowRawSql 是否允许执行原生 SQL（默认 false，需要在配置中启用）
+     * @return mixed 查询结果
+     * @throws RuntimeException 如果未启用原生 SQL 执行
      */
-    public function query($sql)
+    public function query($sql, bool $allowRawSql = false)
     {
+        // 检查是否允许执行原生 SQL
+        $rawSqlEnabled = Anon_Env::get('app.database.allowRawSql', false);
+        
+        if (!$allowRawSql && !$rawSqlEnabled) {
+            throw new RuntimeException(
+                "直接执行原生 SQL 已被禁用。请使用 QueryBuilder 构建查询。" .
+                "如需启用，请在配置中设置 'app.database.allowRawSql' => true"
+            );
+        }
+        
+        // 在调试模式下记录警告
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            Anon_Debug::warn("执行原生 SQL 查询（存在安全风险）", [
+                'sql_preview' => substr($sql, 0, 100) . (strlen($sql) > 100 ? '...' : '')
+            ]);
+        }
+        
         return $this->getConnection()->query($sql);
     }
 

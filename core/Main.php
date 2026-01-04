@@ -59,6 +59,7 @@ class Anon_Main
         require_once self::WIDGETS_DIR . 'Utils/Random.php';
         
         // 按需加载核心功能模块
+        require_once self::MODULES_DIR . 'Exception.php';
         require_once self::MODULES_DIR . 'Database.php';
         require_once self::MODULES_DIR . 'Install.php';
         require_once self::MODULES_DIR . 'ResponseHelper.php';

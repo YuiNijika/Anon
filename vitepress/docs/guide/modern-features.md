@@ -14,7 +14,7 @@ $container->bind('UserRepositoryInterface', 'UserRepository');
 
 // 绑定单例
 $container->singleton('Database', function() {
-    return new Anon_Database();
+    return Anon_Database::getInstance();
 });
 
 // 注册实例

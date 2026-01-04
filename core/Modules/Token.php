@@ -8,13 +8,26 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_Token
 {
     /**
+     * Token 验证结果缓存
+     * 对已验证的 Token 暂存于内存缓存，避免重复计算验证逻辑
+     * @var array
+     */
+    private static $verificationCache = [];
+
+    /**
      * 生成 Token
      * @param array $data 要包含在 token 中的数据
-     * @param int $expire 过期时间秒数，默认 3600 秒即1小时
+     * @param int|null $expire 过期时间秒数，如果为 null 则根据操作类型自动设置（敏感操作 60 秒，非敏感操作 300 秒）
+     * @param bool $isSensitive 是否为敏感操作（如删除、修改密码等），默认 false
      * @return string Token 字符串
      */
-    public static function generate(array $data = [], int $expire = 3600): string
+    public static function generate(array $data = [], ?int $expire = null, bool $isSensitive = false): string
     {
+        // 如果没有指定过期时间，根据操作类型自动设置
+        if ($expire === null) {
+            $expire = $isSensitive ? 60 : 300; // 敏感操作 1 分钟，非敏感操作 5 分钟
+        }
+        
         $timestamp = time();
         $expireTime = $timestamp + $expire;
         $nonce = bin2hex(random_bytes(16));
@@ -48,6 +61,19 @@ class Anon_Token
 
         if (empty($token)) {
             return false;
+        }
+
+        // 检查缓存
+        $cacheKey = 'token_' . hash('sha256', $token);
+        if (isset(self::$verificationCache[$cacheKey])) {
+            $cached = self::$verificationCache[$cacheKey];
+            // 检查缓存是否过期
+            if ($cached['expire'] > time()) {
+                return $cached['payload'];
+            } else {
+                // 缓存已过期，清除
+                unset(self::$verificationCache[$cacheKey]);
+            }
         }
 
         try {
@@ -104,6 +130,16 @@ class Anon_Token
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
                     error_log("Token timestamp diff: {$timestampDiff} seconds");
                 }
+            }
+
+            // 缓存验证结果，有效期设置为 Token 剩余有效期的 80%，避免缓存过期时间超过 Token 本身
+            $remainingTime = $payload['expire'] - time();
+            $cacheExpire = time() + (int)($remainingTime * 0.8);
+            if ($cacheExpire > time()) {
+                self::$verificationCache[$cacheKey] = [
+                    'payload' => $payload,
+                    'expire' => $cacheExpire
+                ];
             }
 
             return $payload;

@@ -1,5 +1,9 @@
 # 大数据处理优化
 
+一句话：游标分页、批量操作、查询缓存、关联优化，轻松处理百万级数据。
+
+---
+
 ## 游标分页
 
 替代传统的 LIMIT OFFSET 分页，解决百万数据偏移量过大导致的性能问题。
@@ -7,7 +11,7 @@
 ### 主键游标分页
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 第一页
 $result = $db->db('users')
@@ -45,7 +49,7 @@ $result = $db->db('posts')
 ### 批量插入
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 批量插入 1000+ 条数据
 $data = [];
@@ -66,7 +70,7 @@ $inserted = $db->db('users')->batchInsert($data, 1000);
 ### 批量更新
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 批量更新数据
 $data = [
@@ -87,7 +91,7 @@ $updated = $db->db('users')->batchUpdate($data, 'id', 1000);
 自动缓存热点数据，减少数据库查询。
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 启用查询缓存，默认 1 小时
 $users = $db->db('users')
@@ -113,7 +117,7 @@ $users = $db->db('users')
 ### 一对多关联
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 获取用户列表
 $users = $db->db('users')->limit(100)->get();
@@ -202,7 +206,7 @@ Anon_Sharding::init([
 ### 使用分片表
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 根据分片键自动获取表名
 $userId = 12345;

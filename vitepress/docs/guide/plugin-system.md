@@ -10,7 +10,7 @@
 
 ### 基本结构
 
-```
+```text
 server/app/Plugin/
 └── HelloWorld/
     └── Index.php
@@ -20,16 +20,14 @@ server/app/Plugin/
 
 ```php
 <?php
+/**
+ * Plugin Name: HelloWorld
+ * Plugin Description: Hello World 插件
+ * Version: 1.0.0
+ * Author: YuiNijika
+ * Plugin URI: https://github.com/YuiNijika
+ */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-// 插件元数据
-const Anon_PluginMeta = [
-    'name' => 'HelloWorld',
-    'description' => 'Hello World 插件',
-    'version' => '1.0.0',
-    'author' => 'YuiNijika',
-    'url' => 'https://github.com/YuiNijika',
-];
 
 // 插件主类（类名不区分大小写）
 class Anon_Plugin_HelloWorld
@@ -85,13 +83,25 @@ class Anon_Plugin_HelloWorld
 
 ## 插件元数据
 
-插件元数据通过 `Anon_PluginMeta` 常量定义，包含以下字段：
+插件元数据通过文件头注释（PHPDoc 风格）定义，包含以下字段：
 
-- `name`: 插件名称（必需）
-- `description`: 插件描述
-- `version`: 插件版本
-- `author`: 作者名称
-- `url`: 插件主页或作者主页
+- `Plugin Name`: 插件名称（必需）
+- `Plugin Description`: 插件描述
+- `Version`: 插件版本
+- `Author`: 作者名称
+- `Plugin URI`: 插件主页或作者主页
+
+**示例：**
+
+```php
+/**
+ * Plugin Name: HelloWorld
+ * Plugin Description: Hello World 插件
+ * Version: 1.0.0
+ * Author: YuiNijika
+ * Plugin URI: https://github.com/YuiNijika
+ */
+```
 
 ## 插件类命名规则
 
@@ -239,15 +249,14 @@ public static function init()
 
 ```php
 <?php
+/**
+ * Plugin Name: UserStats
+ * Plugin Description: 用户统计插件
+ * Version: 1.0.0
+ * Author: Your Name
+ * Plugin URI: https://example.com
+ */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-const Anon_PluginMeta = [
-    'name' => 'UserStats',
-    'description' => '用户统计插件',
-    'version' => '1.0.0',
-    'author' => 'Your Name',
-    'url' => 'https://example.com',
-];
 
 class Anon_Plugin_UserStats
 {
@@ -270,7 +279,7 @@ class Anon_Plugin_UserStats
     public static function activate()
     {
         // 创建统计表
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         
         // 检查表是否存在
         if (!$db->tableExists('user_stats')) {
@@ -300,7 +309,7 @@ class Anon_Plugin_UserStats
 
     private static function getUserStats($userId)
     {
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         return $db->db('user_stats')
             ->where('user_id', '=', $userId)
             ->first();
@@ -308,7 +317,7 @@ class Anon_Plugin_UserStats
 
     public static function onUserLogin($userId)
     {
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         
         // 检查用户统计是否存在
         $exists = $db->db('user_stats')

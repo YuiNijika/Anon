@@ -43,7 +43,7 @@ export default defineConfig({
     // 顶部栏
     nav: [
       { text: "快速开始", link: "/guide/quick-start" },
-      { text: "API 参考", link: "/api/api-reference" },
+      { text: "API 参考", link: "/api/reference" },
       {
         text: "指南",
         items: [
@@ -59,6 +59,7 @@ export default defineConfig({
         items: [
           { text: "大数据处理", link: "/guide/big-data" },
           { text: "调试工具", link: "/guide/debugging" },
+          { text: "性能优化", link: "/guide/performance-optimization" },
           { text: "现代特性", link: "/guide/modern-features" },
         ]
       },
@@ -94,6 +95,7 @@ export default defineConfig({
             { text: '大数据处理', link: 'big-data' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '调试工具', link: 'debugging' },
+            { text: '性能优化', link: 'performance-optimization' },
             { text: '自定义代码', link: 'custom-code' },
             { text: '现代特性', link: 'modern-features' },
             { text: '高级用法', link: 'advanced' }

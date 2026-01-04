@@ -38,30 +38,36 @@ class Anon
     }
 
     /**
-     * 未授权
+     * 未授权（抛出异常）
      * @param string $message 消息
+     * @param array $data 额外数据
+     * @throws Anon_UnauthorizedException
      */
-    public static function unauthorized($message = '未授权访问')
+    public static function unauthorized($message = '未授权访问', array $data = [])
     {
-        Anon_ResponseHelper::unauthorized($message);
+        throw new Anon_UnauthorizedException($message, $data);
     }
 
     /**
-     * 禁止访问
+     * 禁止访问（抛出异常）
      * @param string $message 消息
+     * @param array $data 额外数据
+     * @throws Anon_ForbiddenException
      */
-    public static function forbidden($message = '禁止访问')
+    public static function forbidden($message = '禁止访问', array $data = [])
     {
-        Anon_ResponseHelper::forbidden($message);
+        throw new Anon_ForbiddenException($message, $data);
     }
 
     /**
-     * 未找到
+     * 未找到（抛出异常）
      * @param string $message 消息
+     * @param array $data 额外数据
+     * @throws Anon_NotFoundException
      */
-    public static function notFound($message = '资源未找到')
+    public static function notFound($message = '资源未找到', array $data = [])
     {
-        Anon_ResponseHelper::notFound($message);
+        throw new Anon_NotFoundException($message, $data);
     }
 
     /**

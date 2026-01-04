@@ -372,7 +372,7 @@ class Anon_Check
         }
 
         // 可以添加更严格的验证，例如查询数据库验证用户是否存在
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         $userInfo = $db->getUserInfo((int)$userId);
 
         return $userInfo && $userInfo['name'] === $username;

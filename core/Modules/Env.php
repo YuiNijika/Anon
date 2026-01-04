@@ -20,6 +20,13 @@ class Anon_Env
     private static $initialized = false;
 
     /**
+     * 配置值缓存
+     * 首次解析后存入内存，后续调用直接读取缓存
+     * @var array
+     */
+    private static $valueCache = [];
+
+    /**
      * 初始化环境配置
      * @param array $config 配置数组
      */
@@ -74,17 +81,34 @@ class Anon_Env
      */
     public static function get(string $key, $default = null)
     {
+        // 检查缓存
+        if (isset(self::$valueCache[$key])) {
+            return self::$valueCache[$key];
+        }
+
         $keys = explode('.', $key);
         $value = self::$config;
 
         foreach ($keys as $k) {
             if (!isset($value[$k])) {
+                // 缓存默认值
+                self::$valueCache[$key] = $default;
                 return $default;
             }
             $value = $value[$k];
         }
 
+        // 缓存解析结果
+        self::$valueCache[$key] = $value;
         return $value;
+    }
+
+    /**
+     * 清除配置缓存
+     */
+    public static function clearCache(): void
+    {
+        self::$valueCache = [];
     }
 
     /**

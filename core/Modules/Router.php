@@ -804,6 +804,21 @@ class Anon_Router
                     self::handleError(404);
                 }
             }
+        } catch (Anon_Exception $e) {
+            // 处理框架异常
+            Anon_Hook::do_action('router_request_error', $e, $requestPath ?? '');
+            
+            if (self::isDebugEnabled()) {
+                Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+            
+            Anon_Common::Header($e->getHttpCode());
+            Anon_ResponseHelper::handleException($e);
+            exit;
         } catch (Throwable $e) {
             // 执行请求处理错误钩子
             Anon_Hook::do_action('router_request_error', $e, $requestPath ?? '');
@@ -817,7 +832,9 @@ class Anon_Router
             }
 
             self::logError("Request handling failed: " . $e->getMessage(), $e->getFile(), $e->getLine());
-            self::handleError(500);
+            Anon_Common::Header(500);
+            Anon_ResponseHelper::handleException($e);
+            exit;
         }
     }
 
@@ -869,6 +886,21 @@ class Anon_Router
 
             // 执行路由执行后钩子
             Anon_Hook::do_action('router_after_dispatch', $routeKey, $handler);
+        } catch (Anon_Exception $e) {
+            // 处理框架异常
+            Anon_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
+            
+            if (self::isDebugEnabled()) {
+                Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+            
+            Anon_Common::Header($e->getHttpCode());
+            Anon_ResponseHelper::handleException($e);
+            exit;
         } catch (Throwable $e) {
             // 执行路由执行错误钩子
             Anon_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
@@ -882,7 +914,9 @@ class Anon_Router
             }
 
             self::logError("Route execution failed [{$routeKey}]: " . $e->getMessage(), $e->getFile(), $e->getLine());
-            self::handleError(500);
+            Anon_Common::Header(500);
+            Anon_ResponseHelper::handleException($e);
+            exit;
         }
 
         exit;
@@ -995,9 +1029,16 @@ class Anon_Router
             }
 
             $handler();
+        } catch (Anon_Exception $e) {
+            // 处理框架异常
+            Anon_Common::Header($e->getHttpCode());
+            Anon_ResponseHelper::handleException($e);
+            exit;
         } catch (Throwable $e) {
             self::logError("Route execution failed [{$routeKey}]: " . $e->getMessage(), $e->getFile(), $e->getLine());
-            self::handleError(500);
+            Anon_Common::Header(500);
+            Anon_ResponseHelper::handleException($e);
+            exit;
         }
 
         exit;

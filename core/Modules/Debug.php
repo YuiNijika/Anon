@@ -355,12 +355,18 @@ class Anon_Debug
         $memory = self::formatBytes($logData['memory'] ?? 0);
         $peakMemory = self::formatBytes($logData['peak_memory'] ?? 0);
         
-        // 格式化上下文数据
+        // 格式化上下文数据（生产环境过滤敏感信息）
         $contextStr = '';
         if (!empty($logData['context'])) {
             // 移除冗余的 request_id，因为已经在日志行中显示
             $context = $logData['context'];
             unset($context['request_id']);
+            
+            // 生产环境过滤敏感信息
+            $isProduction = !self::shouldLogDetailedInfo();
+            if ($isProduction) {
+                $context = self::sanitizeLogContext($context);
+            }
             
             // 格式化上下文为更易读的格式
             if (!empty($context)) {
@@ -454,6 +460,69 @@ class Anon_Debug
     }
 
     /**
+     * 检查是否应该记录详细信息（包含敏感信息）
+     * @return bool
+     */
+    private static function shouldLogDetailedInfo(): bool
+    {
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            return Anon_Env::get('app.debug.logDetailedErrors', false);
+        }
+        return defined('ANON_DEBUG') && ANON_DEBUG;
+    }
+
+    /**
+     * 清理日志上下文中的敏感信息（生产环境使用）
+     * @param array $context 原始上下文
+     * @return array 清理后的上下文
+     */
+    private static function sanitizeLogContext(array $context): array
+    {
+        $sensitiveKeys = [
+            'password', 'passwd', 'pwd', 'secret', 'token', 'csrf_token', 'api_key',
+            'db_password', 'db_user', 'db_host', 'db_name',
+            'file_path', 'file', 'path', 'realpath',
+            'sql', 'query', 'connection'
+        ];
+        
+        $sanitized = [];
+        foreach ($context as $key => $value) {
+            $keyLower = strtolower($key);
+            
+            // 检查是否是敏感键
+            $isSensitive = false;
+            foreach ($sensitiveKeys as $sensitiveKey) {
+                if (strpos($keyLower, $sensitiveKey) !== false) {
+                    $isSensitive = true;
+                    break;
+                }
+            }
+            
+            if ($isSensitive) {
+                // 替换为占位符
+                $sanitized[$key] = '[FILTERED]';
+            } elseif (is_array($value)) {
+                // 递归处理数组
+                $sanitized[$key] = self::sanitizeLogContext($value);
+            } elseif (is_string($value)) {
+                // 检查字符串中是否包含敏感信息（如文件路径、数据库连接字符串）
+                if (preg_match('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', $value)) {
+                    $sanitized[$key] = preg_replace('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', '$1=[FILTERED]', $value);
+                } elseif (preg_match('/[a-zA-Z]:\\\\[^\\\\]+|\\/[^\\/]+/', $value) && strlen($value) > 50) {
+                    // 过滤长文件路径
+                    $sanitized[$key] = '[PATH_FILTERED]';
+                } else {
+                    $sanitized[$key] = $value;
+                }
+            } else {
+                $sanitized[$key] = $value;
+            }
+        }
+        
+        return $sanitized;
+    }
+
+    /**
      * 便捷方法
      */
     public static function debug($message, $context = []) { self::log('DEBUG', $message, $context); }
@@ -513,7 +582,7 @@ class Anon_Debug
             return 'not_logged_in';
         }
 
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         return $db->isUserAdmin($userId) ? true : false;
     }
 

@@ -204,8 +204,9 @@ $ip = Anon_Common::GetClientIp();
 
 ```php
 // 生成Token
-$token = Anon_Token::generate(['user_id' => 1], 3600);
-// 参数：数据数组，过期时间秒数，默认3600
+$token = Anon_Token::generate(['user_id' => 1], 3600, false);
+// 参数：数据数组，过期时间秒数（null则自动设置），是否为敏感操作
+// 敏感操作默认60秒，非敏感操作默认300秒
 
 // 验证Token
 $payload = Anon_Token::verify($token);
@@ -236,7 +237,8 @@ $isWhitelisted = Anon_Token::isWhitelisted('/auth/login');
 ### Anon_Database
 
 ```php
-$db = new Anon_Database();
+// 推荐使用单例模式获取数据库实例
+$db = Anon_Database::getInstance();
 
 // 推荐使用QueryBuilder
 $users = $db->db('users')
@@ -893,7 +895,7 @@ $value = Anon_Env::get('system.db.host', 'localhost');
 ### 游标分页
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 主键游标分页
 $result = $db->db('users')->cursorPaginate(20, $cursor);
@@ -907,7 +909,7 @@ $result = $db->db('posts')->cursorPaginateByTime(20, $cursor);
 ### 批量操作
 
 ```php
-$db = new Anon_Database();
+$db = Anon_Database::getInstance();
 
 // 批量插入
 $inserted = $db->batchInsert('users', $data, 1000);

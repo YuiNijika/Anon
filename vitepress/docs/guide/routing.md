@@ -124,7 +124,7 @@ try {
     ]);
     
     // 业务逻辑
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     $user = $db->getUserInfoByName($data['username']);
     
     Anon_ResponseHelper::success($user, '操作成功');

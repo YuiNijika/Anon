@@ -184,7 +184,7 @@ class Anon_RequestHelper
             Anon_ResponseHelper::unauthorized('用户未登录');
         }
         
-        $db = new Anon_Database();
+        $db = Anon_Database::getInstance();
         $userInfo = $db->getUserInfo($userId);
         
         if (!$userInfo) {

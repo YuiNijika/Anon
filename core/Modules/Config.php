@@ -22,11 +22,27 @@ class Anon_Config
      * @param string $path 路由路径
      * @param callable $handler 处理函数
      * @param array $meta 路由元数据（可选）
+     * @throws RuntimeException 如果路由冲突
      */
     public static function addRoute(string $path, callable $handler, array $meta = [])
     {
         // 规范化路由键，确保以 / 开头，避免匹配失败
         $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
+        
+        // 检测路由冲突
+        if (isset(self::$routerConfig['routes'][$normalized])) {
+            $existingHandler = self::$routerConfig['routes'][$normalized];
+            $conflictInfo = self::detectRouteConflict($normalized, $handler, $existingHandler);
+            
+            if ($conflictInfo['conflict']) {
+                $message = "路由冲突: {$normalized}";
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    $message .= " - " . $conflictInfo['details'];
+                }
+                throw new RuntimeException($message);
+            }
+        }
+        
         self::$routerConfig['routes'][$normalized] = $handler;
         
         // 存储路由元数据
@@ -250,5 +266,151 @@ class Anon_Config
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered app routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
+    }
+
+    /**
+     * 检测路由冲突
+     * @param string $path 路由路径
+     * @param callable $newHandler 新的处理函数
+     * @param callable $existingHandler 已存在的处理函数
+     * @return array 冲突信息
+     */
+    private static function detectRouteConflict(string $path, callable $newHandler, callable $existingHandler): array
+    {
+        // 检查是否是同一个处理函数（允许重复注册相同的处理函数）
+        if ($newHandler === $existingHandler) {
+            return ['conflict' => false, 'details' => ''];
+        }
+        
+        // 检查处理函数是否相同（通过反射比较）
+        $newReflection = self::getCallableReflection($newHandler);
+        $existingReflection = self::getCallableReflection($existingHandler);
+        
+        if ($newReflection && $existingReflection) {
+            $newInfo = $newReflection['file'] . ':' . $newReflection['line'];
+            $existingInfo = $existingReflection['file'] . ':' . $existingReflection['line'];
+            
+            if ($newInfo === $existingInfo) {
+                return ['conflict' => false, 'details' => ''];
+            }
+        }
+        
+        // 存在冲突
+        $newInfo = self::formatHandlerInfo($newHandler);
+        $existingInfo = self::formatHandlerInfo($existingHandler);
+        
+        return [
+            'conflict' => true,
+            'details' => "新处理函数: {$newInfo}, 已存在: {$existingInfo}"
+        ];
+    }
+
+    /**
+     * 获取可调用对象的反射信息
+     * @param callable $handler 处理函数
+     * @return array|null
+     */
+    private static function getCallableReflection(callable $handler): ?array
+    {
+        try {
+            if (is_string($handler) && function_exists($handler)) {
+                $reflection = new ReflectionFunction($handler);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            } elseif (is_array($handler) && count($handler) === 2) {
+                $reflection = new ReflectionMethod($handler[0], $handler[1]);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            } elseif ($handler instanceof Closure) {
+                $reflection = new ReflectionFunction($handler);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            }
+        } catch (Exception $e) {
+            // 忽略反射错误
+        }
+        
+        return null;
+    }
+
+    /**
+     * 格式化处理函数信息
+     * @param callable $handler 处理函数
+     * @return string
+     */
+    private static function formatHandlerInfo(callable $handler): string
+    {
+        if (is_string($handler)) {
+            return "function:{$handler}";
+        } elseif (is_array($handler) && count($handler) === 2) {
+            $class = is_object($handler[0]) ? get_class($handler[0]) : $handler[0];
+            return "method:{$class}::{$handler[1]}";
+        } elseif ($handler instanceof Closure) {
+            return "closure";
+        }
+        
+        return "unknown";
+    }
+
+    /**
+     * 获取所有路由列表（用于 CLI 命令）
+     * @return array 路由列表，包含冲突信息
+     */
+    public static function getRoutesList(): array
+    {
+        $routes = [];
+        $conflicts = [];
+        
+        foreach (self::$routerConfig['routes'] as $path => $handler) {
+            $handlerInfo = self::formatHandlerInfo($handler);
+            $reflection = self::getCallableReflection($handler);
+            
+            $routeInfo = [
+                'path' => $path,
+                'handler' => $handlerInfo,
+                'meta' => self::$routerConfig['route_meta'][$path] ?? [],
+                'conflict' => false
+            ];
+            
+            if ($reflection) {
+                $routeInfo['file'] = $reflection['file'];
+                $routeInfo['line'] = $reflection['line'];
+            }
+            
+            $routes[] = $routeInfo;
+        }
+        
+        // 检测冲突（检查是否有多个处理函数注册到同一路径）
+        $pathCounts = [];
+        foreach (self::$routerConfig['routes'] as $path => $handler) {
+            if (!isset($pathCounts[$path])) {
+                $pathCounts[$path] = [];
+            }
+            $pathCounts[$path][] = $handler;
+        }
+        
+        foreach ($pathCounts as $path => $handlers) {
+            if (count($handlers) > 1) {
+                $conflicts[$path] = count($handlers);
+                // 标记冲突的路由
+                foreach ($routes as &$route) {
+                    if ($route['path'] === $path) {
+                        $route['conflict'] = true;
+                    }
+                }
+            }
+        }
+        
+        return [
+            'routes' => $routes,
+            'conflicts' => $conflicts,
+            'total' => count($routes)
+        ];
     }
 }

@@ -7,7 +7,7 @@ layout: home
 
 hero:
   name: "Anon Framework"
-  tagline: This is an API development framework for PHP.
+  tagline: 一个简单快速的 PHP API 开发框架
   image:
     src: /assets/anon.gif
     alt: Anon Framework
@@ -17,7 +17,7 @@ hero:
       link: /guide/quick-start
     - theme: alt
       text: API 参考
-      link: /api/api-reference
+      link: /api/reference
 
 features:
   - icon: ⚡

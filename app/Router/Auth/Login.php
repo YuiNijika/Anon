@@ -38,7 +38,7 @@ try {
     $password = $data['password'];
     $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
-    $db = new Anon_Database();
+    $db = Anon_Database::getInstance();
     $user = $db->getUserInfoByName($username);
     
     if (!$user || !password_verify($password, $user['password'])) {
