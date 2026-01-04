@@ -9,7 +9,7 @@ class Anon_Exception extends Exception
     protected $httpCode = 500;
     protected $data = [];
 
-    public function __construct(string $message = '', int $httpCode = 500, array $data = [], int $code = 0, Throwable $previous = null)
+    public function __construct(string $message = '', int $httpCode = 500, array $data = [], int $code = 0, ?Throwable $previous = null)
     {
         parent::__construct($message, $code, $previous);
         $this->httpCode = $httpCode;
