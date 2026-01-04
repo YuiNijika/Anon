@@ -26,6 +26,10 @@ class Anon_Plugin_HelloWorld
             'requireLogin' => false,
             'method' => ['GET'],
             'token' => false,
+            'cache' => [
+                'enabled' => true,
+                'time' => 3600, // 缓存1小时
+            ],
         ]);
     }
 

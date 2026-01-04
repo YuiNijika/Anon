@@ -5,14 +5,19 @@ return [
     'app' => [
         'autoRouter' => true, // 是否启用自动路由
         'avatar' => 'https://www.cravatar.cn/avatar', // 头像源URL
+        'cache' => [
+            'enabled' => true, // 是否启用全局缓存
+            'time' => 3600, // 全局缓存时间（秒）
+            'exclude' => [
+                '/auth/',           // 所有认证相关接口
+                '/anon/debug/',     // Debug 接口
+                '/anon/install',    // 安装接口
+            ], // 自动排除缓存的路径模式
+        ],
         'debug' => [
             'global' => true, // 全局调试
             'router' => true, // 路由调试
             'logDetailedErrors' => false, // 是否记录详细错误信息（包含敏感信息），默认 false
-            'cache' => [
-                'enabled' => false, // 是否启用缓存
-                'time' => 0, // 缓存时间（秒），0 表示不缓存，默认 0
-            ],
         ],
         'token' => [
             'enabled' => true, // 是否启用 Token 验证

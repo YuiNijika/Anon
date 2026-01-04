@@ -4,7 +4,7 @@
  * 测试 CSRF、XSS、SQL 注入防护和接口限流功能
  */
 
-if (!defined('ANON_ALLOWED_ACCESS')) exit;
+// 测试文件不需要安全检查
 
 class SecurityTest
 {

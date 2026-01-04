@@ -377,18 +377,109 @@ class Anon_Router
         }
 
         // 设置缓存控制头
+        self::applyCacheHeaders($meta);
+    }
+
+    /**
+     * 应用缓存控制头
+     * @param array $meta 路由元数据
+     */
+    private static function applyCacheHeaders(array $meta): void
+    {
+        // 获取缓存配置
         if (isset($meta['cache'])) {
             $cacheConfig = $meta['cache'];
             $cacheEnabled = $cacheConfig['enabled'] ?? false;
             $cacheTime = $cacheConfig['time'] ?? 0;
-            
-            if ($cacheEnabled && $cacheTime > 0) {
-                header('Cache-Control: public, max-age=' . $cacheTime);
-                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+        } else {
+            $cacheEnabled = Anon_Env::get('app.cache.enabled', false);
+            $cacheTime = Anon_Env::get('app.cache.time', 0);
+        }
+        
+        // 检查是否应该排除缓存
+        if (self::shouldExcludeFromCache($meta)) {
+            $cacheEnabled = false;
+            $cacheTime = 0;
+        }
+        
+        // 设置缓存头
+        if ($cacheEnabled && $cacheTime > 0) {
+            header('Cache-Control: public, max-age=' . $cacheTime);
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+        } else {
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+        }
+    }
+
+    /**
+     * 检查路由是否应该排除缓存
+     * @param array $meta 路由元数据
+     * @return bool 是否应该排除缓存
+     */
+    private static function shouldExcludeFromCache(array $meta): bool
+    {
+        $requestPath = self::getRequestPath();
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        
+        // 检查排除路径模式
+        $excludePatterns = Anon_Env::get('app.cache.exclude', [
+            '/auth/',
+            '/anon/debug/',
+            '/anon/install',
+        ]);
+        
+        if (is_array($excludePatterns)) {
+            foreach ($excludePatterns as $pattern) {
+                if (strpos($requestPath, $pattern) === 0) {
+                    return true;
+                }
+            }
+        }
+        
+        // 需要登录的接口不缓存
+        if ($meta['requireLogin'] ?? false) {
+            return true;
+        }
+        
+        // POST 请求不缓存
+        if ($requestMethod === 'POST') {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * 记录路由调试信息
+     * @param string $requestPath 请求路径
+     */
+    private static function logRouteDebug(string $requestPath): void
+    {
+        error_log("Router: Processing request path: " . $requestPath);
+        error_log("Router: Available routes: " . json_encode(array_keys(self::$routes)));
+        if (isset(self::$routes[$requestPath])) {
+            error_log("Router: Exact match found for: " . $requestPath);
+        } else {
+            error_log("Router: No exact match for: " . $requestPath);
+        }
+    }
+
+    /**
+     * 结束路由匹配性能记录
+     * @param string $message 日志消息
+     * @param string $level 日志级别
+     * @param array $context 上下文数据
+     */
+    private static function endRouteMatching(string $message, string $level = 'info', array $context = []): void
+    {
+        if (self::isDebugEnabled()) {
+            Anon_Debug::endPerformance('route_matching');
+            if ($level === 'warn') {
+                Anon_Debug::warn($message, $context);
             } else {
-                header('Cache-Control: no-cache, no-store, must-revalidate');
-                header('Pragma: no-cache');
-                header('Expires: 0');
+                Anon_Debug::info($message, $context);
             }
         }
     }
@@ -644,13 +735,7 @@ class Anon_Router
             self::debugLog("Request path: " . $requestPath);
 
             if (self::isDebugEnabled()) {
-                error_log("Router: Processing request path: " . $requestPath);
-                error_log("Router: Available routes: " . json_encode(array_keys(self::$routes)));
-                if (isset(self::$routes[$requestPath])) {
-                    error_log("Router: Exact match found for: " . $requestPath);
-                } else {
-                    error_log("Router: No exact match for: " . $requestPath);
-                }
+                self::logRouteDebug($requestPath);
             }
 
             $requestPath = Anon_Hook::apply_filters('router_request_path', $requestPath);
@@ -669,26 +754,17 @@ class Anon_Router
             if (isset(self::$routeMatchCache[$requestPath])) {
                 $cachedMatch = self::$routeMatchCache[$requestPath];
                 if ($cachedMatch['type'] === 'exact') {
-                    if (self::isDebugEnabled()) {
-                        Anon_Debug::endPerformance('route_matching');
-                        Anon_Debug::info("Route matched (cached): " . $requestPath);
-                    }
+                    self::endRouteMatching("Route matched (cached): " . $requestPath);
                     Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
                     self::dispatch($requestPath);
                     return;
                 } elseif ($cachedMatch['type'] === 'param' && $cachedMatch['route']) {
-                    if (self::isDebugEnabled()) {
-                        Anon_Debug::endPerformance('route_matching');
-                        Anon_Debug::info("Parameter route matched (cached): " . $cachedMatch['route']['route']);
-                    }
+                    self::endRouteMatching("Parameter route matched (cached): " . $cachedMatch['route']['route']);
                     Anon_Hook::do_action('router_param_route_matched', $cachedMatch['route']['route'], $cachedMatch['route']['params']);
                     self::dispatchWithParams($cachedMatch['route']['route'], $cachedMatch['route']['params']);
                     return;
                 } elseif ($cachedMatch['type'] === 'none') {
-                    if (self::isDebugEnabled()) {
-                        Anon_Debug::endPerformance('route_matching');
-                        Anon_Debug::warn("No route matched (cached): " . $requestPath);
-                    }
+                    self::endRouteMatching("No route matched (cached): " . $requestPath, 'warn');
                     Anon_Hook::do_action('router_no_match', $requestPath);
                     self::handleError(404);
                     return;
@@ -701,19 +777,8 @@ class Anon_Router
 
                 // 缓存匹配结果
                 self::$routeMatchCache[$requestPath] = ['type' => 'exact', 'route' => $requestPath];
-
-                if (self::isDebugEnabled()) {
-                    error_log("Router: Route matched: " . $requestPath);
-                }
-
-                if (self::isDebugEnabled()) {
-                    Anon_Debug::endPerformance('route_matching');
-                    Anon_Debug::info("Route matched: " . $requestPath);
-                }
-
-                // 执行路由匹配钩子
+                self::endRouteMatching("Route matched: " . $requestPath);
                 Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
-
                 self::dispatch($requestPath);
             } else {
                 // 参数路由匹配
@@ -724,35 +789,18 @@ class Anon_Router
                     // 缓存匹配结果
                     self::$routeMatchCache[$requestPath] = ['type' => 'param', 'route' => $matchedRoute];
 
-                    if (self::isDebugEnabled()) {
-                        Anon_Debug::endPerformance('route_matching');
-                        Anon_Debug::info("Parameter route matched: " . $matchedRoute['route'], [
-                            'params' => $matchedRoute['params']
-                        ]);
-                    }
-
-                    // 执行参数路由匹配钩子
+                    self::endRouteMatching("Parameter route matched: " . $matchedRoute['route'], 'info', [
+                        'params' => $matchedRoute['params']
+                    ]);
                     Anon_Hook::do_action('router_param_route_matched', $matchedRoute['route'], $matchedRoute['params']);
-
                     self::dispatchWithParams($matchedRoute['route'], $matchedRoute['params']);
                 } else {
                     self::debugLog("No route matched for: " . $requestPath);
 
                     // 缓存未匹配结果
                     self::$routeMatchCache[$requestPath] = ['type' => 'none', 'route' => null];
-
-                    if (self::isDebugEnabled()) {
-                        error_log("Router: No route matched for: " . $requestPath);
-                    }
-
-                    if (self::isDebugEnabled()) {
-                        Anon_Debug::endPerformance('route_matching');
-                        Anon_Debug::warn("No route matched for: " . $requestPath);
-                    }
-
-                    // 执行路由未匹配钩子
+                    self::endRouteMatching("No route matched for: " . $requestPath, 'warn');
                     Anon_Hook::do_action('router_no_match', $requestPath);
-
                     self::handleError(404);
                 }
             }
@@ -794,10 +842,13 @@ class Anon_Router
         }
 
         try {
-            // 获取路由元数据（如果存在）
+            // 获取路由元数据
             $routeMeta = Anon_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
                 self::applyRouterMeta($routeMeta);
+            } else {
+                // 如果没有路由元数据，应用默认配置（包括全局缓存）
+                self::applyRouterMeta([]);
             }
 
             // 执行路由执行前钩子
@@ -929,10 +980,13 @@ class Anon_Router
         }
 
         try {
-            // 获取路由元数据（如果存在）
+            // 获取路由元数据
             $routeMeta = Anon_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
                 self::applyRouterMeta($routeMeta);
+            } else {
+                // 如果没有路由元数据，应用默认配置（包括全局缓存）
+                self::applyRouterMeta([]);
             }
 
             // 将路由参数添加到$_GET
