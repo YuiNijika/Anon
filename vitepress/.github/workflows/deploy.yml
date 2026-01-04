@@ -38,11 +38,11 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        working-directory: server/vitepress
+        working-directory: vitepress
         run: pnpm install
 
       - name: Build
-        working-directory: server/vitepress
+        working-directory: vitepress
         run: pnpm run build
 
       - name: Setup Pages
@@ -51,7 +51,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: server/vitepress/docs/.vitepress/dist
+          path: docs
 
   deploy:
     environment:
