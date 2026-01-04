@@ -2,6 +2,9 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
+    /**
+     * 用户表
+     */
     'users' => "CREATE TABLE IF NOT EXISTS `{prefix}users` (
         `uid` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '用户 ID',
         `name` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名',
@@ -13,6 +16,9 @@ return [
         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息表'",
+    /**
+     * 登录记录表
+     */
     'login_logs' => "CREATE TABLE IF NOT EXISTS `{prefix}login_logs` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录 ID',
         `uid` INT UNSIGNED NULL DEFAULT NULL COMMENT '用户 ID',
