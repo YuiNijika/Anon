@@ -271,11 +271,26 @@ class Anon_Plugin_UserStats
     {
         // 创建统计表
         $db = new Anon_Database();
-        $db->query("CREATE TABLE IF NOT EXISTS user_stats (
-            user_id INT PRIMARY KEY,
-            login_count INT DEFAULT 0,
-            last_login DATETIME
-        )");
+        
+        // 检查表是否存在
+        if (!$db->tableExists('user_stats')) {
+            $db->createTable('user_stats', [
+                'user_id' => [
+                    'type' => 'INT',
+                    'null' => false,
+                    'primary' => true,
+                ],
+                'login_count' => [
+                    'type' => 'INT',
+                    'null' => false,
+                    'default' => 0,
+                ],
+                'last_login' => [
+                    'type' => 'DATETIME',
+                    'null' => true,
+                ],
+            ]);
+        }
     }
 
     public static function deactivate()
@@ -286,18 +301,40 @@ class Anon_Plugin_UserStats
     private static function getUserStats($userId)
     {
         $db = new Anon_Database();
-        return $db->get('user_stats', ['user_id' => $userId]);
+        return $db->db('user_stats')
+            ->where('user_id', '=', $userId)
+            ->first();
     }
 
     public static function onUserLogin($userId)
     {
         $db = new Anon_Database();
-        $db->query("INSERT INTO user_stats (user_id, login_count, last_login) 
-                    VALUES (?, 1, NOW()) 
-                    ON DUPLICATE KEY UPDATE 
-                    login_count = login_count + 1, 
-                    last_login = NOW()", [$userId]);
+        
+        // 检查用户统计是否存在
+        $exists = $db->db('user_stats')
+            ->where('user_id', '=', $userId)
+            ->exists();
+        
+        if ($exists) {
+            // 更新现有记录
+            $current = $db->db('user_stats')
+                ->where('user_id', '=', $userId)
+                ->first();
+            
+            $db->db('user_stats')
+                ->where('user_id', '=', $userId)
+                ->update([
+                    'login_count' => ($current['login_count'] ?? 0) + 1,
+                    'last_login' => date('Y-m-d H:i:s')
+                ]);
+        } else {
+            // 插入新记录
+            $db->db('user_stats')->insert([
+                'user_id' => $userId,
+                'login_count' => 1,
+                'last_login' => date('Y-m-d H:i:s')
+            ]);
+        }
     }
 }
 ```
-
