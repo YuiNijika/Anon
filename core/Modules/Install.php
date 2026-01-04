@@ -363,7 +363,8 @@ class Anon_Install
         
         foreach ($sqlStatements as $sql) {
             if (!empty($sql) && !$conn->query($sql)) {
-                error_log("SQL 执行错误: " . $conn->error);
+                $errorMsg = self::sanitizeError($conn->error);
+                error_log("SQL 执行错误: " . $errorMsg);
                 throw new RuntimeException("SQL 执行错误: " . $conn->error);
             }
         }
@@ -377,7 +378,8 @@ class Anon_Install
         $tableName = $tablePrefix . 'users';
         $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`, display_name, avatar, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, NULL, NOW(), NOW())");
         if (!$stmt) {
-            error_log("SQL 语句错误: " . $conn->error);
+            $errorMsg = self::sanitizeError($conn->error);
+            error_log("SQL 语句错误: " . $errorMsg);
             throw new RuntimeException("SQL 语句错误");
         }
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
@@ -391,6 +393,34 @@ class Anon_Install
     private static function validateInput($data)
     {
         return htmlspecialchars(trim($data));
+    }
+
+    /**
+     * 清理错误信息，移除可能的敏感信息
+     * @param string $error 原始错误信息
+     * @return string 清理后的错误信息
+     */
+    private static function sanitizeError(string $error): string
+    {
+        // 检查是否允许记录详细错误
+        $logDetailed = false;
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $logDetailed = Anon_Env::get('app.debug.logDetailedErrors', false);
+        } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+            $logDetailed = false; // 默认不记录详细错误
+        }
+        
+        // 移除可能的敏感路径信息
+        if (!$logDetailed) {
+            $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
+        }
+        
+        // 移除可能的数据库名、表名等敏感信息
+        if (!$logDetailed) {
+            $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
+        }
+        
+        return $error;
     }
 
     /**

@@ -50,14 +50,17 @@ class Anon_Database_Connection
     public function query($sql)
     {
         // 检测可能的 SQL 注入特征
-        if (preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) && 
-            preg_match('/(\$|%|_|\'|"|`)/', $sql)) {
-            error_log("警告：检测到可疑的 SQL 查询模式: " . substr($sql, 0, 100));
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            if (preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) && 
+                preg_match('/(\$|%|_|\'|"|`)/', $sql)) {
+                error_log("警告：检测到可疑的 SQL 查询模式: " . substr($sql, 0, 100));
+            }
         }
         
         $result = $this->conn->query($sql);
         if (!$result) {
-            error_log("SQL 查询错误: " . $this->conn->error);
+            $errorMsg = self::sanitizeError($this->conn->error);
+            error_log("SQL 查询错误: " . $errorMsg);
             throw new RuntimeException("SQL 查询错误");
         }
 
@@ -77,7 +80,9 @@ class Anon_Database_Connection
     {
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
-            error_log("SQL 预处理错误: " . $this->conn->error);
+            // 不记录完整的 SQL 错误信息，防止泄露敏感信息
+            $errorMsg = self::sanitizeError($this->conn->error);
+            error_log("SQL 预处理错误: " . $errorMsg);
             throw new RuntimeException("SQL 预处理错误");
         }
 
@@ -88,6 +93,15 @@ class Anon_Database_Connection
                 if (is_null($param)) {
                     $types .= 's';
                     $bindParams[] = null;
+                } elseif (is_int($param)) {
+                    $types .= 'i';
+                    $bindParams[] = $param;
+                } elseif (is_float($param)) {
+                    $types .= 'd';
+                    $bindParams[] = $param;
+                } elseif (is_bool($param)) {
+                    $types .= 'i';
+                    $bindParams[] = $param ? 1 : 0;
                 } else {
                     $types .= 's';
                     $bindParams[] = $param;
@@ -96,6 +110,34 @@ class Anon_Database_Connection
             $stmt->bind_param($types, ...$bindParams);
         }
         return $stmt;
+    }
+
+    /**
+     * 清理错误信息，移除可能的敏感信息
+     * @param string $error 原始错误信息
+     * @return string 清理后的错误信息
+     */
+    private static function sanitizeError(string $error): string
+    {
+        // 检查是否允许记录详细错误
+        $logDetailed = false;
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            $logDetailed = Anon_Env::get('app.debug.logDetailedErrors', false);
+        } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+            $logDetailed = false; // 默认不记录详细错误
+        }
+        
+        // 移除可能的敏感路径信息
+        if (!$logDetailed) {
+            $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
+        }
+        
+        // 移除可能的数据库名、表名等敏感信息
+        if (!$logDetailed) {
+            $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
+        }
+        
+        return $error;
     }
 
     public function db($table)

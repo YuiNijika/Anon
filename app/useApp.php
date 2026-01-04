@@ -8,6 +8,7 @@ return [
         'debug' => [
             'global' => true, // 全局调试
             'router' => true, // 路由调试
+            'logDetailedErrors' => false, // 是否记录详细错误信息（包含敏感信息），默认 false
             'cache' => [
                 'enabled' => false, // 是否启用缓存
                 'time' => 0, // 缓存时间（秒），0 表示不缓存，默认 0
@@ -53,6 +54,11 @@ return [
             'sql' => [
                 'validateInDebug' => true, // 在调试模式下验证 SQL 查询安全性
             ],
-        ]
+        ],
+        'plugins' => [
+            'enabled' => true, // 是否启用插件
+            'active' => [], // 已激活的插件列表，空数组表示激活所有插件
+            // 'active' => ['helloworld', 'myplugin'], // 只激活指定的插件
+        ],
     ]
 ];

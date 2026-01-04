@@ -76,9 +76,7 @@ class Anon_Debug
         register_shutdown_function([__CLASS__, 'shutdownHandler']);
 
         self::log('DEBUG', 'Debug system initialized', [
-            'request_id' => self::$requestId,
-            'memory_start' => self::formatBytes(self::$requestStartMemory),
-            'time_start' => date('Y-m-d H:i:s', (int)self::$requestStartTime)
+            'memory' => self::formatBytes(self::$requestStartMemory)
         ]);
     }
 
@@ -146,7 +144,7 @@ class Anon_Debug
         if (!self::isEnabled()) return;
         
         self::$performanceStartTimes[$name] = microtime(true);
-        self::log('DEBUG', "Performance monitoring started: {$name}");
+        // 不记录性能监控开始，只在结束时记录
     }
 
     /**
@@ -253,10 +251,10 @@ class Anon_Debug
 
         self::log('INFO', 'Request completed', [
             'duration' => round($duration, 2) . 'ms',
-            'memory_used' => self::formatBytes($memoryUsed),
-            'peak_memory' => self::formatBytes(memory_get_peak_usage(true)),
-            'queries_count' => count(self::$queries),
-            'errors_count' => count(self::$errors)
+            'memory' => self::formatBytes($memoryUsed),
+            'peak' => self::formatBytes(memory_get_peak_usage(true)),
+            'queries' => count(self::$queries),
+            'errors' => count(self::$errors)
         ]);
     }
 
@@ -341,14 +339,13 @@ class Anon_Debug
         
         // 格式化日志级别，添加图标
         $levelIcons = [
-            'DEBUG' => '🔍',
-            'INFO' => 'ℹ️',
-            'WARN' => '⚠️',
-            'ERROR' => '❌',
-            'FATAL' => '💀'
+            'DEBUG' => '',
+            'INFO' => '',
+            'WARN' => '',
+            'ERROR' => '',
+            'FATAL' => ''
         ];
-        $levelIcon = $levelIcons[$logData['level']] ?? '•';
-        $formattedLevel = "{$levelIcon} {$logData['level']}";
+        $formattedLevel = $logData['level'];
         
         // 格式化请求ID
         $requestId = $logData['request_id'] ?? 'unknown';

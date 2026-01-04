@@ -101,7 +101,7 @@ class Anon_RateLimit
         // 检查IP限制
         if ($config['ip']['enabled']) {
             $ip = self::getClientIp();
-            $ipKey = "register_ip:" . md5($ip);
+            $ipKey = "register_ip:" . hash('sha256', $ip);
             $ipLimit = self::checkLimit($ipKey, $config['ip']['maxAttempts'], $config['ip']['windowSeconds']);
             
             if (!$ipLimit['allowed']) {
@@ -170,7 +170,7 @@ class Anon_RateLimit
     public static function clearIpLimit(?string $ip = null): bool
     {
         $ip = $ip ?? self::getClientIp();
-        return self::clearLimit("register_ip:" . md5($ip));
+        return self::clearLimit("register_ip:" . hash('sha256', $ip));
     }
 
     /**

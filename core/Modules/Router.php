@@ -191,28 +191,36 @@ class Anon_Router
         // const Anon_RouterMeta = [...] 或 const Anon_RouterMeta=[...]
         if (preg_match('/const\s+Anon_RouterMeta\s*=\s*(\[[\s\S]*?\]);/i', $content, $matches)) {
             try {
-                // 先尝试 JSON 格式，如果失败则使用严格验证的 eval
                 $arrayStr = trim($matches[1]);
-
-                // 使用 eval 解析数组
-                $metaArray = null;
-                // 验证只包含安全的字符
-                $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
-                $hasKeywords = preg_match('/(true|false|null)/i', $arrayStr);
-                $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
                 
-                if ((preg_match($safePattern, $arrayStr) || $hasKeywords) && !preg_match($unsafePattern, $arrayStr)) {
-                    try {
-                        $metaArray = eval('return ' . $arrayStr . ';');
-                    } catch (Throwable $e) {
-                        if (self::isDebugEnabled()) {
-                            Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
+                // 安全解析：先尝试转换为 JSON 格式，然后解析
+                // 将 PHP 数组语法转换为 JSON 兼容格式
+                $jsonStr = self::convertPhpArrayToJson($arrayStr);
+                
+                if ($jsonStr !== null) {
+                    $metaArray = json_decode($jsonStr, true);
+                    
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($metaArray)) {
+                        // 验证数组结构，只允许白名单键
+                        $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+                        $metaArray = array_intersect_key($metaArray, array_flip($allowedKeys));
+                        
+                        // 验证 cache 配置结构
+                        if (isset($metaArray['cache']) && is_array($metaArray['cache'])) {
+                            $cacheAllowedKeys = ['enabled', 'time'];
+                            $metaArray['cache'] = array_intersect_key($metaArray['cache'], array_flip($cacheAllowedKeys));
+                            
+                            // 类型验证
+                            if (isset($metaArray['cache']['enabled']) && !is_bool($metaArray['cache']['enabled'])) {
+                                unset($metaArray['cache']['enabled']);
+                            }
+                            if (isset($metaArray['cache']['time']) && (!is_int($metaArray['cache']['time']) || $metaArray['cache']['time'] < 0)) {
+                                unset($metaArray['cache']['time']);
+                            }
                         }
+                        
+                        return array_merge($defaultMeta, $metaArray);
                     }
-                }
-
-                if (is_array($metaArray)) {
-                    return array_merge($defaultMeta, $metaArray);
                 }
             } catch (Throwable $e) {
                 // 解析失败时使用默认配置
@@ -223,6 +231,48 @@ class Anon_Router
         }
 
         return $defaultMeta;
+    }
+
+    /**
+     * 将 PHP 数组语法安全转换为 JSON 格式
+     * @param string $phpArrayStr PHP 数组字符串
+     * @return string|null JSON 字符串，转换失败返回 null
+     */
+    private static function convertPhpArrayToJson(string $phpArrayStr): ?string
+    {
+        // 移除注释和多余空白
+        $phpArrayStr = preg_replace('/\/\*.*?\*\//s', '', $phpArrayStr);
+        $phpArrayStr = preg_replace('/\/\/.*$/m', '', $phpArrayStr);
+        $phpArrayStr = trim($phpArrayStr);
+        
+        // 验证只包含安全的字符和结构
+        $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
+        $hasKeywords = preg_match('/(true|false|null)/i', $phpArrayStr);
+        $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
+        
+        if (!((preg_match($safePattern, $phpArrayStr) || $hasKeywords) && !preg_match($unsafePattern, $phpArrayStr))) {
+            return null;
+        }
+        
+        // 将 PHP 数组语法转换为 JSON
+        // 单引号转双引号
+        $jsonStr = preg_replace("/(['\"])(.*?)\\1/", '"$2"', $phpArrayStr);
+        
+        // PHP 布尔值和 null
+        $jsonStr = preg_replace('/\btrue\b/i', 'true', $jsonStr);
+        $jsonStr = preg_replace('/\bfalse\b/i', 'false', $jsonStr);
+        $jsonStr = preg_replace('/\bnull\b/i', 'null', $jsonStr);
+        
+        // 移除数组键的引号（如果键是有效的标识符）
+        $jsonStr = preg_replace('/"([a-zA-Z_][a-zA-Z0-9_]*)":/', '$1:', $jsonStr);
+        
+        // 验证 JSON 格式
+        $testDecode = json_decode($jsonStr, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($testDecode)) {
+            return json_encode($testDecode, JSON_UNESCAPED_UNICODE);
+        }
+        
+        return null;
     }
 
     /**
@@ -744,8 +794,11 @@ class Anon_Router
         }
 
         try {
-            // Token 验证将在 View 方法的 applyRouterMeta 中处理
-            // 这里不再提前验证，避免无法获取路由文件路径时使用全局配置
+            // 获取路由元数据（如果存在）
+            $routeMeta = Anon_Config::getRouteMeta($routeKey);
+            if ($routeMeta) {
+                self::applyRouterMeta($routeMeta);
+            }
 
             // 执行路由执行前钩子
             Anon_Hook::do_action('router_before_dispatch', $routeKey, $handler);
@@ -876,8 +929,11 @@ class Anon_Router
         }
 
         try {
-            // Token 验证将在 View 方法的 applyRouterMeta 中处理
-            // 这里不再提前验证，避免无法获取路由文件路径时使用全局配置
+            // 获取路由元数据（如果存在）
+            $routeMeta = Anon_Config::getRouteMeta($routeKey);
+            if ($routeMeta) {
+                self::applyRouterMeta($routeMeta);
+            }
 
             // 将路由参数添加到$_GET
             foreach ($params as $key => $value) {

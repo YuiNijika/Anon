@@ -1072,7 +1072,7 @@ class Anon_QueryBuilder
 
         // 基于 SQL 和参数生成缓存键
         $sql = $this->toSql();
-        $key = 'query:' . md5($sql . serialize($this->bindings));
+        $key = 'query:' . hash('sha256', $sql . serialize($this->bindings));
         return $key;
     }
 }

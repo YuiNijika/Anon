@@ -13,6 +13,7 @@ class Anon_Config
      */
     private static $routerConfig = [
         'routes' => [],
+        'route_meta' => [],
         'error_handlers' => []
     ];
 
@@ -20,12 +21,57 @@ class Anon_Config
      * 注册路由
      * @param string $path 路由路径
      * @param callable $handler 处理函数
+     * @param array $meta 路由元数据（可选）
      */
-    public static function addRoute(string $path, callable $handler)
+    public static function addRoute(string $path, callable $handler, array $meta = [])
     {
         // 规范化路由键，确保以 / 开头，避免匹配失败
         $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
         self::$routerConfig['routes'][$normalized] = $handler;
+        
+        // 存储路由元数据
+        if (!empty($meta)) {
+            $defaultMeta = [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => null,
+                'cache' => [
+                    'enabled' => false,
+                    'time' => 0,
+                ],
+            ];
+            
+            // 验证并合并元数据
+            $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+            $meta = array_intersect_key($meta, array_flip($allowedKeys));
+            
+            // 验证 cache 配置结构
+            if (isset($meta['cache']) && is_array($meta['cache'])) {
+                $cacheAllowedKeys = ['enabled', 'time'];
+                $meta['cache'] = array_intersect_key($meta['cache'], array_flip($cacheAllowedKeys));
+                
+                // 类型验证
+                if (isset($meta['cache']['enabled']) && !is_bool($meta['cache']['enabled'])) {
+                    unset($meta['cache']['enabled']);
+                }
+                if (isset($meta['cache']['time']) && (!is_int($meta['cache']['time']) || $meta['cache']['time'] < 0)) {
+                    unset($meta['cache']['time']);
+                }
+            }
+            
+            self::$routerConfig['route_meta'][$normalized] = array_merge($defaultMeta, $meta);
+        }
+    }
+    
+    /**
+     * 获取路由元数据
+     * @param string $path 路由路径
+     * @return array|null 路由元数据，未找到返回 null
+     */
+    public static function getRouteMeta(string $path): ?array
+    {
+        $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
+        return self::$routerConfig['route_meta'][$normalized] ?? null;
     }
 
     /**

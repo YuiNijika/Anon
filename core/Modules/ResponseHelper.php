@@ -3,7 +3,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
  * 统一JSON响应格式
- * 提供标准化的API响应格式：success、message、data
+ * 提供标准化的API响应格式：code、message、data
  */
 class Anon_ResponseHelper {
     
@@ -77,7 +77,7 @@ class Anon_ResponseHelper {
         http_response_code($httpCode);
         
         $response = [
-            'success' => true,
+            'code' => 200,
             'message' => $message,
             'data' => self::cleanNullValues($data)
         ];
@@ -107,7 +107,7 @@ class Anon_ResponseHelper {
         }
         
         $response = [
-            'success' => false,
+            'code' => $httpCode,
             'message' => $message,
             'data' => self::cleanNullValues($data)
         ];
@@ -131,7 +131,7 @@ class Anon_ResponseHelper {
         http_response_code($httpCode);
         
         $response = [
-            'success' => true,
+            'code' => $httpCode,
             'message' => $message,
             'data' => $data,
             'pagination' => $pagination

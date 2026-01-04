@@ -76,11 +76,23 @@ class Anon_Token
                 $secret = self::generateSecret($payload['data']);
                 $expectedSignature = hash_hmac('sha256', $payloadJson, $secret);
                 if (!hash_equals($expectedSignature, $signature)) {
-                    error_log("Token signature mismatch. Expected: " . substr($expectedSignature, 0, 16) . "... Got: " . substr($signature, 0, 16) . "...");
+                    // 根据配置决定是否记录详细错误
+                    $logDetailed = self::shouldLogDetailedErrors();
+                    if ($logDetailed) {
+                        error_log("Token signature mismatch. Expected: " . substr($expectedSignature, 0, 16) . "... Got: " . substr($signature, 0, 16) . "...");
+                    } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+                        error_log("Token signature mismatch");
+                    }
                     return false;
                 }
             } catch (Exception $e) {
-                error_log("Token secret generation failed: " . $e->getMessage());
+                // 根据配置决定是否记录详细错误
+                $logDetailed = self::shouldLogDetailedErrors();
+                if ($logDetailed) {
+                    error_log("Token secret generation failed: " . $e->getMessage());
+                } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    error_log("Token secret generation failed");
+                }
                 return false;
             }
 
@@ -96,7 +108,13 @@ class Anon_Token
 
             return $payload;
         } catch (Exception $e) {
-            error_log("Token verification error: " . $e->getMessage());
+            // 根据配置决定是否记录详细错误
+            $logDetailed = self::shouldLogDetailedErrors();
+            if ($logDetailed) {
+                error_log("Token verification error: " . $e->getMessage());
+            } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log("Token verification error");
+            }
             return false;
         }
     }
@@ -161,6 +179,18 @@ class Anon_Token
         ];
         
         return hash('sha256', json_encode($secretData, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * 检查是否应该记录详细错误信息
+     * @return bool
+     */
+    private static function shouldLogDetailedErrors(): bool
+    {
+        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
+            return Anon_Env::get('app.debug.logDetailedErrors', false);
+        }
+        return false;
     }
 
     /**

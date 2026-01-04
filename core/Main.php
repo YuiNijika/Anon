@@ -94,6 +94,13 @@ class Anon_Main
         Anon_Config::initSystemRoutes();
         Anon_Config::initAppRoutes();
         
+        // 先加载快捷方法封装类
+        require_once self::MODULES_DIR . 'Anon.php';
+        
+        // 加载插件系统
+        require_once self::MODULES_DIR . 'Plugin.php';
+        Anon_Plugin::init();
+        
         $codeFile = self::APP_DIR . 'useCode.php';
         if (file_exists($codeFile)) {
             require_once $codeFile;

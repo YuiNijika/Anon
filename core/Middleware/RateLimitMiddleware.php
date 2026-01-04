@@ -104,7 +104,7 @@ class Anon_RateLimitMiddleware implements Anon_MiddlewareInterface
         // 添加 IP
         if ($this->useIp) {
             $ip = Anon_RateLimit::getClientIp();
-            $parts[] = 'ip:' . md5($ip);
+            $parts[] = 'ip:' . hash('sha256', $ip);
         }
         
         // 添加用户 ID
@@ -117,7 +117,7 @@ class Anon_RateLimitMiddleware implements Anon_MiddlewareInterface
         
         // 添加路由路径
         $path = $_SERVER['REQUEST_URI'] ?? '/';
-        $parts[] = 'path:' . md5($path);
+        $parts[] = 'path:' . hash('sha256', $path);
         
         return implode(':', $parts);
     }

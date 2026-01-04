@@ -41,7 +41,7 @@ class Anon_QueryOptimizer
 
         // 去重
         $keys = array_unique($keys);
-        $cacheKey = "eager:{$table}:" . md5(implode(',', $keys));
+        $cacheKey = "eager:{$table}:" . hash('sha256', implode(',', $keys));
 
         // 检查缓存
         if (isset(self::$eagerLoaded[$cacheKey])) {
@@ -116,7 +116,7 @@ class Anon_QueryOptimizer
         }
 
         $keys = array_unique($keys);
-        $cacheKey = "eager_one:{$table}:" . md5(implode(',', $keys));
+        $cacheKey = "eager_one:{$table}:" . hash('sha256', implode(',', $keys));
 
         if (isset(self::$eagerLoaded[$cacheKey])) {
             $relatedData = self::$eagerLoaded[$cacheKey];
