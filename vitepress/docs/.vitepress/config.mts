@@ -92,6 +92,7 @@ export default defineConfig({
           base: '/guide/',
           items: [
             { text: '大数据处理', link: 'big-data' },
+            { text: '插件系统', link: 'plugin-system' },
             { text: '调试工具', link: 'debugging' },
             { text: '自定义代码', link: 'custom-code' },
             { text: '现代特性', link: 'modern-features' },
@@ -103,7 +104,8 @@ export default defineConfig({
           base: '/guide/',
           items: [
             { text: '代码规范', link: 'coding-standards' },
-            { text: '工具说明', link: 'tools' }
+            { text: '工具说明', link: 'tools' },
+            { text: '自动化测试', link: 'testing' }
           ]
         }
       ],
