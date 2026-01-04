@@ -12,6 +12,7 @@ export default defineConfig({
   ],
   base: '/Anon/',
   lastUpdated: true,
+  outDir: '../../docs',
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
 
