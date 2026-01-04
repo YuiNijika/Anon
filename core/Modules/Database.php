@@ -162,6 +162,75 @@ class Anon_Database
     }
 
     /**
+     * 创建数据表
+     * @param string $table 表名
+     * @param array $columns 字段定义数组
+     * @param array $options 表选项
+     * @return bool
+     */
+    public function createTable(string $table, array $columns, array $options = []): bool
+    {
+        return $this->db($table)->createTable($columns, $options);
+    }
+
+    /**
+     * 添加字段
+     * @param string $table 表名
+     * @param string $column 字段名
+     * @param string|array $definition 字段定义
+     * @param string|null $after 在哪个字段之后
+     * @return bool
+     */
+    public function addColumn(string $table, string $column, $definition, ?string $after = null): bool
+    {
+        return $this->db($table)->addColumn($column, $definition, $after);
+    }
+
+    /**
+     * 修改字段
+     * @param string $table 表名
+     * @param string $column 字段名
+     * @param string|array $definition 新的字段定义
+     * @return bool
+     */
+    public function modifyColumn(string $table, string $column, $definition): bool
+    {
+        return $this->db($table)->modifyColumn($column, $definition);
+    }
+
+    /**
+     * 删除字段
+     * @param string $table 表名
+     * @param string $column 字段名
+     * @return bool
+     */
+    public function dropColumn(string $table, string $column): bool
+    {
+        return $this->db($table)->dropColumn($column);
+    }
+
+    /**
+     * 删除表
+     * @param string $table 表名
+     * @param bool $ifExists 是否使用 IF EXISTS
+     * @return bool
+     */
+    public function dropTable(string $table, bool $ifExists = true): bool
+    {
+        return $this->db($table)->dropTable($ifExists);
+    }
+
+    /**
+     * 检查表是否存在
+     * @param string $table 表名
+     * @return bool
+     */
+    public function tableExists(string $table): bool
+    {
+        return $this->db($table)->tableExists();
+    }
+
+    /**
      * 准备并返回预处理语句对象
      */
     public function prepare($sql, $params = [])

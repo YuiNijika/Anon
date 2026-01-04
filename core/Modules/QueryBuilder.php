@@ -84,6 +84,10 @@ class Anon_QueryBuilder
     public function __construct($connection, string $table)
     {
         $this->connection = $connection;
+        // 验证表名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`]+$/', $table)) {
+            throw new InvalidArgumentException("无效的表名: {$table}");
+        }
         $this->table = $table;
     }
 
@@ -1074,6 +1078,278 @@ class Anon_QueryBuilder
         $sql = $this->toSql();
         $key = 'query:' . hash('sha256', $sql . serialize($this->bindings));
         return $key;
+    }
+
+    /**
+     * 创建数据表
+     * @param array $columns 字段定义数组，格式：['column_name' => 'type options', ...]
+     * @param array $options 表选项，如：['engine' => 'InnoDB', 'charset' => 'utf8mb4', 'ifNotExists' => true]
+     * @return bool 是否创建成功
+     */
+    public function createTable(array $columns, array $options = []): bool
+    {
+        if (empty($columns)) {
+            throw new InvalidArgumentException('表字段不能为空');
+        }
+
+        // 验证表选项安全性
+        $engine = $this->validateTableOption($options['engine'] ?? 'InnoDB', ['InnoDB', 'MyISAM', 'MEMORY']);
+        $charset = $this->validateTableOption($options['charset'] ?? 'utf8mb4', ['utf8mb4', 'utf8', 'latin1']);
+        $collate = $this->validateTableOption($options['collate'] ?? 'utf8mb4_unicode_ci', ['utf8mb4_unicode_ci', 'utf8mb4_general_ci', 'utf8_general_ci']);
+        $ifNotExists = $options['ifNotExists'] ?? true;
+
+        $columnDefinitions = [];
+        foreach ($columns as $name => $definition) {
+            // 验证字段名安全性
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+                throw new InvalidArgumentException("无效的字段名: {$name}");
+            }
+            
+            if (is_string($definition)) {
+                // 验证字符串定义中不包含危险字符
+                if (preg_match('/[;\'"]|--|\/\*|\*\/|DROP|DELETE|TRUNCATE/i', $definition)) {
+                    throw new InvalidArgumentException("字段定义包含不安全的字符: {$name}");
+                }
+                $columnDefinitions[] = "`{$name}` {$definition}";
+            } elseif (is_array($definition)) {
+                $type = $definition['type'] ?? 'VARCHAR(255)';
+                // 验证类型安全性
+                if (preg_match('/[;\'"]|--|\/\*|\*\/|DROP|DELETE|TRUNCATE/i', $type)) {
+                    throw new InvalidArgumentException("字段类型包含不安全的字符: {$name}");
+                }
+                $null = isset($definition['null']) && $definition['null'] ? 'NULL' : 'NOT NULL';
+                $default = isset($definition['default']) ? "DEFAULT " . $this->formatDefault($definition['default']) : '';
+                $autoIncrement = isset($definition['autoIncrement']) && $definition['autoIncrement'] ? 'AUTO_INCREMENT' : '';
+                $primary = isset($definition['primary']) && $definition['primary'] ? 'PRIMARY KEY' : '';
+                $comment = isset($definition['comment']) ? "COMMENT '" . $this->escapeComment($definition['comment']) . "'" : '';
+                
+                $columnDef = "`{$name}` {$type} {$null}";
+                if ($default) $columnDef .= " {$default}";
+                if ($autoIncrement) $columnDef .= " {$autoIncrement}";
+                if ($primary) $columnDef .= " {$primary}";
+                if ($comment) $columnDef .= " {$comment}";
+                
+                $columnDefinitions[] = trim($columnDef);
+            }
+        }
+
+        $ifNotExistsClause = $ifNotExists ? 'IF NOT EXISTS' : '';
+        $sql = "CREATE TABLE {$ifNotExistsClause} `{$this->table}` (" . 
+               implode(', ', $columnDefinitions) . 
+               ") ENGINE={$engine} DEFAULT CHARSET={$charset} COLLATE={$collate}";
+
+        return $this->executeSchemaQuery($sql);
+    }
+
+    /**
+     * 添加字段
+     * @param string $column 字段名
+     * @param string|array $definition 字段定义
+     * @param string|null $after 在哪个字段之后（可选）
+     * @return bool 是否添加成功
+     */
+    public function addColumn(string $column, $definition, ?string $after = null): bool
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
+        $columnDef = $this->buildColumnDefinition($column, $definition);
+        
+        // 验证 after 字段名安全性
+        if ($after !== null) {
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $after)) {
+                throw new InvalidArgumentException("无效的字段名: {$after}");
+            }
+        }
+        
+        $afterClause = $after ? " AFTER `{$after}`" : '';
+        $sql = "ALTER TABLE `{$this->table}` ADD COLUMN {$columnDef}{$afterClause}";
+
+        return $this->executeSchemaQuery($sql);
+    }
+
+    /**
+     * 修改字段
+     * @param string $column 字段名
+     * @param string|array $definition 新的字段定义
+     * @return bool 是否修改成功
+     */
+    public function modifyColumn(string $column, $definition): bool
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
+        $columnDef = $this->buildColumnDefinition($column, $definition);
+        $sql = "ALTER TABLE `{$this->table}` MODIFY COLUMN {$columnDef}";
+
+        return $this->executeSchemaQuery($sql);
+    }
+
+    /**
+     * 删除字段
+     * @param string $column 字段名
+     * @return bool 是否删除成功
+     */
+    public function dropColumn(string $column): bool
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
+        $sql = "ALTER TABLE `{$this->table}` DROP COLUMN `{$column}`";
+
+        return $this->executeSchemaQuery($sql);
+    }
+
+    /**
+     * 删除表
+     * @param bool $ifExists 是否使用 IF EXISTS
+     * @return bool 是否删除成功
+     */
+    public function dropTable(bool $ifExists = true): bool
+    {
+        $ifExistsClause = $ifExists ? 'IF EXISTS' : '';
+        $sql = "DROP TABLE {$ifExistsClause} `{$this->table}`";
+
+        return $this->executeSchemaQuery($sql);
+    }
+
+    /**
+     * 检查表是否存在
+     * @return bool
+     */
+    public function tableExists(): bool
+    {
+        $conn = $this->getMysqliConnection();
+        $database = $conn->query("SELECT DATABASE()")->fetch_row()[0];
+        $sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ?";
+        
+        $stmt = $conn->prepare($sql);
+        $tableName = $this->table;
+        $stmt->bind_param('ss', $database, $tableName);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $count = $result->fetch_row()[0];
+        $stmt->close();
+        
+        return (int)$count > 0;
+    }
+
+    /**
+     * 构建字段定义
+     * @param string $column 字段名
+     * @param string|array $definition 字段定义
+     * @return string
+     */
+    private function buildColumnDefinition(string $column, $definition): string
+    {
+        if (is_string($definition)) {
+            // 验证字符串定义中不包含危险字符
+            if (preg_match('/[;\'"]|--|\/\*|\*\/|DROP|DELETE|TRUNCATE/i', $definition)) {
+                throw new InvalidArgumentException("字段定义包含不安全的字符: {$column}");
+            }
+            return "`{$column}` {$definition}";
+        }
+
+        if (is_array($definition)) {
+            $type = $definition['type'] ?? 'VARCHAR(255)';
+            // 验证类型安全性
+            if (preg_match('/[;\'"]|--|\/\*|\*\/|DROP|DELETE|TRUNCATE/i', $type)) {
+                throw new InvalidArgumentException("字段类型包含不安全的字符: {$column}");
+            }
+            $null = isset($definition['null']) && $definition['null'] ? 'NULL' : 'NOT NULL';
+            $default = isset($definition['default']) ? "DEFAULT " . $this->formatDefault($definition['default']) : '';
+            $autoIncrement = isset($definition['autoIncrement']) && $definition['autoIncrement'] ? 'AUTO_INCREMENT' : '';
+            $primary = isset($definition['primary']) && $definition['primary'] ? 'PRIMARY KEY' : '';
+            $comment = isset($definition['comment']) ? "COMMENT '" . $this->escapeComment($definition['comment']) . "'" : '';
+            
+            $columnDef = "`{$column}` {$type} {$null}";
+            if ($default) $columnDef .= " {$default}";
+            if ($autoIncrement) $columnDef .= " {$autoIncrement}";
+            if ($primary) $columnDef .= " {$primary}";
+            if ($comment) $columnDef .= " {$comment}";
+            
+            return trim($columnDef);
+        }
+
+        throw new InvalidArgumentException("无效的字段定义");
+    }
+
+    /**
+     * 验证表选项安全性
+     * @param string $value 选项值
+     * @param array $allowed 允许的值列表
+     * @return string
+     */
+    private function validateTableOption(string $value, array $allowed): string
+    {
+        if (!in_array($value, $allowed, true)) {
+            throw new InvalidArgumentException("无效的表选项值: {$value}，允许的值: " . implode(', ', $allowed));
+        }
+        return $value;
+    }
+
+    /**
+     * 转义注释内容
+     * @param string $comment 注释内容
+     * @return string
+     */
+    private function escapeComment(string $comment): string
+    {
+        // 移除单引号、反斜杠等危险字符
+        $comment = str_replace(['\'', '\\', "\0", "\n", "\r"], ['', '', '', '', ''], $comment);
+        // 使用 mysqli_real_escape_string 进一步转义
+        $conn = $this->getMysqliConnection();
+        return mysqli_real_escape_string($conn, $comment);
+    }
+
+    /**
+     * 格式化默认值
+     * @param mixed $value 默认值
+     * @return string
+     */
+    private function formatDefault($value): string
+    {
+        if ($value === null) {
+            return 'NULL';
+        }
+        if (is_string($value)) {
+            // 使用 mysqli_real_escape_string 转义
+            $conn = $this->getMysqliConnection();
+            return "'" . mysqli_real_escape_string($conn, $value) . "'";
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        if (is_numeric($value)) {
+            // 验证是否为有效数字
+            if (!is_numeric($value)) {
+                throw new InvalidArgumentException("无效的默认值: " . var_export($value, true));
+            }
+            return (string)$value;
+        }
+        // 其他类型转换为字符串并转义
+        $conn = $this->getMysqliConnection();
+        return "'" . mysqli_real_escape_string($conn, (string)$value) . "'";
+    }
+
+    /**
+     * 执行表结构操作 SQL
+     * @param string $sql SQL 语句
+     * @return bool
+     */
+    private function executeSchemaQuery(string $sql): bool
+    {
+        $conn = $this->getMysqliConnection();
+        $result = $conn->query($sql);
+        
+        if ($result === false) {
+            throw new RuntimeException("SQL 执行失败: " . $conn->error . " | SQL: " . $sql);
+        }
+        
+        return true;
     }
 }
 

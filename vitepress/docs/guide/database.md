@@ -244,6 +244,104 @@ $users = $db->db('users')->limit(100)->get();
 $users = Anon_QueryOptimizer::eagerLoad($users, 'user_id', 'orders', 'id');
 ```
 
+## 表结构操作
+
+使用查询构建器创建和管理数据表结构，无需手写 SQL。
+
+### 创建表
+
+```php
+$db = new Anon_Database();
+
+// 使用数组定义字段
+$db->createTable('user_stats', [
+    'user_id' => [
+        'type' => 'INT',
+        'null' => false,
+        'primary' => true,
+    ],
+    'login_count' => [
+        'type' => 'INT',
+        'null' => false,
+        'default' => 0,
+    ],
+    'last_login' => [
+        'type' => 'DATETIME',
+        'null' => true,
+    ],
+], [
+    'engine' => 'InnoDB',
+    'charset' => 'utf8mb4',
+    'ifNotExists' => true,
+]);
+
+// 使用字符串定义字段（更灵活）
+$db->createTable('posts', [
+    'id' => 'INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
+    'title' => "VARCHAR(255) NOT NULL COMMENT '标题'",
+    'content' => 'TEXT',
+    'created_at' => 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
+]);
+```
+
+### 字段定义选项
+
+```php
+[
+    'type' => 'VARCHAR(255)',      // 字段类型
+    'null' => false,               // 是否允许 NULL
+    'default' => 'default_value',  // 默认值
+    'autoIncrement' => true,       // 是否自增
+    'primary' => true,           // 是否主键
+    'comment' => '字段说明',       // 字段注释
+]
+```
+
+### 添加字段
+
+```php
+// 添加单个字段
+$db->addColumn('users', 'avatar', [
+    'type' => 'VARCHAR(255)',
+    'null' => true,
+    'comment' => '头像URL',
+]);
+
+// 在指定字段之后添加
+$db->addColumn('users', 'nickname', 'VARCHAR(100)', 'name');
+```
+
+### 修改字段
+
+```php
+// 修改字段类型和属性
+$db->modifyColumn('users', 'email', [
+    'type' => 'VARCHAR(255)',
+    'null' => false,
+    'comment' => '邮箱地址',
+]);
+```
+
+### 删除字段
+
+```php
+$db->dropColumn('users', 'old_field');
+```
+
+### 删除表
+
+```php
+$db->dropTable('old_table', true); // true 表示使用 IF EXISTS
+```
+
+### 检查表是否存在
+
+```php
+if (!$db->tableExists('user_stats')) {
+    $db->createTable('user_stats', [...]);
+}
+```
+
 ## 分库分表
 
 ```php
