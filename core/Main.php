@@ -40,14 +40,15 @@ class Anon_Main
         ];
         $envConfig = array_merge_recursive($envConfig, $appConfig);
         
-        // 核心模块 - 必须立即加载
+        // 立即加载核心模块
         require_once self::MODULES_DIR . 'Env.php';
         Anon_Env::init($envConfig);
         require_once self::MODULES_DIR . 'Config.php';
+        require_once self::MODULES_DIR . 'SqlConfig.php';
         require_once self::MODULES_DIR . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
-        // 工具类 - 按需加载
+        // 按需加载工具类
         require_once self::WIDGETS_DIR . 'Connection.php';
         require_once self::WIDGETS_DIR . 'Utils/Escape.php';
         require_once self::WIDGETS_DIR . 'Utils/Sanitize.php';
@@ -57,7 +58,7 @@ class Anon_Main
         require_once self::WIDGETS_DIR . 'Utils/Array.php';
         require_once self::WIDGETS_DIR . 'Utils/Random.php';
         
-        // 核心功能模块 - 延迟加载
+        // 按需加载核心功能模块
         require_once self::MODULES_DIR . 'Database.php';
         require_once self::MODULES_DIR . 'Install.php';
         require_once self::MODULES_DIR . 'ResponseHelper.php';
@@ -72,7 +73,7 @@ class Anon_Main
         require_once self::MODULES_DIR . 'QueryOptimizer.php';
         require_once self::MODULES_DIR . 'Sharding.php';
         
-        // 可选功能模块 - 按需加载
+        // 按需加载可选功能模块
         require_once self::MODULES_DIR . 'Token.php';
         require_once self::MODULES_DIR . 'Captcha.php';
         require_once self::MODULES_DIR . 'RateLimit.php';
@@ -81,23 +82,23 @@ class Anon_Main
         require_once self::MODULES_DIR . 'Capability.php';
         require_once self::MODULES_DIR . 'Console.php';
         
-        // Debug 模块 - 仅在启用时初始化
+        // 按需加载 Debug 模块
         require_once self::MODULES_DIR . 'Debug.php';
         if (defined('ANON_DEBUG') && Anon_Debug::isEnabled()) {
             Anon_Debug::init();
         }
         
-        // 能力系统 - 延迟初始化
+        // 按需加载能力系统
         Anon_Capability::getInstance()->init();
         
-        // 路由初始化 - 延迟到 Router 模块加载时
+        // 按需加载路由
         Anon_Config::initSystemRoutes();
         Anon_Config::initAppRoutes();
         
-        // 先加载快捷方法封装类
+        // 按需加载快捷方法封装类
         require_once self::MODULES_DIR . 'Anon.php';
         
-        // 加载插件系统
+        // 按需加载插件系统
         require_once self::MODULES_DIR . 'Plugin.php';
         Anon_Plugin::init();
         
