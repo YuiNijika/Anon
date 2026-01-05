@@ -56,9 +56,6 @@ core/Modules/
 ├── Security/          # 安全模块
 │   └── Security.php
 │
-├── Cache/             # 缓存模块
-│   └── Cache.php
-│
 └── System/            # 系统模块
     ├── Config.php
     ├── Env.php
@@ -68,7 +65,8 @@ core/Modules/
     ├── Exception.php
     ├── Install.php
     ├── Widget.php
-    └── Console.php
+    ├── Console.php
+    └── Cache.php
 ```
 
 ## 工具说明
@@ -76,6 +74,7 @@ core/Modules/
 - `organize_modules.py` - 移动文件到功能子目录
 - `update_paths.py` - 更新 require_once 路径引用
 - `rename_classes.py` - 重命名类并创建兼容别名
+- `update_docs.py` - 更新 VitePress 文档中的类名引用
 - `run.py` - 一键执行全部操作
 - `test_refactor.py` - 重构后功能测试
 
@@ -106,6 +105,7 @@ Anon_Database_QueryBuilder::select();
 Anon_RequestHelper::validate([...]);
 Anon_ResponseHelper::success($data);
 Anon_Token::generate([...]);
+Anon_Cache::get('key');
 ```
 
 ### 兼容机制
@@ -171,4 +171,24 @@ python tools/refactor/test_refactor.py
 
 1. 运行 `composer dump-autoload` 更新自动加载
 2. 测试功能是否正常
-3. 确认无误后，可删除旧文件（如果还在根目录）
+3. 预览文档：`cd vitepress && npm run docs:dev`
+4. 构建文档：`cd vitepress && npm run docs:build`
+5. 确认无误后，可删除旧文件（如果还在根目录）
+
+## 文档更新
+
+重构工具会自动更新 VitePress 文档中的类名引用：
+
+- 代码块中的类名会自动更新为新类名
+- 行内代码中的类名会自动更新
+- 在 `api/reference.md` 中添加类名变更说明
+
+也可以单独运行文档更新：
+
+```bash
+# 演练模式
+python tools/refactor/update_docs.py --dry-run
+
+# 实际执行
+python tools/refactor/update_docs.py
+```

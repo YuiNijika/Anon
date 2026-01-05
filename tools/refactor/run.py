@@ -36,8 +36,8 @@ def main():
     if dry_run:
         print("⚠️  演练模式\n")
     else:
-        confirm = input("确认开始重构？(yes/no): ")
-        if confirm.lower() != 'yes':
+        confirm = input("确认开始重构？(y/n): ")
+        if confirm.lower() != 'y':
             print("已取消")
             return
     
@@ -56,6 +56,10 @@ def main():
         print("\n❌ 类名重命名失败")
         return
     
+    # 更新 VitePress 文档
+    if not run('update_docs.py', dry_run):
+        print("\n⚠️  文档更新失败，但代码重构已完成")
+    
     print(f"\n{'='*60}")
     print("✅ 重构完成！")
     print(f"{'='*60}\n")
@@ -64,6 +68,7 @@ def main():
         print("后续步骤：")
         print("1. composer dump-autoload")
         print("2. 测试功能")
+        print("3. cd vitepress && npm run docs:dev  # 预览文档")
 
 
 if __name__ == '__main__':

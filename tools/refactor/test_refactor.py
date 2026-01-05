@@ -40,7 +40,7 @@ CLASSES_TO_TEST = [
     'Anon_QueryBuilder',
     'Anon_QueryOptimizer',
     
-    # Cache 模块
+    # System 模块
     'Anon_Cache',
     'Anon_FileCache',
     'Anon_MemoryCache',
@@ -71,7 +71,7 @@ FILE_PATHS_TO_CHECK = [
     'core/Modules/Auth/RateLimit.php',
     'core/Modules/Database/QueryBuilder.php',
     'core/Modules/Database/QueryOptimizer.php',
-    'core/Modules/Cache/Cache.php',
+    'core/Modules/System/Cache.php',
     'core/Modules/Security/Security.php',
 ]
 

@@ -12,54 +12,126 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent.parent
 CORE_DIR = BASE_DIR / 'core'
 APP_DIR = BASE_DIR / 'app'
+MODULES_DIR = CORE_DIR / 'Modules'
 
-# 类名映射：旧类名 -> 新类名
-CLASS_RENAME_MAP = {
-    # Http 模块
-    'Anon_RequestHelper': 'Anon_Http_Request',
-    'Anon_ResponseHelper': 'Anon_Http_Response',
-    'Anon_Router': 'Anon_Http_Router',
-    'Anon_Middleware': 'Anon_Http_Middleware',
-    'Anon_MiddlewareInterface': 'Anon_Http_MiddlewareInterface',
+
+def extract_class_name(file_path):
+    """从 PHP 文件中提取类名"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except:
+        return None
     
-    # Auth 模块
-    'Anon_Token': 'Anon_Auth_Token',
-    'Anon_Csrf': 'Anon_Auth_Csrf',
-    'Anon_Captcha': 'Anon_Auth_Captcha',
-    'Anon_RateLimit': 'Anon_Auth_RateLimit',
-    'Anon_Capability': 'Anon_Auth_Capability',
+    # 匹配 class 定义
+    class_match = re.search(r'\bclass\s+(\w+)\b', content)
+    if class_match:
+        return class_match.group(1)
     
-    # Database 模块
-    'Anon_QueryBuilder': 'Anon_Database_QueryBuilder',
-    'Anon_QueryOptimizer': 'Anon_Database_QueryOptimizer',
-    'Anon_Sharding': 'Anon_Database_Sharding',
+    # 匹配 interface 定义
+    interface_match = re.search(r'\binterface\s+(\w+)\b', content)
+    if interface_match:
+        return interface_match.group(1)
     
-    # System 模块
-    'Anon_Config': 'Anon_System_Config',
-    'Anon_Env': 'Anon_System_Env',
-    'Anon_Container': 'Anon_System_Container',
-    'Anon_Hook': 'Anon_System_Hook',
-    'Anon_Plugin': 'Anon_System_Plugin',
-    'Anon_Exception': 'Anon_System_Exception',
-    'Anon_UnauthorizedException': 'Anon_System_UnauthorizedException',
-    'Anon_ForbiddenException': 'Anon_System_ForbiddenException',
-    'Anon_NotFoundException': 'Anon_System_NotFoundException',
-    'Anon_ValidationException': 'Anon_System_ValidationException',
+    return None
+
+
+def generate_new_class_name(file_path, old_class_name):
+    """根据文件路径生成新类名"""
+    # 获取相对于 Modules 的路径
+    try:
+        rel_path = file_path.relative_to(MODULES_DIR)
+    except:
+        return None
     
-    # Cache 模块
-    'Anon_Cache': 'Anon_Cache_Manager',
-    'Anon_FileCache': 'Anon_Cache_FileCache',
-    'Anon_MemoryCache': 'Anon_Cache_MemoryCache',
-    'Anon_CacheInterface': 'Anon_Cache_CacheInterface',
+    # 转换为路径列表
+    parts = list(rel_path.parts)
     
-    # Security 模块
-    'Anon_Utils_Sanitize': 'Anon_Security_Sanitize',
-}
+    # 移除文件名，保留目录
+    filename = parts[-1]
+    dirs = parts[:-1]
+    
+    # 获取文件名不含扩展名
+    file_base = Path(filename).stem
+    
+    # 特殊处理 RequestHelper 和 ResponseHelper 去掉 Helper 后缀
+    if file_base == 'RequestHelper':
+        file_base = 'Request'
+    elif file_base == 'ResponseHelper':
+        file_base = 'Response'
+    
+    # 构建新类名
+    if dirs:
+        # 有子目录时使用模块名作为前缀
+        module_name = dirs[0]
+        new_name = f'Anon_{module_name}_{file_base}'
+    else:
+        # 无子目录时检查是否在 Widgets/Utils 下
+        if 'Widgets' in str(file_path) and 'Utils' in str(file_path):
+            # Widgets/Utils 下的 Sanitize 映射到 Security 模块
+            if 'Sanitize' in filename:
+                new_name = old_class_name.replace('Anon_Utils_', 'Anon_Security_')
+            else:
+                new_name = old_class_name
+        else:
+            # 根目录下的文件不重命名
+            new_name = old_class_name
+    
+    return new_name
+
+
+def auto_detect_class_mapping():
+    """自动检测类名映射关系"""
+    class_map = {}
+    
+    if not MODULES_DIR.exists():
+        return class_map
+    
+    # 扫描 Modules 子目录
+    for root, dirs, files in os.walk(MODULES_DIR):
+        # 跳过根目录，只处理子目录
+        if root == str(MODULES_DIR):
+            continue
+        
+        for file in files:
+            if not file.endswith('.php'):
+                continue
+            
+            file_path = Path(root) / file
+            
+            # 提取旧类名
+            old_class_name = extract_class_name(file_path)
+            if not old_class_name or not old_class_name.startswith('Anon_'):
+                continue
+            
+            # 生成新类名
+            new_class_name = generate_new_class_name(file_path, old_class_name)
+            if not new_class_name or new_class_name == old_class_name:
+                continue
+            
+            class_map[old_class_name] = new_class_name
+    
+    # 扫描 Widgets/Utils 目录
+    widgets_utils_dir = CORE_DIR / 'Widgets' / 'Utils'
+    if widgets_utils_dir.exists():
+        for file in widgets_utils_dir.glob('*.php'):
+            old_class_name = extract_class_name(file)
+            if old_class_name and old_class_name.startswith('Anon_Utils_'):
+                # Utils 下的 Sanitize 映射到 Security 模块
+                if 'Sanitize' in file.name:
+                    new_class_name = old_class_name.replace('Anon_Utils_', 'Anon_Security_')
+                    class_map[old_class_name] = new_class_name
+    
+    return class_map
 
 
 def replace_class_name_in_file(file_path, old_name, new_name):
     """在文件中替换类名"""
     if not file_path.exists() or file_path.suffix != '.php':
+        return False
+    
+    # 排除兼容层文件，避免破坏 class_alias
+    if file_path.name == 'Compatibility.php':
         return False
     
     try:
@@ -149,7 +221,7 @@ def replace_class_name_in_file(file_path, old_name, new_name):
     return False
 
 
-def update_directory(directory, dry_run=False):
+def update_directory(directory, class_map, dry_run=False):
     """递归更新目录中所有 PHP 文件的类名"""
     updated = 0
     
@@ -160,7 +232,11 @@ def update_directory(directory, dry_run=False):
             if file.endswith('.php'):
                 file_path = Path(root) / file
                 
-                for old_name, new_name in CLASS_RENAME_MAP.items():
+                # 排除兼容层文件
+                if file_path.name == 'Compatibility.php':
+                    continue
+                
+                for old_name, new_name in class_map.items():
                     if replace_class_name_in_file(file_path, old_name, new_name):
                         if not dry_run:
                             rel_path = file_path.relative_to(BASE_DIR)
@@ -170,12 +246,12 @@ def update_directory(directory, dry_run=False):
     return updated
 
 
-def create_compatibility_file():
+def create_compatibility_file(class_map):
     """创建兼容层文件"""
     compat_file = CORE_DIR / 'Compatibility.php'
     
     aliases = []
-    for old_name, new_name in CLASS_RENAME_MAP.items():
+    for old_name, new_name in class_map.items():
         aliases.append(f"class_alias('{new_name}', '{old_name}');")
     
     content = f"""<?php
@@ -209,11 +285,26 @@ def main():
     print("=" * 60)
     print()
     
+    # 自动检测类名映射
+    print("步骤 0: 自动检测类名映射...")
+    print("-" * 60)
+    global CLASS_RENAME_MAP
+    CLASS_RENAME_MAP = auto_detect_class_mapping()
+    
+    if not CLASS_RENAME_MAP:
+        print("⚠️  未检测到需要重命名的类")
+        return
+    
+    print(f"检测到 {len(CLASS_RENAME_MAP)} 个类需要重命名：")
+    for old_name, new_name in sorted(CLASS_RENAME_MAP.items()):
+        print(f"  {old_name} -> {new_name}")
+    print()
+    
     if dry_run:
         print("⚠️  演练模式（不实际修改文件）\n")
     else:
-        confirm = input("确认重命名类并创建兼容别名？(yes/no): ")
-        if confirm.lower() != 'yes':
+        confirm = input("确认重命名类并创建兼容别名？(y/n): ")
+        if confirm.lower() != 'y':
             print("已取消")
             return
     
@@ -221,18 +312,18 @@ def main():
     print("-" * 60)
     
     # 更新 core 目录
-    core_updated = update_directory(CORE_DIR, dry_run)
+    core_updated = update_directory(CORE_DIR, CLASS_RENAME_MAP, dry_run)
     print(f"core/ 目录: 更新 {core_updated} 处引用")
     
     # 更新 app 目录
     if APP_DIR.exists():
-        app_updated = update_directory(APP_DIR, dry_run)
+        app_updated = update_directory(APP_DIR, CLASS_RENAME_MAP, dry_run)
         print(f"app/ 目录: 更新 {app_updated} 处引用")
     
     if not dry_run:
         print("\n步骤 2: 创建兼容层...")
         print("-" * 60)
-        alias_count = create_compatibility_file()
+        alias_count = create_compatibility_file(CLASS_RENAME_MAP)
         print(f"✓ 创建 {alias_count} 个别名")
     
     print("\n" + "=" * 60)

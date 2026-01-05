@@ -37,9 +37,6 @@ PATH_MAP = {
     # Security 模块
     "Modules/Security.php": "Modules/Security/Security.php",
     
-    # Cache 模块
-    "Modules/Cache.php": "Modules/Cache/Cache.php",
-    
     # System 模块
     "Modules/Config.php": "Modules/System/Config.php",
     "Modules/Env.php": "Modules/System/Env.php",
@@ -50,6 +47,7 @@ PATH_MAP = {
     "Modules/Install.php": "Modules/System/Install.php",
     "Modules/Widget.php": "Modules/System/Widget.php",
     "Modules/Console.php": "Modules/System/Console.php",
+    "Modules/Cache.php": "Modules/System/Cache.php",
 }
 
 

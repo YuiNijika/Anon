@@ -44,11 +44,6 @@ FILE_MOVES = {
         'Security.php'
     ],
     
-    # Cache 模块
-    'Cache': [
-        'Cache.php'
-    ],
-    
     # System 模块
     'System': [
         'Config.php',
@@ -59,7 +54,8 @@ FILE_MOVES = {
         'Exception.php',
         'Install.php',
         'Widget.php',
-        'Console.php'
+        'Console.php',
+        'Cache.php'
     ]
 }
 
@@ -86,13 +82,13 @@ def move_files(dry_run=False):
             
             # 源文件不存在则跳过
             if not source.exists():
-                print(f"  ⚠️  跳过: {filename} (不存在)")
+                print(f"  ⚠️  跳过: {filename} 不存在")
                 skipped += 1
                 continue
             
             # 目标文件已存在则跳过
             if target.exists():
-                print(f"  ⚠️  跳过: {filename} (目标已存在)")
+                print(f"  ⚠️  跳过: {filename} 目标已存在")
                 skipped += 1
                 continue
             
@@ -119,8 +115,8 @@ if __name__ == '__main__':
     if dry_run:
         print("⚠️  演练模式（不实际移动文件）\n")
     else:
-        confirm = input("确认重构 core/Modules/ 目录？(yes/no): ")
-        if confirm.lower() != 'yes':
+        confirm = input("确认重构 core/Modules/ 目录？(y/n): ")
+        if confirm.lower() != 'y':
             print("已取消")
             sys.exit(0)
     
