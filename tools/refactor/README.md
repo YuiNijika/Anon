@@ -102,10 +102,10 @@ Anon_Database_QueryBuilder::select();
 
 ```php
 // 旧代码仍然可以正常工作
-Anon_RequestHelper::validate([...]);
-Anon_ResponseHelper::success($data);
-Anon_Token::generate([...]);
-Anon_Cache::get('key');
+Anon_Http_Request::validate([...]);
+Anon_Http_Response::success($data);
+Anon_Auth_Token::generate([...]);
+Anon_System_Cache::get('key');
 ```
 
 ### 兼容机制
@@ -113,8 +113,8 @@ Anon_Cache::get('key');
 通过 `core/Compatibility.php` 文件自动创建类别名：
 
 ```php
-class_alias('Anon_Http_Request', 'Anon_RequestHelper');
-class_alias('Anon_Http_Response', 'Anon_ResponseHelper');
+class_alias('Anon_Http_Request', 'Anon_Http_Request');
+class_alias('Anon_Http_Response', 'Anon_Http_Response');
 // ... 更多别名
 ```
 

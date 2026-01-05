@@ -88,9 +88,9 @@ Anon_Utils_Escape::attr($text);
 Anon_Utils_Escape::js($text);
 
 // 清理工具
-Anon_Utils_Sanitize::text($text);
-Anon_Utils_Sanitize::email($email);
-Anon_Utils_Sanitize::url($url);
+Anon_Security_Security_Security_Security_Sanitize::text($text);
+Anon_Security_Security_Security_Security_Sanitize::email($email);
+Anon_Security_Security_Security_Security_Sanitize::url($url);
 
 // 验证工具
 Anon_Utils_Validate::email($email);

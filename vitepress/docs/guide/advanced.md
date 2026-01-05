@@ -9,7 +9,7 @@
 ### HTML输出模式
 
 ```php
-$widget = Anon_Widget::getInstance();
+$widget = Anon_System_Widget::getInstance();
 
 // 注册HTML组件
 $widget->register('my_widget', '我的组件', function($args) {
@@ -26,7 +26,7 @@ $output = $widget->render('my_widget', ['title' => '标题']);
 ### JSON API模式（推荐）
 
 ```php
-$widget = Anon_Widget::getInstance();
+$widget = Anon_System_Widget::getInstance();
 
 // 注册回调函数返回数组或对象的JSON API组件
 $widget->register('user_stats', '用户统计', function($args) {
@@ -53,12 +53,12 @@ $json = $widget->getJson('user_stats', ['user_id' => 1]);
 
 // 在API路由中使用
 try {
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     $stats = $widget->getData('user_stats', ['user_id' => $userInfo['uid']]);
     
-    Anon_ResponseHelper::success($stats, '获取统计数据成功');
+    Anon_Http_Response::success($stats, '获取统计数据成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -76,7 +76,7 @@ $widget->register('auto_widget', '自动检测组件', function($args) {
 ### 组件管理
 
 ```php
-$widget = Anon_Widget::getInstance();
+$widget = Anon_System_Widget::getInstance();
 
 // 检查组件是否存在
 if ($widget->exists('my_widget')) {
@@ -103,7 +103,7 @@ $widget->unregister('my_widget');
 ### 基本使用
 
 ```php
-$capability = Anon_Capability::getInstance();
+$capability = Anon_Auth_Capability::getInstance();
 
 // 检查用户权限
 if ($capability->userCan($userId, 'edit_posts')) {
@@ -127,7 +127,7 @@ $capability->requireCapability('manage_options');
 ### 权限管理
 
 ```php
-$capability = Anon_Capability::getInstance();
+$capability = Anon_Auth_Capability::getInstance();
 
 // 添加权限
 $capability->addCapability('editor', 'custom_permission');
@@ -174,57 +174,57 @@ $allCaps = $capability->all();
 
 ```php
 // 添加动作钩子
-Anon_Hook::add_action('user_login', function($user) {
+Anon_System_Hook::add_action('user_login', function($user) {
     // 用户登录后执行
 }, 10, 1);
 // 参数：钩子名，回调函数，优先级默认10，接受参数数量默认1
 
 // 执行动作钩子
-Anon_Hook::do_action('user_login', $user);
-Anon_Hook::do_action('user_login', $user, $timestamp); // 多个参数
+Anon_System_Hook::do_action('user_login', $user);
+Anon_System_Hook::do_action('user_login', $user, $timestamp); // 多个参数
 ```
 
 ### 过滤器钩子
 
 ```php
 // 添加过滤器钩子
-Anon_Hook::add_filter('content_filter', function($content) {
+Anon_System_Hook::add_filter('content_filter', function($content) {
     return str_replace('bad', '***', $content);
 }, 10, 1);
 
 // 应用过滤器
-$filtered = Anon_Hook::apply_filters('content_filter', $content);
-$filtered = Anon_Hook::apply_filters('content_filter', $content, $arg1, $arg2);
+$filtered = Anon_System_Hook::apply_filters('content_filter', $content);
+$filtered = Anon_System_Hook::apply_filters('content_filter', $content, $arg1, $arg2);
 ```
 
 ### 钩子管理
 
 ```php
 // 移除指定钩子
-Anon_Hook::removeHook('user_login', $callback, 10);
+Anon_System_Hook::removeHook('user_login', $callback, 10);
 
 // 移除所有钩子
-Anon_Hook::removeAllHooks(); // 移除所有
-Anon_Hook::removeAllHooks('user_login'); // 移除指定钩子的所有回调
-Anon_Hook::removeAllHooks('user_login', 10); // 移除指定优先级
+Anon_System_Hook::removeAllHooks(); // 移除所有
+Anon_System_Hook::removeAllHooks('user_login'); // 移除指定钩子的所有回调
+Anon_System_Hook::removeAllHooks('user_login', 10); // 移除指定优先级
 
 // 检查钩子是否存在
-$exists = Anon_Hook::hasHook('user_login');
-$priority = Anon_Hook::hasHook('user_login', $callback); // 返回优先级或false
+$exists = Anon_System_Hook::hasHook('user_login');
+$priority = Anon_System_Hook::hasHook('user_login', $callback); // 返回优先级或false
 
 // 获取当前执行的钩子名称
-$currentHook = Anon_Hook::getCurrentHook();
+$currentHook = Anon_System_Hook::getCurrentHook();
 
 // 获取钩子统计信息
-$stats = Anon_Hook::getHookStats(); // 所有统计
-$stats = Anon_Hook::getHookStats('user_login'); // 指定钩子统计
+$stats = Anon_System_Hook::getHookStats(); // 所有统计
+$stats = Anon_System_Hook::getHookStats('user_login'); // 指定钩子统计
 
 // 获取所有注册的钩子
-$allHooks = Anon_Hook::getAllHooks();
+$allHooks = Anon_System_Hook::getAllHooks();
 
 // 清除统计信息
-Anon_Hook::clearStats(); // 清除所有
-Anon_Hook::clearStats('user_login'); // 清除指定钩子
+Anon_System_Hook::clearStats(); // 清除所有
+Anon_System_Hook::clearStats('user_login'); // 清除指定钩子
 ```
 
 ## 验证码
@@ -233,31 +233,31 @@ Anon_Hook::clearStats('user_login'); // 清除指定钩子
 
 ```php
 // 生成返回base64图片的验证码
-$result = Anon_Captcha::generate();
+$result = Anon_Auth_Captcha::generate();
 // 返回: ['image' => 'data:image/svg+xml;base64,...', 'code' => '1234']
 
 // 验证用户输入的验证码
-$isValid = Anon_Captcha::verify($userInput);
+$isValid = Anon_Auth_Captcha::verify($userInput);
 
 // 清除验证码
-Anon_Captcha::clear();
+Anon_Auth_Captcha::clear();
 ```
 
 ### 完整方法列表
 
 ```php
 // 生成验证码
-$result = Anon_Captcha::generate();
+$result = Anon_Auth_Captcha::generate();
 // 返回: ['image' => 'data:image/svg+xml;base64,...', 'code' => '1234']
 
 // 验证验证码
-$isValid = Anon_Captcha::verify($code);
+$isValid = Anon_Auth_Captcha::verify($code);
 // 返回: bool
 
 // 清除验证码
-Anon_Captcha::clear();
+Anon_Auth_Captcha::clear();
 
 // 检查是否启用
-$enabled = Anon_Captcha::isEnabled();
+$enabled = Anon_Auth_Captcha::isEnabled();
 ```
 

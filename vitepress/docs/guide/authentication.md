@@ -28,11 +28,11 @@ Anon_Check::startSessionIfNotStarted();
 
 ```php
 // 获取用户ID（从会话或Cookie）
-$userId = Anon_RequestHelper::getUserId();
+$userId = Anon_Http_Request::getUserId();
 // 返回: int|null
 
 // 获取完整用户信息（未登录自动返回401）
-$userInfo = Anon_RequestHelper::requireAuth();
+$userInfo = Anon_Http_Request::requireAuth();
 // 返回: ['uid' => 1, 'name' => 'admin', 'email' => '...', ...]
 ```
 
@@ -41,20 +41,20 @@ $userInfo = Anon_RequestHelper::requireAuth();
 ```php
 // server/app/Router/Auth/Login.php
 try {
-    Anon_RequestHelper::requireMethod('POST');
-    $data = Anon_RequestHelper::validate([
+    Anon_Http_Request::requireMethod('POST');
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空',
     ]);
     
-    $inputData = Anon_RequestHelper::getInput();
+    $inputData = Anon_Http_Request::getInput();
     $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
     $db = Anon_Database::getInstance();
     $user = $db->getUserInfoByName($data['username']);
     
     if (!$user || !password_verify($data['password'], $user['password'])) {
-        Anon_ResponseHelper::unauthorized('用户名或密码错误');
+        Anon_Http_Response::unauthorized('用户名或密码错误');
     }
     
     Anon_Check::startSessionIfNotStarted();
@@ -64,16 +64,16 @@ try {
     Anon_Check::setAuthCookies((int)$user['uid'], $user['name'], $rememberMe);
     
     // 登录时总是生成新Token
-    $token = Anon_RequestHelper::generateUserToken((int)$user['uid'], $user['name'], $rememberMe);
+    $token = Anon_Http_Request::generateUserToken((int)$user['uid'], $user['name'], $rememberMe);
     
-    Anon_ResponseHelper::success([
+    Anon_Http_Response::success([
         'user_id' => (int)$user['uid'],
         'username' => $user['name'],
         'token' => $token ?? '',
     ], '登录成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -82,30 +82,30 @@ try {
 ```php
 // server/app/Router/Auth/Register.php
 try {
-    $data = Anon_RequestHelper::validate([
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
         'email' => '邮箱不能为空',
         'password' => '密码不能为空'
     ]);
     
     // 验证码检查（如果启用）
-    if (class_exists('Anon_Captcha') && Anon_Captcha::isEnabled()) {
-        $inputData = Anon_RequestHelper::getInput();
+    if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+        $inputData = Anon_Http_Request::getInput();
         if (empty($inputData['captcha'] ?? '')) {
-            Anon_ResponseHelper::error('验证码不能为空', null, 400);
+            Anon_Http_Response::error('验证码不能为空', null, 400);
         }
-        if (!Anon_Captcha::verify($inputData['captcha'] ?? '')) {
-            Anon_ResponseHelper::error('验证码错误', null, 400);
+        if (!Anon_Auth_Captcha::verify($inputData['captcha'] ?? '')) {
+            Anon_Http_Response::error('验证码错误', null, 400);
         }
-        Anon_Captcha::clear();
+        Anon_Auth_Captcha::clear();
     }
     
     // 防刷限制检查
-    $rateLimitConfig = Anon_Env::get('app.rateLimit.register', []);
-    $rateLimitResult = Anon_RateLimit::checkRegisterLimit($rateLimitConfig);
+    $rateLimitConfig = Anon_System_Env::get('app.rateLimit.register', []);
+    $rateLimitResult = Anon_Auth_RateLimit::checkRegisterLimit($rateLimitConfig);
     
     if (!$rateLimitResult['allowed']) {
-        Anon_ResponseHelper::error($rateLimitResult['message'], [
+        Anon_Http_Response::error($rateLimitResult['message'], [
             'remaining' => $rateLimitResult['remaining'],
             'resetAt' => $rateLimitResult['resetAt'],
             'type' => $rateLimitResult['type']
@@ -118,32 +118,32 @@ try {
     
     // 验证用户名格式
     if (strlen($username) < 3 || strlen($username) > 20) {
-        Anon_ResponseHelper::error('用户名长度必须在3-20个字符之间', null, 400);
+        Anon_Http_Response::error('用户名长度必须在3-20个字符之间', null, 400);
     }
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
-        Anon_ResponseHelper::error('用户名只能包含字母、数字和下划线', null, 400);
+        Anon_Http_Response::error('用户名只能包含字母、数字和下划线', null, 400);
     }
     
     // 验证邮箱格式
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        Anon_ResponseHelper::error('邮箱格式不正确', null, 400);
+        Anon_Http_Response::error('邮箱格式不正确', null, 400);
     }
     
     // 验证密码强度
     if (strlen($password) < 6) {
-        Anon_ResponseHelper::error('密码长度至少6个字符', null, 400);
+        Anon_Http_Response::error('密码长度至少6个字符', null, 400);
     }
     
     $db = Anon_Database::getInstance();
     
     // 检查用户名是否已存在
     if ($db->getUserInfoByName($username)) {
-        Anon_ResponseHelper::error('用户名已存在', null, 400);
+        Anon_Http_Response::error('用户名已存在', null, 400);
     }
     
     // 检查邮箱是否已存在
     if ($db->getUserInfoByEmail($email)) {
-        Anon_ResponseHelper::error('邮箱已被注册', null, 400);
+        Anon_Http_Response::error('邮箱已被注册', null, 400);
     }
     
     // 加密密码并创建用户
@@ -151,17 +151,17 @@ try {
     $success = $db->addUser($username, $email, $hashedPassword, 'user');
     
     if (!$success) {
-        Anon_ResponseHelper::error('注册失败，请稍后重试', null, 500);
+        Anon_Http_Response::error('注册失败，请稍后重试', null, 500);
     }
     
-    Anon_ResponseHelper::success([
+    Anon_Http_Response::success([
         'username' => $username,
         'email' => $email,
         'remaining' => $rateLimitResult['remaining']
     ], '注册成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '注册处理过程中发生错误');
+    Anon_Http_Response::handleException($e, '注册处理过程中发生错误');
 }
 ```
 
@@ -197,21 +197,21 @@ try {
 
 ```php
 // 根据refresh配置决定：有有效Token就返回，没有就生成
-$token = Anon_RequestHelper::getUserToken($userId, $username, $rememberMe);
+$token = Anon_Http_Request::getUserToken($userId, $username, $rememberMe);
 ```
 
 ### 强制生成新Token（登录时使用）
 
 ```php
 // 登录时总是生成新Token
-$token = Anon_RequestHelper::generateUserToken($userId, $username, $rememberMe);
+$token = Anon_Http_Request::generateUserToken($userId, $username, $rememberMe);
 ```
 
 ### 手动生成（不推荐）
 
 ```php
-$token = Anon_Token::generate(['user_id' => 1], 3600);        // 1小时
-$token = Anon_Token::generate(['user_id' => 1], 86400 * 30);  // 30天
+$token = Anon_Auth_Token::generate(['user_id' => 1], 3600);        // 1小时
+$token = Anon_Auth_Token::generate(['user_id' => 1], 86400 * 30);  // 30天
 ```
 
 ## 验证 Token
@@ -240,16 +240,16 @@ Token验证自动在路由执行前进行，验证失败返回403。
 
 ```php
 // 要求Token（无效自动返回403）
-Anon_RequestHelper::requireToken();
+Anon_Http_Request::requireToken();
 
 // 手动验证Token
-$payload = Anon_Token::verify();
+$payload = Anon_Auth_Token::verify();
 if ($payload) {
     $userId = $payload['data']['user_id'] ?? null;
 }
 
 // 从请求中获取Token
-$token = Anon_Token::getTokenFromRequest();
+$token = Anon_Auth_Token::getTokenFromRequest();
 // 从Header: X-API-Token 或 Authorization: Bearer
 ```
 
@@ -259,17 +259,17 @@ $token = Anon_Token::getTokenFromRequest();
 // 获取用户信息时使用getUserToken
 // server/app/Router/User/Info.php
 try {
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
     // 根据refresh配置决定智能获取或生成Token
-    $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
+    $token = Anon_Http_Request::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     if ($token !== null) {
         $userInfo['token'] = $token;
     }
     
-    Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
+    Anon_Http_Response::success($userInfo, '获取用户信息成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '获取用户信息发生错误');
+    Anon_Http_Response::handleException($e, '获取用户信息发生错误');
 }
 ```
 
@@ -343,7 +343,7 @@ Anon_Check::setAuthCookies($userId, $username, $rememberMe);
 // 其他客户端访问 API 时
 $isLoggedIn = Anon_Check::isLoggedIn();  // 自动从 Cookie 恢复登录状态
 if ($isLoggedIn) {
-    $userId = Anon_RequestHelper::getUserId();  // 自动获取用户ID
+    $userId = Anon_Http_Request::getUserId();  // 自动获取用户ID
 }
 ```
 

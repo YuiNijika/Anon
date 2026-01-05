@@ -30,7 +30,7 @@ server/app/Plugin/
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 // 插件主类（类名不区分大小写）
-class Anon_Plugin_HelloWorld
+class Anon_System_Plugin_HelloWorld
 {
     /**
      * 插件初始化方法（必需）
@@ -207,12 +207,12 @@ Anon::route('/hello', function () {
 public static function init()
 {
     // 添加动作钩子
-    Anon_Hook::add_action('some_action', function() {
+    Anon_System_Hook::add_action('some_action', function() {
         // 执行逻辑
     });
 
     // 添加过滤器钩子
-    Anon_Hook::add_filter('some_filter', function($value) {
+    Anon_System_Hook::add_filter('some_filter', function($value) {
         return $value . ' modified';
     });
 }
@@ -258,13 +258,13 @@ public static function init()
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Plugin_UserStats
+class Anon_System_Plugin_UserStats
 {
     public static function init()
     {
         // 注册用户统计路由
         Anon::route('/api/user/stats', function () {
-            $user = Anon_RequestHelper::requireAuth();
+            $user = Anon_Http_Request::requireAuth();
             $stats = self::getUserStats($user['uid']);
             Anon::success($stats, '获取统计数据成功');
         }, [
@@ -273,7 +273,7 @@ class Anon_Plugin_UserStats
         ]);
 
         // 注册钩子
-        Anon_Hook::add_action('user_login', [self::class, 'onUserLogin']);
+        Anon_System_Hook::add_action('user_login', [self::class, 'onUserLogin']);
     }
 
     public static function activate()

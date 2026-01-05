@@ -109,39 +109,39 @@ return [
 
 ## 配置访问
 
-### Anon_Env
+### Anon_System_Env
 
 ```php
 // 获取配置值（自动缓存，首次解析后存入内存）
-$enabled = Anon_Env::get('app.token.enabled', false);
-$host = Anon_Env::get('system.db.host', 'localhost');
-$whitelist = Anon_Env::get('app.token.whitelist', []);
+$enabled = Anon_System_Env::get('app.token.enabled', false);
+$host = Anon_System_Env::get('system.db.host', 'localhost');
+$whitelist = Anon_System_Env::get('app.token.whitelist', []);
 
 // 清除配置缓存
-Anon_Env::clearCache();
+Anon_System_Env::clearCache();
 ```
 
 **性能优化：** 配置值会自动缓存，首次解析后存入内存，后续调用直接读取缓存，提升性能。
 
-### Anon_Config
+### Anon_System_Config
 
 ```php
 // 添加路由
-Anon_Config::addRoute('/api/custom', function() {
-    Anon_ResponseHelper::success(['message' => '自定义路由']);
+Anon_System_Config::addRoute('/api/custom', function() {
+    Anon_Http_Response::success(['message' => '自定义路由']);
 });
 
 // 添加错误处理器
-Anon_Config::addErrorHandler(404, function() {
-    Anon_ResponseHelper::notFound('页面不存在');
+Anon_System_Config::addErrorHandler(404, function() {
+    Anon_Http_Response::notFound('页面不存在');
 });
 
 // 获取路由配置
-$config = Anon_Config::getRouterConfig();
+$config = Anon_System_Config::getRouterConfig();
 // 返回: ['routes' => [...], 'errorHandlers' => [...]]
 
 // 检查是否已安装
-$installed = Anon_Config::isInstalled();
+$installed = Anon_System_Config::isInstalled();
 // 返回: bool
 ```
 

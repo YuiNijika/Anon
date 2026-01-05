@@ -23,10 +23,10 @@
 
 ```php
 // 生成并获取 CSRF Token
-$token = Anon_Csrf::generateToken();
+$token = Anon_Auth_Csrf::generateToken();
 
 // 获取当前 Token（如果不存在则生成）
-$token = Anon_Csrf::getToken();
+$token = Anon_Auth_Csrf::getToken();
 ```
 
 **无状态 Token 说明：**
@@ -40,34 +40,34 @@ $token = Anon_Csrf::getToken();
 
 ```php
 // 自动从请求中获取并验证 Token
-Anon_Csrf::verify();
+Anon_Auth_Csrf::verify();
 
 // 验证指定的 Token
-Anon_Csrf::verify($token);
+Anon_Auth_Csrf::verify($token);
 
 // 验证失败时不抛出异常，返回 false
-$isValid = Anon_Csrf::verify($token, false);
+$isValid = Anon_Auth_Csrf::verify($token, false);
 ```
 
 ### 在路由中使用
 
 ```php
 // 在路由文件中验证 CSRF
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'POST',
 ];
 
 // 验证 CSRF Token
-Anon_Csrf::verify();
+Anon_Auth_Csrf::verify();
 ```
 
 ### 使用 CSRF 中间件
 
 ```php
 // 在 useCode.php 中注册全局中间件
-Anon_Middleware::global(Anon_CsrfMiddleware::make([
+Anon_Http_Middleware::global(Anon_Auth_CsrfMiddleware::make([
     '/api/public', // 排除的路由
 ]));
 ```
@@ -110,19 +110,19 @@ fetch('/anon/common/config')
 
 ```php
 // 过滤单个字符串
-$clean = Anon_Utils_Sanitize::text('<script>alert("xss")</script>');
+$clean = Anon_Security_Security_Security_Security_Sanitize::text('<script>alert("xss")</script>');
 
 // 过滤 HTML（允许指定标签）
-$html = Anon_Utils_Sanitize::html('<p>Hello</p><script>alert("xss")</script>', '<p><strong>');
+$html = Anon_Security_Security_Security_Security_Sanitize::html('<p>Hello</p><script>alert("xss")</script>', '<p><strong>');
 
 // 过滤数组（递归）
-$data = Anon_Utils_Sanitize::array([
+$data = Anon_Security_Security_Security_Security_Sanitize::array([
     'name' => '<script>alert("xss")</script>',
     'content' => '<p>Safe content</p>'
 ]);
 
 // 使用安全工具类过滤
-$filtered = Anon_Security::filterInput($_POST, [
+$filtered = Anon_Security_Security_Security_Security_Security::filterInput($_POST, [
     'stripHtml' => true,
     'skipFields' => ['password']
 ]);
@@ -132,7 +132,7 @@ $filtered = Anon_Security::filterInput($_POST, [
 
 ```php
 // 在 useCode.php 中注册全局中间件
-Anon_Middleware::global(Anon_XssFilterMiddleware::make(
+Anon_Http_Middleware::global(Anon_XssFilterMiddleware::make(
     true, // 移除 HTML 标签
     ['password', 'token'] // 跳过的字段
 ));
@@ -142,7 +142,7 @@ Anon_Middleware::global(Anon_XssFilterMiddleware::make(
 
 ```php
 // 检查字符串是否包含潜在的 XSS 代码
-if (Anon_Security::containsXss($userInput)) {
+if (Anon_Security_Security_Security_Security_Security::containsXss($userInput)) {
     // 处理风险
 }
 ```
@@ -172,17 +172,17 @@ $result = $stmt->get_result();
 
 ```php
 // 手动验证（仅在调试模式下有效）
-Anon_Security::validateSqlQuery($sql, $params);
+Anon_Security_Security_Security_Security_Security::validateSqlQuery($sql, $params);
 
 // 检查是否使用了预处理语句
-$isSafe = Anon_Security::isUsingPreparedStatement($sql, $params);
+$isSafe = Anon_Security_Security_Security_Security_Security::isUsingPreparedStatement($sql, $params);
 ```
 
 ### 转义 LIKE 查询
 
 ```php
 // 转义 LIKE 查询中的特殊字符
-$search = Anon_Security::escapeLike($userInput);
+$search = Anon_Security_Security_Security_Security_Security::escapeLike($userInput);
 $users = $db->db('users')
     ->where('name', 'LIKE', "%{$search}%")
     ->get();
@@ -192,7 +192,7 @@ $users = $db->db('users')
 
 ```php
 // 检查字符串是否包含潜在的 SQL 注入代码
-if (Anon_Security::containsSqlInjection($userInput)) {
+if (Anon_Security_Security_Security_Security_Security::containsSqlInjection($userInput)) {
     // 处理风险
 }
 ```
@@ -203,8 +203,8 @@ if (Anon_Security::containsSqlInjection($userInput)) {
 
 ```php
 // 在 useCode.php 中注册限流中间件
-Anon_Middleware::global(
-    Anon_RateLimitMiddleware::make(
+Anon_Http_Middleware::global(
+    Anon_Auth_RateLimitMiddleware::make(
         100, // 最大请求次数
         60,  // 时间窗口（秒）
         'api', // 限流键前缀
@@ -220,7 +220,7 @@ Anon_Middleware::global(
 
 ```php
 // 检查是否超过限制
-$limit = Anon_RateLimit::checkLimit(
+$limit = Anon_Auth_RateLimit::checkLimit(
     'api:login', // 限流键
     10,          // 最大尝试次数
     3600         // 时间窗口（秒）
@@ -228,7 +228,7 @@ $limit = Anon_RateLimit::checkLimit(
 
 if (!$limit['allowed']) {
     // 超过限制
-    Anon_ResponseHelper::error('请求过于频繁', [], 429);
+    Anon_Http_Response::error('请求过于频繁', [], 429);
 }
 
 // 返回信息
@@ -244,15 +244,15 @@ if (!$limit['allowed']) {
 
 ```php
 // 在路由文件中检查限流
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'POST',
 ];
 
-$limit = Anon_RateLimit::checkLimit('login', 5, 3600);
+$limit = Anon_Auth_RateLimit::checkLimit('login', 5, 3600);
 if (!$limit['allowed']) {
-    Anon_ResponseHelper::error('登录尝试次数过多，请稍后再试', [], 429);
+    Anon_Http_Response::error('登录尝试次数过多，请稍后再试', [], 429);
 }
 ```
 
@@ -273,8 +273,8 @@ $result = $db->query($sql);
 
 ```php
 // ✅ 正确
-$username = Anon_Utils_Sanitize::text($_POST['username']);
-$email = Anon_Utils_Sanitize::email($_POST['email']);
+$username = Anon_Security_Security_Security_Security_Sanitize::text($_POST['username']);
+$email = Anon_Security_Security_Security_Security_Sanitize::email($_POST['email']);
 
 // ❌ 错误
 $username = $_POST['username'];
@@ -285,7 +285,7 @@ $username = $_POST['username'];
 ```php
 // ✅ 正确
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    Anon_Csrf::verify();
+    Anon_Auth_Csrf::verify();
 }
 
 // ❌ 错误
@@ -296,8 +296,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 ```php
 // ✅ 正确
-Anon_Middleware::global(
-    Anon_RateLimitMiddleware::make(10, 60, 'login')
+Anon_Http_Middleware::global(
+    Anon_Auth_RateLimitMiddleware::make(10, 60, 'login')
 );
 ```
 

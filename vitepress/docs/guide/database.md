@@ -245,7 +245,7 @@ $users = $db->db('users')
 ```php
 // 避免 N+1 查询
 $users = $db->db('users')->limit(100)->get();
-$users = Anon_QueryOptimizer::eagerLoad($users, 'user_id', 'orders', 'id');
+$users = Anon_Database_QueryOptimizer::eagerLoad($users, 'user_id', 'orders', 'id');
 ```
 
 ## 表结构操作
@@ -350,12 +350,12 @@ if (!$db->tableExists('user_stats')) {
 
 ```php
 // 配置分片规则
-Anon_Sharding::init([
+Anon_Database_Sharding::init([
     'users' => ['shard_count' => 4, 'strategy' => 'id']
 ]);
 
 // 获取分片表名
-$tableName = Anon_Sharding::getTableName('users', $userId, 'id');
+$tableName = Anon_Database_Sharding::getTableName('users', $userId, 'id');
 ```
 
 详细说明请参考 [大数据处理优化文档](./big-data.md)。

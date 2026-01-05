@@ -19,20 +19,20 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
 ];
 
 try {
-    $data = Anon_RequestHelper::validate([
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
     ]);
     
-    Anon_ResponseHelper::success($data, '操作成功');
+    Anon_Http_Response::success($data, '操作成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -43,10 +43,10 @@ try {
 ### 类名
 
 - 使用 `PascalCase`（大驼峰）
-- 示例：`Anon_Config`、`Anon_RequestHelper`、`Anon_Database_UserRepository`
+- 示例：`Anon_System_Config`、`Anon_Http_Request`、`Anon_Database_UserRepository`
 
 ```php
-class Anon_Config
+class Anon_System_Config
 {
     // ...
 }
@@ -83,7 +83,7 @@ public function addRoute(string $path, callable $handler)
 define('ANON_ALLOWED_ACCESS', true);
 define('ANON_DB_HOST', 'localhost');
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
 ];
 ```
@@ -94,7 +94,7 @@ const Anon_RouterMeta = [
 - 示例：`$userInfo`、`$requestPath`、`$userId`
 
 ```php
-$userInfo = Anon_RequestHelper::requireAuth();
+$userInfo = Anon_Http_Request::requireAuth();
 $requestPath = self::getRequestPath();
 $userId = (int)$_SESSION['user_id'];
 ```
@@ -140,7 +140,7 @@ if ($username !== null) {
 }
 
 // 获取用户ID从会话或Cookie
-$userId = Anon_RequestHelper::getUserId();
+$userId = Anon_Http_Request::getUserId();
 
 // 验证IP地址格式，无效IP设为默认值
 $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
@@ -183,7 +183,7 @@ public function getUserInfo($uid)
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -191,9 +191,9 @@ const Anon_RouterMeta = [
 
 try {
     // 业务逻辑
-    Anon_ResponseHelper::success($data, '操作成功');
+    Anon_Http_Response::success($data, '操作成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -201,7 +201,7 @@ try {
 
 1. **安全检查**：文件开头必须包含 `if (!defined('ANON_ALLOWED_ACCESS')) exit;`
 2. **路由元数据**：使用 `Anon_RouterMeta` 常量配置路由属性
-3. **异常处理**：使用 `try-catch` 包裹业务逻辑，统一使用 `Anon_ResponseHelper::handleException()` 处理异常
+3. **异常处理**：使用 `try-catch` 包裹业务逻辑，统一使用 `Anon_Http_Response::handleException()` 处理异常
 
 ### 完整示例
 
@@ -209,7 +209,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => 'POST',
@@ -217,19 +217,19 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    $data = Anon_RequestHelper::validate([
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空',
     ]);
     
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
     // 业务逻辑处理
     $result = performBusinessLogic($data, $userInfo);
     
-    Anon_ResponseHelper::success($result, '操作成功');
+    Anon_Http_Response::success($result, '操作成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '处理过程中发生错误');
+    Anon_Http_Response::handleException($e, '处理过程中发生错误');
 }
 ```
 
@@ -239,23 +239,23 @@ try {
 
 ### 统一异常处理
 
-- **统一使用**：`Anon_ResponseHelper::handleException($e)` 处理异常
+- **统一使用**：`Anon_Http_Response::handleException($e)` 处理异常
 - **自定义消息**：可传入第二个参数自定义错误消息
 
 ```php
 try {
     // 业务逻辑
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '登录处理过程中发生错误');
+    Anon_Http_Response::handleException($e, '登录处理过程中发生错误');
 }
 ```
 
 ### 参数验证
 
-- **验证必需参数**：使用 `Anon_RequestHelper::validate()` 进行参数验证
+- **验证必需参数**：使用 `Anon_Http_Request::validate()` 进行参数验证
 
 ```php
-$data = Anon_RequestHelper::validate([
+$data = Anon_Http_Request::validate([
     'username' => '用户名不能为空',
     'email' => '邮箱不能为空',
     'password' => '密码不能为空',
@@ -264,18 +264,18 @@ $data = Anon_RequestHelper::validate([
 
 ### 认证检查
 
-- **登录检查**：使用 `Anon_RequestHelper::requireAuth()` 进行登录检查
+- **登录检查**：使用 `Anon_Http_Request::requireAuth()` 进行登录检查
 
 ```php
-$userInfo = Anon_RequestHelper::requireAuth();
+$userInfo = Anon_Http_Request::requireAuth();
 // 未登录自动返回401错误
 ```
 
 ### HTTP 方法检查
 
 ```php
-Anon_RequestHelper::requireMethod('POST');
-Anon_RequestHelper::requireMethod(['POST', 'PUT']);
+Anon_Http_Request::requireMethod('POST');
+Anon_Http_Request::requireMethod(['POST', 'PUT']);
 ```
 
 ---
@@ -285,7 +285,7 @@ Anon_RequestHelper::requireMethod(['POST', 'PUT']);
 ### 输入验证
 
 - 所有用户输入必须验证和清理
-- 使用 `Anon_RequestHelper::validate()` 验证必需参数
+- 使用 `Anon_Http_Request::validate()` 验证必需参数
 - 防止 SQL 注入：使用查询构建器，不要拼接 SQL
 - 防止 XSS：清理用户输入，限制字符串长度
 
@@ -313,15 +313,15 @@ if (!filter_var($ip, FILTER_VALIDATE_IP)) {
 ### 输出处理
 
 - JSON 响应避免返回 `null` 值，使用空数组或空字符串
-- 使用 `Anon_ResponseHelper` 统一响应格式
+- 使用 `Anon_Http_Response` 统一响应格式
 - 敏感信息不要输出到响应中
 
 ```php
 // ✅ 正确：返回空数组而不是null
-Anon_ResponseHelper::success([], '操作成功');
+Anon_Http_Response::success([], '操作成功');
 
 // ❌ 错误：返回null
-Anon_ResponseHelper::success(null, '操作成功');
+Anon_Http_Response::success(null, '操作成功');
 ```
 
 ### 数据库操作
@@ -377,12 +377,12 @@ server/
 - **系统配置**：`env.php`（数据库、安装状态等）
 - **应用配置**：`useApp.php`（路由、Token、验证码等）
 - **SQL 配置**：`useSQL.php`（数据库表结构）
-- **使用方式**：`Anon_Env::get()` 获取配置值
+- **使用方式**：`Anon_System_Env::get()` 获取配置值
 
 ```php
 // 获取配置
-$enabled = Anon_Env::get('app.token.enabled', false);
-$host = Anon_Env::get('system.db.host', 'localhost');
+$enabled = Anon_System_Env::get('app.token.enabled', false);
+$host = Anon_System_Env::get('system.db.host', 'localhost');
 ```
 
 ---
@@ -436,8 +436,8 @@ docs: 更新开发规范文档
 
 ### 代码复用
 
-- 使用 `Anon_ResponseHelper` 统一响应格式
-- 使用 `Anon_RequestHelper` 统一请求处理
+- 使用 `Anon_Http_Response` 统一响应格式
+- 使用 `Anon_Http_Request` 统一请求处理
 - 使用 Repository 模式组织数据库操作
 
 ### 性能优化

@@ -21,19 +21,19 @@ PHP 7.4 - 8.4
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
 ];
 
 try {
-    Anon_ResponseHelper::success([
+    Anon_Http_Response::success([
         'message' => 'Hello World!',
         'time' => date('Y-m-d H:i:s')
     ], '请求成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -46,26 +46,26 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => 'POST',
 ];
 
 try {
-    Anon_RequestHelper::requireMethod('POST');
-    $data = Anon_RequestHelper::validate([
+    Anon_Http_Request::requireMethod('POST');
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
         'email' => '邮箱不能为空'
     ]);
     
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
     // 业务逻辑...
     
-    Anon_ResponseHelper::success(['id' => 1], '创建成功');
+    Anon_Http_Response::success(['id' => 1], '创建成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 

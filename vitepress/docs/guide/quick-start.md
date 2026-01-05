@@ -62,16 +62,16 @@ return [
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
 ];
 
 try {
-    Anon_ResponseHelper::success(['message' => 'Anon Tokyo~!']);
+    Anon_Http_Response::success(['message' => 'Anon Tokyo~!']);
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 

@@ -108,7 +108,7 @@ return [
 function my_callback($data) {
     return $data;
 }
-Anon_Hook::add_filter('my_filter', 'my_callback');
+Anon_System_Hook::add_filter('my_filter', 'my_callback');
 
 // 推荐：使用类方法
 class MyClass {
@@ -116,10 +116,10 @@ class MyClass {
         return $data;
     }
 }
-Anon_Hook::add_filter('my_filter', [MyClass::class, 'callback']);
+Anon_System_Hook::add_filter('my_filter', [MyClass::class, 'callback']);
 
 // 不推荐：使用闭包（影响性能）
-Anon_Hook::add_filter('my_filter', function($data) {
+Anon_System_Hook::add_filter('my_filter', function($data) {
     return $data;
 });
 ```
@@ -136,23 +136,23 @@ Anon_Hook::add_filter('my_filter', function($data) {
 
 ### 配置值缓存
 
-`Anon_Env` 内部缓存已加载的配置，首次解析后存入内存，后续调用直接读取缓存。
+`Anon_System_Env` 内部缓存已加载的配置，首次解析后存入内存，后续调用直接读取缓存。
 
 #### 工作原理
 
 ```php
 // 首次调用：解析配置并缓存
-$value1 = Anon_Env::get('app.token.enabled');
+$value1 = Anon_System_Env::get('app.token.enabled');
 
 // 后续调用：直接从缓存读取
-$value2 = Anon_Env::get('app.token.enabled');
+$value2 = Anon_System_Env::get('app.token.enabled');
 ```
 
 #### 清除缓存
 
 ```php
 // 清除所有配置缓存
-Anon_Env::clearCache();
+Anon_System_Env::clearCache();
 ```
 
 #### 性能提升
@@ -211,7 +211,7 @@ Anon_Env::clearCache();
 
 ```php
 // 获取用户ID从会话或Cookie
-$userId = Anon_RequestHelper::getUserId();
+$userId = Anon_Http_Request::getUserId();
 
 // 验证IP地址格式，无效IP设为默认值
 $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
@@ -267,30 +267,30 @@ $user = $db->getUserInfo($userId);
 
 ```php
 // 推荐：使用无状态 Token（默认启用）
-$token = Anon_Csrf::generateToken();
-Anon_Csrf::verify($token);
+$token = Anon_Auth_Csrf::generateToken();
+Anon_Auth_Csrf::verify($token);
 ```
 
 ### 钩子注册
 
 ```php
 // 推荐：使用命名函数或类方法
-Anon_Hook::add_action('my_action', 'my_function');
-Anon_Hook::add_filter('my_filter', [MyClass::class, 'method']);
+Anon_System_Hook::add_action('my_action', 'my_function');
+Anon_System_Hook::add_filter('my_filter', [MyClass::class, 'method']);
 ```
 
 ### 配置读取
 
 ```php
 // 配置会自动缓存，无需特殊处理
-$enabled = Anon_Env::get('app.token.enabled', false);
+$enabled = Anon_System_Env::get('app.token.enabled', false);
 ```
 
 ### Token 验证
 
 ```php
 // Token 验证结果会自动缓存
-$payload = Anon_Token::verify($token);
+$payload = Anon_Auth_Token::verify($token);
 ```
 
 ---
@@ -355,7 +355,7 @@ $payload = Anon_Token::verify($token);
 ### 配置读取问题
 
 如果配置读取异常：
-1. 清除配置缓存：`Anon_Env::clearCache()`
+1. 清除配置缓存：`Anon_System_Env::clearCache()`
 2. 检查配置键是否正确
 3. 验证配置文件格式
 

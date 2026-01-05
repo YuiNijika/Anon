@@ -87,7 +87,7 @@ return [
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => 'GET',
@@ -95,12 +95,12 @@ const Anon_RouterMeta = [
 
 try {
     // 获取用户信息已自动通过登录检查
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
-    Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
+    Anon_Http_Response::success($userInfo, '获取用户信息成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -110,7 +110,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'POST',
@@ -118,7 +118,7 @@ const Anon_RouterMeta = [
 
 try {
     // 验证输入数据
-    $data = Anon_RequestHelper::validate([
+    $data = Anon_Http_Request::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空',
     ]);
@@ -127,10 +127,10 @@ try {
     $db = Anon_Database::getInstance();
     $user = $db->getUserInfoByName($data['username']);
     
-    Anon_ResponseHelper::success($user, '操作成功');
+    Anon_Http_Response::success($user, '操作成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -140,7 +140,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => ['GET', 'POST'],  // 支持GET和POST
@@ -156,10 +156,10 @@ try {
         // POST 逻辑
     }
     
-    Anon_ResponseHelper::success(null, '操作成功');
+    Anon_Http_Response::success(null, '操作成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -169,7 +169,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -185,7 +185,7 @@ const Anon_RouterMeta = [
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -194,9 +194,9 @@ const Anon_RouterMeta = [
 
 try {
     // 需要提供有效的 Token 才能访问
-    Anon_ResponseHelper::success(['message' => '需要 Token 验证的接口']);
+    Anon_Http_Response::success(['message' => '需要 Token 验证的接口']);
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -206,7 +206,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -215,9 +215,9 @@ const Anon_RouterMeta = [
 
 try {
     // 不需要 Token 即可访问
-    Anon_ResponseHelper::success(['message' => '不需要 Token 验证的接口']);
+    Anon_Http_Response::success(['message' => '不需要 Token 验证的接口']);
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -227,7 +227,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -235,9 +235,9 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    Anon_ResponseHelper::success(['message' => '创建成功'], '资源已创建', 201);
+    Anon_Http_Response::success(['message' => '创建成功'], '资源已创建', 201);
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -247,7 +247,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -259,9 +259,9 @@ const Anon_RouterMeta = [
 
 try {
     // 这个接口的响应会被缓存 1 小时
-    Anon_ResponseHelper::success(['data' => '缓存的数据'], '获取成功');
+    Anon_Http_Response::success(['data' => '缓存的数据'], '获取成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -271,7 +271,7 @@ try {
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -283,9 +283,9 @@ const Anon_RouterMeta = [
 
 try {
     // 这个接口的响应不会被缓存
-    Anon_ResponseHelper::success(['data' => '实时数据'], '获取成功');
+    Anon_Http_Response::success(['data' => '实时数据'], '获取成功');
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e);
+    Anon_Http_Response::handleException($e);
 }
 ```
 
@@ -293,15 +293,15 @@ try {
 
 ```php
 // server/app/useCode.php
-Anon_Config::addRoute('/api/custom', function() {
+Anon_System_Config::addRoute('/api/custom', function() {
     Anon_Common::Header();
-    Anon_ResponseHelper::success(['message' => '自定义路由']);
+    Anon_Http_Response::success(['message' => '自定义路由']);
 });
 ```
 
 ## 静态文件路由
 
-系统提供了 `Anon_Config::addStaticRoute()` 方法来注册静态文件路由，支持自动缓存和压缩。
+系统提供了 `Anon_System_Config::addStaticRoute()` 方法来注册静态文件路由，支持自动缓存和压缩。
 
 ### 使用方法
 
@@ -311,15 +311,15 @@ Anon_Config::addRoute('/api/custom', function() {
 // 注册静态文件路由
 $staticDir = __DIR__ . '/../Static/';
 
-Anon_Config::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css');
-Anon_Config::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript');
-Anon_Config::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
+Anon_System_Config::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css');
+Anon_System_Config::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript');
+Anon_System_Config::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
 ```
 
 ### 方法签名
 
 ```php
-Anon_Config::addStaticRoute(
+Anon_System_Config::addStaticRoute(
     string $route,        // 路由路径
     string $filePath,     // 文件完整路径
     string $mimeType,     // MIME类型
@@ -334,7 +334,7 @@ Anon_Config::addStaticRoute(
 // 在 useCode.php 中注册自定义静态文件路由
 $customDir = __DIR__ . '/../assets/';
 
-Anon_Config::addStaticRoute('/assets/logo.png', $customDir . 'logo.png', 'image/png', 86400, false);
-Anon_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css', 'text/css', 31536000, true);
+Anon_System_Config::addStaticRoute('/assets/logo.png', $customDir . 'logo.png', 'image/png', 86400, false);
+Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css', 'text/css', 31536000, true);
 ```
 

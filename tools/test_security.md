@@ -78,8 +78,8 @@ $exitCode = $test->getExitCode();
 require_once __DIR__ . '/../core/Middleware/CsrfMiddleware.php';
 
 // 注册 CSRF 防护中间件
-Anon_Middleware::global(
-    Anon_CsrfMiddleware::make([
+Anon_Http_Middleware::global(
+    Anon_Auth_CsrfMiddleware::make([
         '/auth/login',      // 排除登录接口（如果需要）
         '/auth/register',   // 排除注册接口（如果需要）
         '/anon/common',     // 排除公共接口
@@ -96,7 +96,7 @@ Anon_Middleware::global(
 require_once __DIR__ . '/../core/Middleware/XssFilterMiddleware.php';
 
 // 注册 XSS 过滤中间件
-Anon_Middleware::global(
+Anon_Http_Middleware::global(
     Anon_XssFilterMiddleware::make(
         true,                              // 移除 HTML 标签
         ['password', 'token', 'csrf_token'] // 跳过的字段
@@ -113,8 +113,8 @@ Anon_Middleware::global(
 require_once __DIR__ . '/../core/Middleware/RateLimitMiddleware.php';
 
 // 注册接口限流中间件
-Anon_Middleware::global(
-    Anon_RateLimitMiddleware::make(
+Anon_Http_Middleware::global(
+    Anon_Auth_RateLimitMiddleware::make(
         100,    // 最大请求次数
         60,     // 时间窗口（秒）
         'api',  // 限流键前缀

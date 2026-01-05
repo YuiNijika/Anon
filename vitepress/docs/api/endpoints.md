@@ -43,5 +43,5 @@
 - `GET /anon/static/debug/js` - 调试控制台脚本文件
 - `GET /anon/static/vue` - Vue.js 生产版本
 
-**说明：** 静态文件路由通过 `Anon_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
+**说明：** 静态文件路由通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
 

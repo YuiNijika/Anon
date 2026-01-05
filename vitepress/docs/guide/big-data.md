@@ -123,7 +123,7 @@ $db = Anon_Database::getInstance();
 $users = $db->db('users')->limit(100)->get();
 
 // 批量加载用户的订单（避免 N+1 查询）
-$users = Anon_QueryOptimizer::eagerLoad(
+$users = Anon_Database_QueryOptimizer::eagerLoad(
     $users,
     'user_id',      // 外键字段
     'orders',       // 关联表名
@@ -140,7 +140,7 @@ foreach ($users as $user) {
 
 ```php
 // 批量加载用户资料
-$users = Anon_QueryOptimizer::eagerLoadOne(
+$users = Anon_Database_QueryOptimizer::eagerLoadOne(
     $users,
     'user_id',
     'profiles',
@@ -157,7 +157,7 @@ foreach ($users as $user) {
 
 ```php
 // 预加载时添加查询条件
-$users = Anon_QueryOptimizer::eagerLoad(
+$users = Anon_Database_QueryOptimizer::eagerLoad(
     $users,
     'user_id',
     'orders',
@@ -191,7 +191,7 @@ $users = Anon_QueryOptimizer::eagerLoad(
 在 `server/app/useCode.php` 中配置：
 
 ```php
-Anon_Sharding::init([
+Anon_Database_Sharding::init([
     'users' => [
         'shard_count' => 4,      // 分片数量
         'strategy' => 'id'       // 分片策略: id|time|hash
@@ -210,7 +210,7 @@ $db = Anon_Database::getInstance();
 
 // 根据分片键自动获取表名
 $userId = 12345;
-$tableName = Anon_Sharding::getTableName('users', $userId, 'id');
+$tableName = Anon_Database_Sharding::getTableName('users', $userId, 'id');
 // 返回: users_1 (假设 userId % 4 = 1)
 
 // 查询会自动路由到正确的分片表
@@ -223,7 +223,7 @@ $user = $db->db($tableName)
 
 ```php
 // 获取所有分片表名
-$tables = Anon_Sharding::getAllShardTables('users');
+$tables = Anon_Database_Sharding::getAllShardTables('users');
 // 返回: ['users_0', 'users_1', 'users_2', 'users_3']
 
 // 遍历所有分片查询
