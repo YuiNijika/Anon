@@ -67,39 +67,29 @@ def generate_new_class_name(file_path, old_class_name):
 
 
 def auto_detect_class_mapping():
-    """自动检测类名映射关系"""
+    """从 Compatibility.php 读取类名映射关系"""
     class_map = {}
     
-    if not MODULES_DIR.exists():
+    compat_file = CORE_DIR / 'Compatibility.php'
+    if not compat_file.exists():
         return class_map
     
-    for root, dirs, files in os.walk(MODULES_DIR):
-        if root == str(MODULES_DIR):
-            continue
+    try:
+        with open(compat_file, 'r', encoding='utf-8') as f:
+            content = f.read()
         
-        for file in files:
-            if not file.endswith('.php'):
-                continue
-            
-            file_path = Path(root) / file
-            old_class_name = extract_class_name(file_path)
-            if not old_class_name or not old_class_name.startswith('Anon_'):
-                continue
-            
-            new_class_name = generate_new_class_name(file_path, old_class_name)
-            if not new_class_name or new_class_name == old_class_name:
-                continue
-            
-            class_map[old_class_name] = new_class_name
-    
-    widgets_utils_dir = CORE_DIR / 'Widgets' / 'Utils'
-    if widgets_utils_dir.exists():
-        for file in widgets_utils_dir.glob('*.php'):
-            old_class_name = extract_class_name(file)
-            if old_class_name and old_class_name.startswith('Anon_Utils_'):
-                if 'Sanitize' in file.name:
-                    new_class_name = old_class_name.replace('Anon_Utils_', 'Anon_Security_')
-                    class_map[old_class_name] = new_class_name
+        # 匹配 class_alias('新类名', '旧类名')
+        pattern = r"class_alias\s*\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*\)"
+        matches = re.findall(pattern, content)
+        
+        for new_name, old_name in matches:
+            class_map[old_name] = new_name
+        
+        # 添加额外的映射：Anon_Cache -> Anon_System_Cache（文档推荐使用）
+        class_map['Anon_Cache'] = 'Anon_System_Cache'
+        
+    except Exception as e:
+        print(f"读取 Compatibility.php 失败: {e}")
     
     return class_map
 
@@ -147,8 +137,12 @@ def update_markdown_file(file_path, class_map, dry_run=False):
     def replace_in_inline_code(match):
         code = match.group(1)
         for old_name, new_name in sorted_map:
-            if old_name in code:
-                code = code.replace(old_name, new_name)
+            # 使用单词边界确保精确匹配
+            code = re.sub(
+                rf'\b{re.escape(old_name)}\b',
+                new_name,
+                code
+            )
         return f'`{code}`'
     
     content = re.sub(
@@ -156,6 +150,25 @@ def update_markdown_file(file_path, class_map, dry_run=False):
         replace_in_inline_code,
         content
     )
+    
+    # 替换普通文本中的类名（不在代码块中）
+    for old_name, new_name in sorted_map:
+        # 只在非代码块区域替换
+        def replace_in_text(match):
+            text = match.group(0)
+            # 检查是否在代码块中
+            before = content[:match.start()]
+            code_blocks_before = before.count('```')
+            if code_blocks_before % 2 == 0:  # 不在代码块中
+                return re.sub(rf'\b{re.escape(old_name)}\b', new_name, text)
+            return text
+        
+        # 替换不在代码块中的类名引用
+        content = re.sub(
+            rf'\b{re.escape(old_name)}\b',
+            new_name,
+            content
+        )
     
     if content != original:
         if not dry_run:
@@ -168,25 +181,37 @@ def update_markdown_file(file_path, class_map, dry_run=False):
 
 def update_all_docs(class_map, dry_run=False):
     """更新所有文档"""
-    print("更新 VitePress 文档...\n")
-    
-    if not DOCS_DIR.exists():
-        print("⚠️  文档目录不存在，跳过")
-        return 0
+    print("更新所有 Markdown 文档...\n")
     
     updated = 0
     
-    for root, dirs, files in os.walk(DOCS_DIR):
-        # 跳过无关目录
-        dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', 'dist', 'public']]
-        
-        for file in files:
-            if file.endswith('.md'):
-                file_path = Path(root) / file
-                if update_markdown_file(file_path, class_map, dry_run):
-                    rel_path = file_path.relative_to(BASE_DIR)
-                    print(f"  ✓ {rel_path}")
-                    updated += 1
+    # 更新 VitePress 文档
+    if DOCS_DIR.exists():
+        for root, dirs, files in os.walk(DOCS_DIR):
+            dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', 'dist', 'public']]
+            
+            for file in files:
+                if file.endswith('.md'):
+                    file_path = Path(root) / file
+                    if update_markdown_file(file_path, class_map, dry_run):
+                        rel_path = file_path.relative_to(BASE_DIR)
+                        print(f"  ✓ {rel_path}")
+                        updated += 1
+    
+    # 更新根目录和其他目录的 README.md
+    readme_files = [
+        BASE_DIR / 'README.md',
+        BASE_DIR / 'tools' / 'refactor' / 'README.md',
+        BASE_DIR / 'tools' / 'build_debug.md',
+        BASE_DIR / 'tools' / 'test_security.md'
+    ]
+    
+    for readme_file in readme_files:
+        if readme_file.exists() and readme_file.suffix == '.md':
+            if update_markdown_file(readme_file, class_map, dry_run):
+                rel_path = readme_file.relative_to(BASE_DIR)
+                print(f"  ✓ {rel_path}")
+                updated += 1
     
     return updated
 
@@ -256,7 +281,7 @@ def main():
     
     if dry_run:
         print("⚠️  演练模式（不实际修改文件）\n")
-    else:
+    elif '--yes' not in sys.argv:
         confirm = input("确认更新文档？(y/n): ")
         if confirm.lower() != 'y':
             print("已取消")
