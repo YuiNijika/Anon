@@ -50,6 +50,7 @@ return [
         'security' => [
             'csrf' => [
                 'enabled' => true, // 是否启用 CSRF 防护
+                'stateless' => true, // 是否使用无状态 CSRF Token（减少 Session 锁竞争）
             ],
             'xss' => [
                 'enabled' => true, // 是否启用 XSS 自动过滤
@@ -58,6 +59,17 @@ return [
             ],
             'sql' => [
                 'validateInDebug' => true, // 在调试模式下验证 SQL 查询安全性
+            ],
+            'password' => [
+                'minLength' => 8, // 最小密码长度
+                'maxLength' => 128, // 最大密码长度
+                'requireUppercase' => true, // 需要大写字母
+                'requireLowercase' => true, // 需要小写字母
+                'requireDigit' => true, // 需要数字
+                'requireSpecial' => true, // 需要特殊字符
+            ],
+            'cors' => [
+                'origins' => [], // 允许的 CORS 来源，生产环境必须配置
             ],
         ],
         'plugins' => [

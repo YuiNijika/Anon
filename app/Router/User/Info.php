@@ -8,13 +8,13 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
-    $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
+    $token = Anon_Http_Request::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     $userInfo['token'] = $token ?? '';
     
-    Anon_ResponseHelper::success($userInfo, '获取用户信息成功');
+    Anon_Http_Response::success($userInfo, '获取用户信息成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '获取用户信息发生错误');
+    Anon_Http_Response::handleException($e, '获取用户信息发生错误');
 }

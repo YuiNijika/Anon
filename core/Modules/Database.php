@@ -152,12 +152,12 @@ class Anon_Database
     public function db($table)
     {
         // 检查分库分表配置
-        if (class_exists('Anon_Sharding') && Anon_Sharding::isSharded($table)) {
+        if (class_exists('Anon_Sharding') && Anon_Database_Sharding::isSharded($table)) {
             // 如果启用了分片，需要在查询时指定分片键
             // 这里返回基础表名，实际分片在查询时处理
         }
 
-        return new Anon_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
+        return new Anon_Database_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
     }
 
     /**
@@ -196,7 +196,7 @@ class Anon_Database
     public function query($sql, bool $allowRawSql = false)
     {
         // 检查是否允许执行原生 SQL
-        $rawSqlEnabled = Anon_Env::get('app.database.allowRawSql', false);
+        $rawSqlEnabled = Anon_System_Env::get('app.database.allowRawSql', false);
         
         if (!$allowRawSql && !$rawSqlEnabled) {
             throw new RuntimeException(

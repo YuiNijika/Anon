@@ -5,7 +5,7 @@
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Config
+class Anon_System_Config
 {
     /**
      * 路由配置
@@ -108,8 +108,15 @@ class Anon_Config
      * @param int $cacheTime 缓存时间（秒），0表示不缓存
      * @param bool $compress 是否启用压缩
      */
-    public static function addStaticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true)
+    public static function addStaticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true, array $meta = [])
     {
+        $defaultMeta = [
+            'header' => false,
+            'token' => false,
+            'requireLogin' => false
+        ];
+        $meta = array_merge($defaultMeta, $meta);
+        
         self::addRoute($route, function() use ($filePath, $mimeType, $cacheTime, $compress) {
             if (!is_file($filePath) || !is_readable($filePath)) {
                 http_response_code(404);
@@ -145,7 +152,7 @@ class Anon_Config
             
             readfile($filePath);
             exit;
-        });
+        }, $meta);
     }
 
     /**
@@ -178,45 +185,45 @@ class Anon_Config
         
         self::addRoute('/anon/common/license', function() {
             Anon_Common::Header();
-            Anon_ResponseHelper::success(Anon_Common::LICENSE_TEXT(), '获取许可证信息成功');
+            Anon_Http_Response::success(Anon_Common::LICENSE_TEXT(), '获取许可证信息成功');
         });
         self::addRoute('/anon/common/system', function() {
             Anon_Common::Header();
-            Anon_ResponseHelper::success(Anon_Common::SystemInfo(), '获取系统信息成功');
+            Anon_Http_Response::success(Anon_Common::SystemInfo(), '获取系统信息成功');
         });
         self::addRoute('/anon/common/client-ip', function() {
             Anon_Common::Header();
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
-            Anon_ResponseHelper::success(['ip' => $ip], '获取客户端IP成功');
+            Anon_Http_Response::success(['ip' => $ip], '获取客户端IP成功');
         });
         self::addRoute('/anon/common/config', function() {
             Anon_Common::Header();
             $config = [
-                'token' => Anon_Token::isEnabled(),
-                'captcha' => Anon_Captcha::isEnabled(),
-                'csrfToken' => class_exists('Anon_Csrf') ? Anon_Csrf::generateToken() : null
+                'token' => Anon_Auth_Token::isEnabled(),
+                'captcha' => Anon_Auth_Captcha::isEnabled(),
+                'csrfToken' => class_exists('Anon_Csrf') ? Anon_Auth_Csrf::generateToken() : null
             ];
-            Anon_ResponseHelper::success($config, '获取配置信息成功');
+            Anon_Http_Response::success($config, '获取配置信息成功');
         });
         self::addRoute('/anon/ciallo', function() {
             Anon_Common::Header();
-            Anon_ResponseHelper::success(Anon_Common::Ciallo(), '恰喽~');
+            Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');
         });
 
         // 注册静态文件路由
-        $staticDir = __DIR__ . '/../Static/';
+        $staticDir = __DIR__ . '/../../Static/';
         
         // 获取 debug 缓存配置
-        $debugCacheEnabled = Anon_Env::get('app.debug.cache.enabled', false);
-        $debugCacheTime = Anon_Env::get('app.debug.cache.time', 0);
+        $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
+        $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
         
-        self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime);
-        self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime);
-        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript');
+        self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
 
         // 注册Install路由
-        self::addRoute('/anon/install', [Anon_Install::class, 'index']);
+        self::addRoute('/anon/install', [Anon_System_Install::class, 'index']);
         // 注册anon路由
         self::addRoute('/anon', function() {
             // 检查系统是否已安装
@@ -229,7 +236,7 @@ class Anon_Config
                 exit;
             } else {
                 // 如果未安装，调用安装类
-                Anon_Install::index();
+                Anon_System_Install::index();
             }
         });
         

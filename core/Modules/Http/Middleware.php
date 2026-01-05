@@ -18,7 +18,7 @@ interface Anon_MiddlewareInterface
 /**
  * 中间件管理器
  */
-class Anon_Middleware
+class Anon_Http_Middleware
 {
     /**
      * @var array 全局中间件
@@ -77,7 +77,7 @@ class Anon_Middleware
 
             // 如果是类名，尝试从容器解析或直接实例化
             if (is_string($middleware) && class_exists($middleware)) {
-                $instance = Anon_Container::getInstance()->make($middleware);
+                $instance = Anon_System_Container::getInstance()->make($middleware);
 
                 if ($instance instanceof Anon_MiddlewareInterface) {
                     return [$instance, 'handle'];

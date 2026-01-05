@@ -4,7 +4,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 /**
  * 验证码生成类
  */
-class Anon_Captcha
+class Anon_Auth_Captcha
 {
     /**
      * 生成验证码图片并返回 base64
@@ -37,11 +37,9 @@ class Anon_Captcha
      */
     private static function generateCode(int $length): string
     {
-        $code = '';
-        for ($i = 0; $i < $length; $i++) {
-            $code .= rand(0, 9);
-        }
-        return $code;
+        $min = (int)pow(10, $length - 1);
+        $max = (int)pow(10, $length) - 1;
+        return (string)random_int($min, $max);
     }
     
     /**
@@ -55,28 +53,27 @@ class Anon_Captcha
     {
         $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
         
-        // 背景
         $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
         
-        // 干扰线
+        // 绘制干扰线
         for ($i = 0; $i < 5; $i++) {
-            $x1 = rand(0, $width);
-            $y1 = rand(0, $height);
-            $x2 = rand(0, $width);
-            $y2 = rand(0, $height);
-            $strokeColor = sprintf('#%02x%02x%02x', rand(180, 220), rand(180, 220), rand(180, 220));
+            $x1 = random_int(0, $width);
+            $y1 = random_int(0, $height);
+            $x2 = random_int(0, $width);
+            $y2 = random_int(0, $height);
+            $strokeColor = sprintf('#%02x%02x%02x', random_int(180, 220), random_int(180, 220), random_int(180, 220));
             $svg .= '<line x1="' . $x1 . '" y1="' . $y1 . '" x2="' . $x2 . '" y2="' . $y2 . '" stroke="' . $strokeColor . '" stroke-width="1"/>';
         }
         
-        // 干扰点
+        // 绘制干扰点
         for ($i = 0; $i < 50; $i++) {
-            $x = rand(0, $width);
-            $y = rand(0, $height);
-            $fillColor = sprintf('#%02x%02x%02x', rand(150, 200), rand(150, 200), rand(150, 200));
+            $x = random_int(0, $width);
+            $y = random_int(0, $height);
+            $fillColor = sprintf('#%02x%02x%02x', random_int(150, 200), random_int(150, 200), random_int(150, 200));
             $svg .= '<circle cx="' . $x . '" cy="' . $y . '" r="1" fill="' . $fillColor . '"/>';
         }
         
-        // 验证码文字
+        // 绘制验证码文字
         $fontSize = 24;
         $charWidth = $width / (strlen($code) + 1);
         $y = ($height + $fontSize) / 2;
@@ -84,8 +81,8 @@ class Anon_Captcha
         for ($i = 0; $i < strlen($code); $i++) {
             $char = $code[$i];
             $x = $charWidth * ($i + 1);
-            $angle = rand(-20, 20);
-            $textColor = sprintf('#%02x%02x%02x', rand(0, 100), rand(0, 100), rand(0, 100));
+            $angle = random_int(-20, 20);
+            $textColor = sprintf('#%02x%02x%02x', random_int(0, 100), random_int(0, 100), random_int(0, 100));
             
             $svg .= '<text x="' . $x . '" y="' . $y . '" font-size="' . $fontSize . '" fill="' . $textColor . '" font-weight="bold" transform="rotate(' . $angle . ' ' . $x . ' ' . $y . ')">' . htmlspecialchars($char) . '</text>';
         }
@@ -113,12 +110,19 @@ class Anon_Captcha
         
         $sessionCode = $_SESSION['captcha_code'];
         
+        // 验证码5分钟有效期
+        $captchaTime = $_SESSION['captcha_time'] ?? 0;
+        if (time() - $captchaTime > 300) {
+            self::clear();
+            return false;
+        }
+        
         if (!$caseSensitive) {
             $inputCode = strtoupper($inputCode);
             $sessionCode = strtoupper($sessionCode);
         }
         
-        return $inputCode === $sessionCode;
+        return hash_equals($sessionCode, $inputCode);
     }
     
     /**
@@ -152,8 +156,8 @@ class Anon_Captcha
      */
     public static function isEnabled(): bool
     {
-        if (Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.captcha.enabled', false);
+        if (Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.captcha.enabled', false);
         }
         return defined('ANON_CAPTCHA_ENABLED') ? ANON_CAPTCHA_ENABLED : false;
     }

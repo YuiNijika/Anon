@@ -12,17 +12,17 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    $userInfo = Anon_RequestHelper::requireAuth();
+    $userInfo = Anon_Http_Request::requireAuth();
     
-    $token = Anon_RequestHelper::getUserToken((int)$userInfo['uid'], $userInfo['name']);
+    $token = Anon_Http_Request::getUserToken((int)$userInfo['uid'], $userInfo['name']);
     
     if ($token === null) {
-        Anon_ResponseHelper::success(['token_enabled' => false], 'Token验证未启用');
+        Anon_Http_Response::success(['token_enabled' => false], 'Token验证未启用');
     } else {
-        Anon_ResponseHelper::success(['token' => $token, 'token_enabled' => true], '获取Token成功');
+        Anon_Http_Response::success(['token' => $token, 'token_enabled' => true], '获取Token成功');
     }
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '获取Token时发生错误');
+    Anon_Http_Response::handleException($e, '获取Token时发生错误');
 }
 

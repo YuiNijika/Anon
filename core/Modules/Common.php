@@ -5,7 +5,7 @@ $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $requestPath = parse_url($requestUri, PHP_URL_PATH);
 $isInstallPath = strpos($requestPath, '/anon/install') === 0 || $requestPath === '/anon';
 
-if (!Anon_Config::isInstalled() && !$isInstallPath) {
+if (!Anon_System_Config::isInstalled() && !$isInstallPath) {
     header('Location: /anon/install');
     exit;
 }
@@ -73,20 +73,20 @@ LICENSE;
      */
     public static function defineConstantsFromEnv(): void
     {
-        if (Anon_Env::isInitialized()) {
-            self::defineIfNotExists('ANON_DB_HOST', Anon_Env::get('system.db.host', 'localhost'));
-            self::defineIfNotExists('ANON_DB_PORT', Anon_Env::get('system.db.port', 3306));
-            self::defineIfNotExists('ANON_DB_PREFIX', Anon_Env::get('system.db.prefix', ''));
-            self::defineIfNotExists('ANON_DB_USER', Anon_Env::get('system.db.user', 'root'));
-            self::defineIfNotExists('ANON_DB_PASSWORD', Anon_Env::get('system.db.password', ''));
-            self::defineIfNotExists('ANON_DB_DATABASE', Anon_Env::get('system.db.database', ''));
-            self::defineIfNotExists('ANON_DB_CHARSET', Anon_Env::get('system.db.charset', 'utf8mb4'));
-            self::defineIfNotExists('ANON_INSTALLED', Anon_Env::get('system.installed', false));
-            self::defineIfNotExists('ANON_DEBUG', Anon_Env::get('app.debug.global', false));
-            self::defineIfNotExists('ANON_ROUTER_DEBUG', Anon_Env::get('app.debug.router', false));
-            self::defineIfNotExists('ANON_TOKEN_ENABLED', Anon_Env::get('app.token.enabled', false));
-            self::defineIfNotExists('ANON_TOKEN_WHITELIST', Anon_Env::get('app.token.whitelist', []));
-            self::defineIfNotExists('ANON_CAPTCHA_ENABLED', Anon_Env::get('app.captcha.enabled', false));
+        if (Anon_System_Env::isInitialized()) {
+            self::defineIfNotExists('ANON_DB_HOST', Anon_System_Env::get('system.db.host', 'localhost'));
+            self::defineIfNotExists('ANON_DB_PORT', Anon_System_Env::get('system.db.port', 3306));
+            self::defineIfNotExists('ANON_DB_PREFIX', Anon_System_Env::get('system.db.prefix', ''));
+            self::defineIfNotExists('ANON_DB_USER', Anon_System_Env::get('system.db.user', 'root'));
+            self::defineIfNotExists('ANON_DB_PASSWORD', Anon_System_Env::get('system.db.password', ''));
+            self::defineIfNotExists('ANON_DB_DATABASE', Anon_System_Env::get('system.db.database', ''));
+            self::defineIfNotExists('ANON_DB_CHARSET', Anon_System_Env::get('system.db.charset', 'utf8mb4'));
+            self::defineIfNotExists('ANON_INSTALLED', Anon_System_Env::get('system.installed', false));
+            self::defineIfNotExists('ANON_DEBUG', Anon_System_Env::get('app.debug.global', false));
+            self::defineIfNotExists('ANON_ROUTER_DEBUG', Anon_System_Env::get('app.debug.router', false));
+            self::defineIfNotExists('ANON_TOKEN_ENABLED', Anon_System_Env::get('app.token.enabled', false));
+            self::defineIfNotExists('ANON_TOKEN_WHITELIST', Anon_System_Env::get('app.token.whitelist', []));
+            self::defineIfNotExists('ANON_CAPTCHA_ENABLED', Anon_System_Env::get('app.captcha.enabled', false));
         } else {
             // Anon_Env未初始化时使用默认值
             self::defineIfNotExists('ANON_DB_HOST', 'localhost');
@@ -146,33 +146,79 @@ LICENSE;
     {
         if (!Anon_Check::isLoggedIn()) {
             self::Header(401);
-            Anon_ResponseHelper::unauthorized('请先登录');
+            Anon_Http_Response::unauthorized('请先登录');
         }
     }
 
     /**
      * 设置 CORS 头
+     * 生产环境必须配置允许的来源域名
      */
     private static function setCorsHeaders(): void
     {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+        $allowedOrigins = self::getAllowedCorsOrigins();
         
         if ($origin) {
-            header("Access-Control-Allow-Origin: " . $origin);
+            // 如果配置了允许的来源列表，则验证来源
+            if (!empty($allowedOrigins)) {
+                if (in_array($origin, $allowedOrigins, true)) {
+                    header("Access-Control-Allow-Origin: " . $origin);
+                } else {
+                    // 来源不在允许列表中，不设置 CORS 头
+                    // 浏览器将阻止跨域请求
+                    return;
+                }
+            } else {
+                // 未配置允许列表，使用请求来源（仅限开发环境）
+                $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
+                if ($isDebug) {
+                    header("Access-Control-Allow-Origin: " . $origin);
+                } else {
+                    // 生产环境未配置 CORS，使用当前主机
+                    $host = $_SERVER['HTTP_HOST'] ?? '';
+                    if (!empty($host)) {
+                        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+                        header("Access-Control-Allow-Origin: " . $scheme . "://" . $host);
+                    }
+                    return;
+                }
+            }
         } else {
+            // 没有 Origin 头，设置为当前主机
             $host = $_SERVER['HTTP_HOST'] ?? '';
             if (!empty($host)) {
                 $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
                 header("Access-Control-Allow-Origin: " . $scheme . "://" . $host);
-            } else {
-                header("Access-Control-Allow-Origin: *");
             }
         }
         
         header("Access-Control-Allow-Credentials: true");
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");
-        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Token");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Token, X-CSRF-Token");
         header("Access-Control-Max-Age: 3600");
+    }
+
+    /**
+     * 获取允许的 CORS 来源域名列表
+     * @return array
+     */
+    private static function getAllowedCorsOrigins(): array
+    {
+        // 优先从 Anon_Env 获取
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $origins = Anon_System_Env::get('app.security.cors.origins', []);
+            if (!empty($origins)) {
+                return is_array($origins) ? $origins : [$origins];
+            }
+        }
+        
+        // 从常量获取
+        if (defined('ANON_CORS_ORIGINS') && is_array(ANON_CORS_ORIGINS)) {
+            return ANON_CORS_ORIGINS;
+        }
+        
+        return [];
     }
 
     /**
@@ -251,20 +297,19 @@ class Anon_Check
     {
         self::startSessionIfNotStarted();
 
-        // 检查会话中的用户ID
         if (!empty($_SESSION['user_id'])) {
             return true;
         }
 
-        // 检查Cookie中的用户ID和用户名
         if (!empty($_COOKIE['user_id']) && !empty($_COOKIE['username'])) {
-            // 验证Cookie值是否有效
             if (self::validateCookie($_COOKIE['user_id'], $_COOKIE['username'])) {
+                // 从Cookie恢复登录时重新生成Session ID防止固定攻击
+                session_regenerate_id(true);
+                
                 $_SESSION['user_id'] = (int)$_COOKIE['user_id'];
                 $_SESSION['username'] = $_COOKIE['username'];
                 return true;
             } else {
-                // Cookie 验证失败，清除无效的 Cookie
                 self::clearAuthCookies();
             }
         }
@@ -278,7 +323,7 @@ class Anon_Check
     public static function logout(): void
     {
         $userId = $_SESSION['user_id'] ?? null;
-        Anon_Hook::do_action('auth_before_logout', $userId);
+        Anon_System_Hook::do_action('auth_before_logout', $userId);
         
         self::startSessionIfNotStarted();
 
@@ -301,7 +346,7 @@ class Anon_Check
 
         self::clearAuthCookies();
         
-        Anon_Hook::do_action('auth_after_logout', $userId ?? null);
+        Anon_System_Hook::do_action('auth_after_logout', $userId ?? null);
     }
 
     /**
@@ -313,7 +358,7 @@ class Anon_Check
      */
     public static function setAuthCookies(int $userId, string $username, bool $rememberMe = false): void
     {
-        Anon_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
+        Anon_System_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
         
         $isHttps = defined('ANON_SITE_HTTPS') && ANON_SITE_HTTPS;
         
@@ -330,7 +375,7 @@ class Anon_Check
             $cookieOptions['expires'] = 0;
         }
 
-        $cookieOptions = Anon_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
+        $cookieOptions = Anon_System_Hook::apply_filters('auth_cookie_options', $cookieOptions, $userId, $username);
 
         // 生成 Cookie 签名，防止 Cookie 被篡改
         $secret = self::getCookieSecret();
@@ -342,7 +387,7 @@ class Anon_Check
         setcookie('auth_signature', $signature, $cookieOptions);
         setcookie('auth_expires', (string)$expires, $cookieOptions);
         
-        Anon_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
+        Anon_System_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
     }
 
     /**
@@ -406,30 +451,16 @@ class Anon_Check
 
     /**
      * 获取 Cookie 签名密钥
+     * 使用数据库密码派生，确保每个部署实例唯一
      * @return string
      */
     private static function getCookieSecret(): string
     {
-        // 优先使用配置的密钥
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $secret = Anon_Env::get('app.security.cookieSecret', null);
-            if ($secret !== null) {
-                return $secret;
-            }
-        }
-
-        // 使用环境变量
-        if (defined('ANON_COOKIE_SECRET') && !empty(ANON_COOKIE_SECRET)) {
-            return ANON_COOKIE_SECRET;
-        }
-
-        // 使用应用密钥
-        if (defined('ANON_SECRET_KEY') && !empty(ANON_SECRET_KEY)) {
-            return ANON_SECRET_KEY;
-        }
-
-        // 回退到默认密钥（不推荐，但保持向后兼容）
-        return 'anon_default_cookie_secret_change_in_production';
+        $key = defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD) 
+            ? ANON_DB_PASSWORD 
+            : 'anon_default_key';
+            
+        return hash('sha256', $key . '_cookie');
     }
 
     /**
@@ -443,7 +474,8 @@ class Anon_Check
             session_start([
                 'cookie_httponly' => true,
                 'cookie_secure'   => $isHttps,
-                'cookie_samesite' => 'Lax'
+                'cookie_samesite' => 'Lax',
+                'use_strict_mode' => true
             ]);
         }
     }

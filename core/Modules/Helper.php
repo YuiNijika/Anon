@@ -29,12 +29,12 @@ class Anon_Helper
     
     public static function sanitizeText(string $text): string
     {
-        return Anon_Utils_Sanitize::text($text);
+        return Anon_Security_Sanitize::text($text);
     }
     
     public static function sanitizeEmail(string $email): string
     {
-        return Anon_Utils_Sanitize::email($email);
+        return Anon_Security_Sanitize::email($email);
     }
     
     public static function isValidEmail(string $email): bool
@@ -44,7 +44,7 @@ class Anon_Helper
     
     public static function sanitizeUrl(string $url): string
     {
-        return Anon_Utils_Sanitize::url($url);
+        return Anon_Security_Sanitize::url($url);
     }
     
     public static function isValidUrl(string $url): bool

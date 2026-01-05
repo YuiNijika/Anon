@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 分库分表适配层
  * 支持按主键、时间等规则分片，兼容 ShardingSphere-PHP/PHP-Sharding 扩展
  */
-class Anon_Sharding
+class Anon_Database_Sharding
 {
     /**
      * @var array 分片配置

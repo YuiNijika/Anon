@@ -47,7 +47,7 @@ interface Anon_CacheInterface
 /**
  * 文件缓存实现
  */
-class Anon_FileCache implements Anon_CacheInterface
+class Anon_System_Cache implements Anon_CacheInterface
 {
     /**
      * @var string 缓存目录
@@ -65,7 +65,7 @@ class Anon_FileCache implements Anon_CacheInterface
      */
     public function __construct(?string $cacheDir = null, int $defaultTtl = 3600)
     {
-        $this->cacheDir = $cacheDir ?? (__DIR__ . '/../../cache');
+        $this->cacheDir = $cacheDir ?? (__DIR__ . '/../../../cache');
         $this->defaultTtl = $defaultTtl;
 
         // 创建缓存目录
@@ -369,9 +369,9 @@ class Anon_Cache
 
         switch ($driver) {
             case 'file':
-                $cacheDir = $config['dir'] ?? (__DIR__ . '/../../cache');
+                $cacheDir = $config['dir'] ?? (__DIR__ . '/../../../cache');
                 $defaultTtl = $config['ttl'] ?? 3600;
-                self::$instance = new Anon_FileCache($cacheDir, $defaultTtl);
+                self::$instance = new Anon_System_Cache($cacheDir, $defaultTtl);
                 break;
 
             case 'memory':

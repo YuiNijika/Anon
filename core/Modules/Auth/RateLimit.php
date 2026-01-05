@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 防刷限制模块
  * 支持基于IP、设备指纹等多种限制方式
  */
-class Anon_RateLimit
+class Anon_Auth_RateLimit
 {
     /**
      * 获取客户端IP

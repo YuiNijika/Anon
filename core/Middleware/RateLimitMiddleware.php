@@ -62,7 +62,7 @@ class Anon_RateLimitMiddleware implements Anon_MiddlewareInterface
         $key = $this->generateKey();
         
         // 检查限流
-        $limit = Anon_RateLimit::checkLimit($key, $this->maxAttempts, $this->windowSeconds);
+        $limit = Anon_Auth_RateLimit::checkLimit($key, $this->maxAttempts, $this->windowSeconds);
         
         if (!$limit['allowed']) {
             // 设置响应头
@@ -72,7 +72,7 @@ class Anon_RateLimitMiddleware implements Anon_MiddlewareInterface
             header('Retry-After: ' . ($limit['resetAt'] - time()));
             
             Anon_Common::Header(429);
-            Anon_ResponseHelper::error(
+            Anon_Http_Response::error(
                 '请求过于频繁，请稍后再试',
                 [
                     'limit' => $this->maxAttempts,
@@ -103,13 +103,13 @@ class Anon_RateLimitMiddleware implements Anon_MiddlewareInterface
         
         // 添加 IP
         if ($this->useIp) {
-            $ip = Anon_RateLimit::getClientIp();
+            $ip = Anon_Auth_RateLimit::getClientIp();
             $parts[] = 'ip:' . hash('sha256', $ip);
         }
         
         // 添加用户 ID
         if ($this->useUserId) {
-            $userId = Anon_RequestHelper::getUserId();
+            $userId = Anon_Http_Request::getUserId();
             if ($userId) {
                 $parts[] = 'user:' . $userId;
             }

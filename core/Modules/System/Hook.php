@@ -2,7 +2,7 @@
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Hook {
+class Anon_System_Hook {
     
     /**
      * 存储所有注册的钩子

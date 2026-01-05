@@ -55,7 +55,7 @@ class Anon_Plugin_CreateSQL
         $db = new Anon_Database();
         
         try {
-            $sqlConfig = Anon_SqlConfig::load();
+            $sqlConfig = Anon_Database_SqlConfig::load();
         } catch (RuntimeException $e) {
             throw new RuntimeException("无法加载 SQL 配置: " . $e->getMessage());
         }
@@ -65,7 +65,7 @@ class Anon_Plugin_CreateSQL
 
         foreach ($sqlConfig as $tableKey => $sql) {
             try {
-                $tableName = Anon_SqlConfig::extractTableName($sql, $prefix);
+                $tableName = Anon_Database_SqlConfig::extractTableName($sql, $prefix);
                 
                 // 检查表是否存在
                 if ($db->tableExists($tableName)) {
@@ -78,7 +78,7 @@ class Anon_Plugin_CreateSQL
                 }
 
                 // 方法解析 SQL
-                $parsed = Anon_SqlConfig::parseCreateTableSql($sql, $prefix);
+                $parsed = Anon_Database_SqlConfig::parseCreateTableSql($sql, $prefix);
                 
                 // 使用查询构建器创建表
                 $db->db($tableName)->createTable($parsed['columns'], $parsed['options']);

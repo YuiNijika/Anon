@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 查询构建器
  * 提供流畅的数据库查询接口
  */
-class Anon_QueryBuilder
+class Anon_Database_QueryBuilder
 {
     /**
      * @var Anon_Database_Connection|mysqli 数据库连接

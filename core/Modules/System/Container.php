@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 依赖注入容器
  * 支持单例、绑定、解析依赖
  */
-class Anon_Container
+class Anon_System_Container
 {
     /**
      * @var Anon_Container 单例实例

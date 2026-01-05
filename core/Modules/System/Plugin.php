@@ -5,12 +5,12 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 插件系统
  * 类似 WordPress 的插件机制，支持插件扫描、加载、激活/停用
  */
-class Anon_Plugin
+class Anon_System_Plugin
 {
     /**
      * 插件目录
      */
-    const PLUGIN_DIR = __DIR__ . '/../../app/Plugin/';
+    const PLUGIN_DIR = __DIR__ . '/../../../app/Plugin/';
 
     /**
      * 已加载的插件
@@ -31,6 +31,12 @@ class Anon_Plugin
     private static $initialized = false;
 
     /**
+     * 插件扫描结果缓存
+     * @var array|null
+     */
+    private static $scanCache = null;
+
+    /**
      * 初始化插件系统
      */
     public static function init(): void
@@ -49,7 +55,7 @@ class Anon_Plugin
         }
 
         // 执行插件系统初始化前钩子
-        Anon_Hook::do_action('plugin_system_before_init');
+        Anon_System_Hook::do_action('plugin_system_before_init');
 
         // 获取已激活的插件列表
         self::$activePlugins = self::getActivePlugins();
@@ -60,7 +66,7 @@ class Anon_Plugin
         self::$initialized = true;
 
         // 执行插件系统初始化后钩子
-        Anon_Hook::do_action('plugin_system_after_init', self::$loadedPlugins);
+        Anon_System_Hook::do_action('plugin_system_after_init', self::$loadedPlugins);
     }
 
     /**
@@ -69,14 +75,15 @@ class Anon_Plugin
      */
     public static function isEnabled(): bool
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.plugins.enabled', true);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.plugins.enabled', true);
         }
         return true; // 默认启用
     }
 
     /**
      * 扫描插件目录并加载已激活的插件
+     * 使用缓存减少文件系统操作
      */
     private static function scanAndLoadPlugins(): void
     {
@@ -90,63 +97,175 @@ class Anon_Plugin
         }
 
         // 执行插件扫描前钩子
-        Anon_Hook::do_action('plugin_before_scan');
+        Anon_System_Hook::do_action('plugin_before_scan');
 
-        $dirs = scandir($pluginDir);
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            $pluginDirs = array_filter($dirs, function($dir) {
-                return $dir !== '.' && $dir !== '..';
-            });
-            Anon_Debug::debug("Scanning plugin directory", [
-                'path' => $pluginDir,
-                'found' => count($pluginDirs) . ' plugin(s)'
-            ]);
-        }
-
-        foreach ($dirs as $dir) {
-            if ($dir === '.' || $dir === '..') {
-                continue;
-            }
-
-            $pluginPath = $pluginDir . $dir;
-            if (!is_dir($pluginPath)) {
-                continue;
-            }
-
-            $pluginFile = $pluginPath . '/Index.php';
-            if (!file_exists($pluginFile)) {
-                continue;
-            }
-
-            // 读取插件元数据
-            $meta = self::readPluginMeta($pluginFile);
-            if (!$meta) {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'file' => $pluginFile]);
+        // 尝试加载缓存的扫描结果
+        $cachedPlugins = self::loadScanCache($pluginDir);
+        
+        if ($cachedPlugins !== null) {
+            // 使用缓存的扫描结果
+            foreach ($cachedPlugins as $pluginData) {
+                $pluginSlug = $pluginData['slug'];
+                
+                // 检查插件是否已激活
+                if (!self::isPluginActive($pluginSlug)) {
+                    continue;
                 }
-                continue;
+
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    Anon_Debug::info("Loading plugin (cached): {$pluginData['meta']['name']}", [
+                        'slug' => $pluginSlug,
+                        'version' => $pluginData['meta']['version'] ?? 'N/A'
+                    ]);
+                }
+
+                // 加载插件
+                self::loadPlugin($pluginSlug, $pluginData['file'], $pluginData['meta'], $pluginData['dir']);
             }
-
-            $pluginSlug = self::getPluginSlug($dir, $meta);
-
-            // 检查插件是否已激活
-            if (!self::isPluginActive($pluginSlug)) {
-                continue;
-            }
-
+        } else {
+            // 执行完整扫描
+            $scannedPlugins = [];
+            $dirs = scandir($pluginDir);
+            
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::info("Loading plugin: {$meta['name']}", [
-                    'slug' => $pluginSlug,
-                    'version' => $meta['version'] ?? 'N/A'
+                $pluginDirs = array_filter($dirs, function($dir) {
+                    return $dir !== '.' && $dir !== '..';
+                });
+                Anon_Debug::debug("Scanning plugin directory", [
+                    'path' => $pluginDir,
+                    'found' => count($pluginDirs) . ' plugin(s)'
                 ]);
             }
 
-            // 加载插件
-            self::loadPlugin($pluginSlug, $pluginFile, $meta, $dir);
+            foreach ($dirs as $dir) {
+                if ($dir === '.' || $dir === '..') {
+                    continue;
+                }
+
+                $pluginPath = $pluginDir . $dir;
+                if (!is_dir($pluginPath)) {
+                    continue;
+                }
+
+                $pluginFile = $pluginPath . '/Index.php';
+                if (!file_exists($pluginFile)) {
+                    continue;
+                }
+
+                $meta = self::readPluginMeta($pluginFile);
+                if (!$meta) {
+                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                        Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'file' => $pluginFile]);
+                    }
+                    continue;
+                }
+
+                $pluginSlug = self::getPluginSlug($dir, $meta);
+                
+                // 缓存数据只保留必要信息
+                $scannedPlugins[] = [
+                    'slug' => $pluginSlug,
+                    'dir' => $dir,
+                    'file' => $pluginFile,
+                    'meta' => $meta
+                ];
+
+                // 检查插件是否已激活
+                if (!self::isPluginActive($pluginSlug)) {
+                    continue;
+                }
+
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    Anon_Debug::info("Loading plugin: {$meta['name']}", [
+                        'slug' => $pluginSlug,
+                        'version' => $meta['version'] ?? 'N/A'
+                    ]);
+                }
+
+                // 加载插件
+                self::loadPlugin($pluginSlug, $pluginFile, $meta, $dir);
+            }
+            
+            // 保存扫描结果到缓存
+            self::saveScanCache($pluginDir, $scannedPlugins);
         }
 
         // 执行插件扫描后钩子
-        Anon_Hook::do_action('plugin_after_scan', self::$loadedPlugins);
+        Anon_System_Hook::do_action('plugin_after_scan', self::$loadedPlugins);
+    }
+
+    /**
+     * 加载插件扫描缓存
+     * @param string $pluginDir 插件目录
+     * @return array|null 缓存的插件列表，不存在或过期返回 null
+     */
+    private static function loadScanCache(string $pluginDir): ?array
+    {
+        // 调试模式下禁用缓存
+        $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
+        if ($isDebug) {
+            return null;
+        }
+
+        try {
+            $cached = Anon_Cache::get('plugin_scan_list');
+            
+            if (!is_array($cached) || !isset($cached['plugins']) || !isset($cached['file_count'])) {
+                return null;
+            }
+
+            // 简单检查插件目录是否有变化，仅检查文件数量
+            $currentFileCount = count(glob($pluginDir . '*/Index.php'));
+            if ($currentFileCount !== $cached['file_count']) {
+                Anon_Cache::delete('plugin_scan_list');
+                return null;
+            }
+
+            return $cached['plugins'];
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 保存插件扫描缓存
+     * @param string $pluginDir 插件目录
+     * @param array $plugins 扫描到的插件列表
+     */
+    private static function saveScanCache(string $pluginDir, array $plugins): void
+    {
+        // 调试模式下不保存缓存
+        $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
+        if ($isDebug) {
+            return;
+        }
+
+        try {
+            // 统计插件文件数量用于快速验证
+            $fileCount = count(glob($pluginDir . '*/Index.php'));
+            
+            $cacheData = [
+                'file_count' => $fileCount,
+                'plugins' => $plugins
+            ];
+
+            // 使用框架缓存系统，1小时过期
+            Anon_Cache::set('plugin_scan_list', $cacheData, 3600);
+        } catch (Throwable $e) {
+            // 缓存失败不影响业务
+        }
+    }
+
+    /**
+     * 清除插件扫描缓存
+     */
+    public static function clearScanCache(): void
+    {
+        Anon_Cache::delete('plugin_scan_list');
+        
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            Anon_Debug::info('Plugin scan cache cleared');
+        }
     }
 
     /**
@@ -275,8 +394,8 @@ class Anon_Plugin
      */
     private static function getActivePlugins(): array
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $active = Anon_Env::get('app.plugins.active', []);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $active = Anon_System_Env::get('app.plugins.active', []);
             // 空数组表示所有插件都激活
             if (empty($active)) {
                 return []; // 返回空数组表示激活所有
@@ -322,7 +441,7 @@ class Anon_Plugin
     private static function loadPlugin(string $pluginSlug, string $pluginFile, array $meta, string $dirName): void
     {
         // 执行插件加载前钩子
-        Anon_Hook::do_action('plugin_before_load', $pluginSlug, $meta);
+        Anon_System_Hook::do_action('plugin_before_load', $pluginSlug, $meta);
 
         try {
             // 检查插件是否已加载
@@ -394,7 +513,7 @@ class Anon_Plugin
             ];
 
             // 执行插件加载后钩子
-            Anon_Hook::do_action('plugin_after_load', $pluginSlug, $meta);
+            Anon_System_Hook::do_action('plugin_after_load', $pluginSlug, $meta);
         } catch (Throwable $e) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 Anon_Debug::error("Failed to load plugin", [
@@ -406,7 +525,7 @@ class Anon_Plugin
             }
 
             // 执行插件加载错误钩子
-            Anon_Hook::do_action('plugin_load_error', $pluginSlug, $e);
+            Anon_System_Hook::do_action('plugin_load_error', $pluginSlug, $e);
         }
     }
 

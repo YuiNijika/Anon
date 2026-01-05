@@ -41,10 +41,10 @@ class Anon_Main
         $envConfig = array_merge_recursive($envConfig, $appConfig);
         
         // 立即加载核心模块
-        require_once self::MODULES_DIR . 'Env.php';
-        Anon_Env::init($envConfig);
-        require_once self::MODULES_DIR . 'Config.php';
-        require_once self::MODULES_DIR . 'SqlConfig.php';
+        require_once self::MODULES_DIR . 'System/Env.php';
+        Anon_System_Env::init($envConfig);
+        require_once self::MODULES_DIR . 'System/Config.php';
+        require_once self::MODULES_DIR . 'Database/SqlConfig.php';
         require_once self::MODULES_DIR . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
@@ -59,29 +59,29 @@ class Anon_Main
         require_once self::WIDGETS_DIR . 'Utils/Random.php';
         
         // 按需加载核心功能模块
-        require_once self::MODULES_DIR . 'Exception.php';
+        require_once self::MODULES_DIR . 'System/Exception.php';
         require_once self::MODULES_DIR . 'Database.php';
-        require_once self::MODULES_DIR . 'Install.php';
-        require_once self::MODULES_DIR . 'ResponseHelper.php';
-        require_once self::MODULES_DIR . 'RequestHelper.php';
-        require_once self::MODULES_DIR . 'Hook.php';
+        require_once self::MODULES_DIR . 'System/Install.php';
+        require_once self::MODULES_DIR . 'Http/ResponseHelper.php';
+        require_once self::MODULES_DIR . 'Http/RequestHelper.php';
+        require_once self::MODULES_DIR . 'System/Hook.php';
         require_once self::MODULES_DIR . 'Helper.php';
-        require_once self::MODULES_DIR . 'Widget.php';
-        require_once self::MODULES_DIR . 'Container.php';
-        require_once self::MODULES_DIR . 'Middleware.php';
-        require_once self::MODULES_DIR . 'Cache.php';
-        require_once self::MODULES_DIR . 'QueryBuilder.php';
-        require_once self::MODULES_DIR . 'QueryOptimizer.php';
-        require_once self::MODULES_DIR . 'Sharding.php';
+        require_once self::MODULES_DIR . 'System/Widget.php';
+        require_once self::MODULES_DIR . 'System/Container.php';
+        require_once self::MODULES_DIR . 'Http/Middleware.php';
+        require_once self::MODULES_DIR . 'System/Cache.php';
+        require_once self::MODULES_DIR . 'Database/QueryBuilder.php';
+        require_once self::MODULES_DIR . 'Database/QueryOptimizer.php';
+        require_once self::MODULES_DIR . 'Database/Sharding.php';
         
         // 按需加载可选功能模块
-        require_once self::MODULES_DIR . 'Token.php';
-        require_once self::MODULES_DIR . 'Captcha.php';
-        require_once self::MODULES_DIR . 'RateLimit.php';
-        require_once self::MODULES_DIR . 'Csrf.php';
-        require_once self::MODULES_DIR . 'Security.php';
-        require_once self::MODULES_DIR . 'Capability.php';
-        require_once self::MODULES_DIR . 'Console.php';
+        require_once self::MODULES_DIR . 'Auth/Token.php';
+        require_once self::MODULES_DIR . 'Auth/Captcha.php';
+        require_once self::MODULES_DIR . 'Auth/RateLimit.php';
+        require_once self::MODULES_DIR . 'Auth/Csrf.php';
+        require_once self::MODULES_DIR . 'Security/Security.php';
+        require_once self::MODULES_DIR . 'Auth/Capability.php';
+        require_once self::MODULES_DIR . 'System/Console.php';
         
         // 按需加载 Debug 模块
         require_once self::MODULES_DIR . 'Debug.php';
@@ -90,25 +90,28 @@ class Anon_Main
         }
         
         // 按需加载能力系统
-        Anon_Capability::getInstance()->init();
+        Anon_Auth_Capability::getInstance()->init();
         
         // 按需加载路由
-        Anon_Config::initSystemRoutes();
-        Anon_Config::initAppRoutes();
+        Anon_System_Config::initSystemRoutes();
+        Anon_System_Config::initAppRoutes();
         
         // 按需加载快捷方法封装类
         require_once self::MODULES_DIR . 'Anon.php';
         
         // 按需加载插件系统
-        require_once self::MODULES_DIR . 'Plugin.php';
-        Anon_Plugin::init();
+        require_once self::MODULES_DIR . 'System/Plugin.php';
+        Anon_System_Plugin::init();
         
         $codeFile = self::APP_DIR . 'useCode.php';
         if (file_exists($codeFile)) {
             require_once $codeFile;
         }
         
-        require_once self::MODULES_DIR . 'Router.php';
+        require_once self::MODULES_DIR . 'Http/Router.php';
+        
+        // 加载兼容层
+        require_once self::MODULES_DIR . '/../Compatibility.php';
         
         Anon_Debug::info('Application started', [
             'php_version' => PHP_VERSION,

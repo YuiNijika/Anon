@@ -4,7 +4,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 /**
  * 框架基础异常类
  */
-class Anon_Exception extends Exception
+class Anon_System_Exception extends Exception
 {
     protected $httpCode = 500;
     protected $data = [];
@@ -30,7 +30,7 @@ class Anon_Exception extends Exception
 /**
  * 未授权异常（401）
  */
-class Anon_UnauthorizedException extends Anon_Exception
+class Anon_UnauthorizedException extends Anon_System_Exception
 {
     public function __construct(string $message = '未授权访问', array $data = [])
     {
@@ -41,7 +41,7 @@ class Anon_UnauthorizedException extends Anon_Exception
 /**
  * 禁止访问异常（403）
  */
-class Anon_ForbiddenException extends Anon_Exception
+class Anon_ForbiddenException extends Anon_System_Exception
 {
     public function __construct(string $message = '禁止访问', array $data = [])
     {
@@ -52,7 +52,7 @@ class Anon_ForbiddenException extends Anon_Exception
 /**
  * 资源未找到异常（404）
  */
-class Anon_NotFoundException extends Anon_Exception
+class Anon_NotFoundException extends Anon_System_Exception
 {
     public function __construct(string $message = '资源未找到', array $data = [])
     {
@@ -63,7 +63,7 @@ class Anon_NotFoundException extends Anon_Exception
 /**
  * 参数验证异常（422）
  */
-class Anon_ValidationException extends Anon_Exception
+class Anon_ValidationException extends Anon_System_Exception
 {
     public function __construct(string $message = '参数验证失败', array $errors = [])
     {

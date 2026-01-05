@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * Token 验证类
  * 用于防止 API 被刷，支持签名验证和时间戳验证
  */
-class Anon_Token
+class Anon_Auth_Token
 {
     /**
      * Token 验证结果缓存
@@ -207,8 +207,8 @@ class Anon_Token
             throw new RuntimeException('无法生成 Token：缺少会话ID');
         }
         
-        // 使用更安全的密钥来源 优先使用配置的密钥 避免依赖可伪造的 $_SERVER
-        $serverKey = defined('ANON_SECRET_KEY') ? ANON_SECRET_KEY : (defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : 'anon_default_key_change_in_production');
+        // 获取安全密钥
+        $serverKey = self::getSecretKey();
         
         $secretData = [
             'session_id' => $sessionId,
@@ -221,13 +221,28 @@ class Anon_Token
     }
 
     /**
+     * 获取服务器密钥
+     * Token签名已包含session_id，此密钥作为额外保护层
+     * @return string
+     */
+    private static function getSecretKey(): string
+    {
+        // 使用数据库密码作为服务器标识
+        if (defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD)) {
+            return ANON_DB_PASSWORD;
+        }
+
+        return 'anon_default_key';
+    }
+
+    /**
      * 检查是否应该记录详细错误信息
      * @return bool
      */
     private static function shouldLogDetailedErrors(): bool
     {
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.debug.logDetailedErrors', false);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         return false;
     }
@@ -238,8 +253,8 @@ class Anon_Token
      */
     public static function isEnabled(): bool
     {
-        if (Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.token.enabled', false);
+        if (Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.token.enabled', false);
         }
         return defined('ANON_TOKEN_ENABLED') ? ANON_TOKEN_ENABLED : false;
     }
@@ -250,8 +265,8 @@ class Anon_Token
      */
     public static function isRefreshEnabled(): bool
     {
-        if (Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.token.refresh', false);
+        if (Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.token.refresh', false);
         }
         return false;
     }
@@ -270,8 +285,8 @@ class Anon_Token
             '/anon/debug/console',
         ];
         
-        if (Anon_Env::isInitialized()) {
-            $whitelist = Anon_Env::get('app.token.whitelist', []);
+        if (Anon_System_Env::isInitialized()) {
+            $whitelist = Anon_System_Env::get('app.token.whitelist', []);
             if (is_array($whitelist) && !empty($whitelist)) {
                 return array_merge($defaultWhitelist, $whitelist);
             }

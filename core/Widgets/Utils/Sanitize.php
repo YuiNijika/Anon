@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * XSS 过滤工具类
  * 提供多种数据清理和过滤方法
  */
-class Anon_Utils_Sanitize
+class Anon_Security_Sanitize
 {
     /**
      * 清理文本内容，移除 HTML 标签
@@ -79,7 +79,7 @@ class Anon_Utils_Sanitize
      */
     public static function string(string $string): string
     {
-        return filter_var($string, FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES);
+        return htmlspecialchars($string, ENT_NOQUOTES, 'UTF-8');
     }
     
     /**

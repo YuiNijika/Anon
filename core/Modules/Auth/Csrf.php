@@ -6,7 +6,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 用于防止跨站请求伪造攻击
  * 支持无状态设计，基于 HMAC 的 Token 无需存储在 Session 中
  */
-class Anon_Csrf
+class Anon_Auth_Csrf
 {
     /**
      * 是否使用无状态 Token
@@ -22,8 +22,8 @@ class Anon_Csrf
     private static function isStatelessEnabled(): bool
     {
         if (self::$statelessEnabled === null) {
-            if (Anon_Env::isInitialized()) {
-                self::$statelessEnabled = Anon_Env::get('app.security.csrf.stateless', true);
+            if (Anon_System_Env::isInitialized()) {
+                self::$statelessEnabled = Anon_System_Env::get('app.security.csrf.stateless', true);
             } else {
                 self::$statelessEnabled = defined('ANON_CSRF_STATELESS') ? ANON_CSRF_STATELESS : true;
             }
@@ -33,12 +33,16 @@ class Anon_Csrf
 
     /**
      * 获取 CSRF 密钥
+     * 使用数据库密码派生，确保每个部署实例唯一
      * @return string
      */
     private static function getSecretKey(): string
     {
-        $key = defined('ANON_SECRET_KEY') ? ANON_SECRET_KEY : (defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : 'anon_default_key_change_in_production');
-        return hash('sha256', $key . 'csrf');
+        $key = defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD) 
+            ? ANON_DB_PASSWORD 
+            : 'anon_default_key';
+            
+        return hash('sha256', $key . '_csrf');
     }
 
     /**
@@ -115,7 +119,7 @@ class Anon_Csrf
         if (empty($token)) {
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('CSRF Token 未提供');
+                Anon_Http_Response::forbidden('CSRF Token 未提供');
             }
             return false;
         }
@@ -131,7 +135,7 @@ class Anon_Csrf
         if (!isset($_SESSION['csrf_token'])) {
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('CSRF Token 已过期，请刷新页面重试');
+                Anon_Http_Response::forbidden('CSRF Token 已过期，请刷新页面重试');
             }
             return false;
         }
@@ -140,7 +144,7 @@ class Anon_Csrf
         if (!hash_equals($_SESSION['csrf_token'], $token)) {
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('CSRF Token 验证失败');
+                Anon_Http_Response::forbidden('CSRF Token 验证失败');
             }
             return false;
         }
@@ -164,7 +168,7 @@ class Anon_Csrf
             if ($decoded === false) {
                 if ($throwException) {
                     Anon_Common::Header(403);
-                    Anon_ResponseHelper::forbidden('CSRF Token 格式错误');
+                    Anon_Http_Response::forbidden('CSRF Token 格式错误');
                 }
                 return false;
             }
@@ -173,7 +177,7 @@ class Anon_Csrf
             if (count($parts) !== 2) {
                 if ($throwException) {
                     Anon_Common::Header(403);
-                    Anon_ResponseHelper::forbidden('CSRF Token 格式错误');
+                    Anon_Http_Response::forbidden('CSRF Token 格式错误');
                 }
                 return false;
             }
@@ -185,7 +189,7 @@ class Anon_Csrf
             if (!hash_equals($expectedSignature, $signature)) {
                 if ($throwException) {
                     Anon_Common::Header(403);
-                    Anon_ResponseHelper::forbidden('CSRF Token 验证失败');
+                    Anon_Http_Response::forbidden('CSRF Token 验证失败');
                 }
                 return false;
             }
@@ -195,7 +199,7 @@ class Anon_Csrf
             if (!is_array($data) || !isset($data['timestamp']) || !isset($data['nonce'])) {
                 if ($throwException) {
                     Anon_Common::Header(403);
-                    Anon_ResponseHelper::forbidden('CSRF Token 数据错误');
+                    Anon_Http_Response::forbidden('CSRF Token 数据错误');
                 }
                 return false;
             }
@@ -205,7 +209,7 @@ class Anon_Csrf
             if (time() - $data['timestamp'] > $maxAge) {
                 if ($throwException) {
                     Anon_Common::Header(403);
-                    Anon_ResponseHelper::forbidden('CSRF Token 已过期，请刷新页面重试');
+                    Anon_Http_Response::forbidden('CSRF Token 已过期，请刷新页面重试');
                 }
                 return false;
             }
@@ -216,7 +220,7 @@ class Anon_Csrf
                 if ($currentSessionId && $data['session_id'] !== $currentSessionId) {
                     if ($throwException) {
                         Anon_Common::Header(403);
-                        Anon_ResponseHelper::forbidden('CSRF Token Session 不匹配');
+                        Anon_Http_Response::forbidden('CSRF Token Session 不匹配');
                     }
                     return false;
                 }
@@ -226,7 +230,7 @@ class Anon_Csrf
         } catch (Exception $e) {
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('CSRF Token 验证异常');
+                Anon_Http_Response::forbidden('CSRF Token 验证异常');
             }
             return false;
         }
@@ -249,7 +253,7 @@ class Anon_Csrf
         }
         
         // 从 POST 参数获取
-        $inputData = Anon_RequestHelper::getInput();
+        $inputData = Anon_Http_Request::getInput();
         if (isset($inputData['_csrf_token'])) {
             return $inputData['_csrf_token'];
         }
@@ -297,8 +301,8 @@ class Anon_Csrf
      */
     public static function isEnabled(): bool
     {
-        if (Anon_Env::isInitialized()) {
-            return Anon_Env::get('app.security.csrf.enabled', true);
+        if (Anon_System_Env::isInitialized()) {
+            return Anon_System_Env::get('app.security.csrf.enabled', true);
         }
         return defined('ANON_CSRF_ENABLED') ? ANON_CSRF_ENABLED : true;
     }
@@ -312,7 +316,7 @@ class Anon_Csrf
     public static function requiresVerification(?string $method = null): bool
     {
         if ($method === null) {
-            $method = Anon_RequestHelper::method();
+            $method = Anon_Http_Request::method();
         }
         
         $method = strtoupper($method);

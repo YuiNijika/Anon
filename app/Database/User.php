@@ -21,7 +21,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function getUserInfo($uid)
     {
         if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('user_before_get_info', $uid);
+            Anon_System_Hook::do_action('user_before_get_info', $uid);
         }
         
         $row = $this->db('users')
@@ -31,7 +31,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
         if (!$row) {
             if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_not_found', $uid);
+                Anon_System_Hook::do_action('user_not_found', $uid);
             }
             return null;
         }
@@ -48,8 +48,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         ];
         
         if (class_exists('Anon_Hook')) {
-            $userInfo = Anon_Hook::apply_filters('user_info', $userInfo, $uid);
-            Anon_Hook::do_action('user_after_get_info', $userInfo, $uid);
+            $userInfo = Anon_System_Hook::apply_filters('user_info', $userInfo, $uid);
+            Anon_System_Hook::do_action('user_after_get_info', $userInfo, $uid);
         }
         
         return $userInfo;
@@ -147,7 +147,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function getUserInfoByName($name)
     {
         if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('user_before_get_info_by_name', $name);
+            Anon_System_Hook::do_action('user_before_get_info_by_name', $name);
         }
         
         $row = $this->db('users')
@@ -157,7 +157,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         
         if (!$row) {
             if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_not_found_by_name', $name);
+                Anon_System_Hook::do_action('user_not_found_by_name', $name);
             }
             return false;
         }
@@ -175,8 +175,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         ];
         
         if (class_exists('Anon_Hook')) {
-            $userInfo = Anon_Hook::apply_filters('user_info_by_name', $userInfo, $name);
-            Anon_Hook::do_action('user_after_get_info_by_name', $userInfo, $name);
+            $userInfo = Anon_System_Hook::apply_filters('user_info_by_name', $userInfo, $name);
+            Anon_System_Hook::do_action('user_after_get_info_by_name', $userInfo, $name);
         }
         
         return $userInfo;
@@ -190,7 +190,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function getUserInfoByEmail($email)
     {
         if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('user_before_get_info_by_email', $email);
+            Anon_System_Hook::do_action('user_before_get_info_by_email', $email);
         }
         
         $row = $this->db('users')
@@ -200,7 +200,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         
         if (!$row) {
             if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_not_found_by_email', $email);
+                Anon_System_Hook::do_action('user_not_found_by_email', $email);
             }
             return false;
         }
@@ -218,8 +218,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         ];
         
         if (class_exists('Anon_Hook')) {
-            $userInfo = Anon_Hook::apply_filters('user_info_by_email', $userInfo, $email);
-            Anon_Hook::do_action('user_after_get_info_by_email', $userInfo, $email);
+            $userInfo = Anon_System_Hook::apply_filters('user_info_by_email', $userInfo, $email);
+            Anon_System_Hook::do_action('user_after_get_info_by_email', $userInfo, $email);
         }
         
         return $userInfo;
@@ -238,7 +238,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function addUser($name, $email, $password, $group = 'user', $displayName = null, $avatar = null)
     {
         if (class_exists('Anon_Hook')) {
-            Anon_Hook::do_action('user_before_add', $name, $email, $group);
+            Anon_System_Hook::do_action('user_before_add', $name, $email, $group);
         }
         
         $validGroups = ['admin', 'author', 'user'];
@@ -247,10 +247,10 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         
         if (class_exists('Anon_Hook')) {
-            $name = Anon_Hook::apply_filters('user_name_before_add', $name);
-            $email = Anon_Hook::apply_filters('user_email_before_add', $email);
-            $password = Anon_Hook::apply_filters('user_password_before_add', $password);
-            $group = Anon_Hook::apply_filters('user_group_before_add', $group);
+            $name = Anon_System_Hook::apply_filters('user_name_before_add', $name);
+            $email = Anon_System_Hook::apply_filters('user_email_before_add', $email);
+            $password = Anon_System_Hook::apply_filters('user_password_before_add', $password);
+            $group = Anon_System_Hook::apply_filters('user_group_before_add', $group);
         }
         
         $this->conn->begin_transaction();
@@ -278,14 +278,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             $this->conn->commit();
             
             if ($success && class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_after_add', $id, $name, $email, $group);
+                Anon_System_Hook::do_action('user_after_add', $id, $name, $email, $group);
             }
             
             return $success;
         } catch (Exception $e) {
             $this->conn->rollback();
             if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_add_failed', $name, $email, $e);
+                Anon_System_Hook::do_action('user_add_failed', $name, $email, $e);
             }
             throw $e;
         }
@@ -336,7 +336,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     {
         if (class_exists('Anon_Hook')) {
             $oldGroup = $this->getUserInfo($uid)['group'] ?? null;
-            Anon_Hook::do_action('user_before_update_group', $uid, $oldGroup, $group);
+            Anon_System_Hook::do_action('user_before_update_group', $uid, $oldGroup, $group);
         }
         
         $validGroups = ['admin', 'author', 'user'];
@@ -345,7 +345,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         
         if (class_exists('Anon_Hook')) {
-            $group = Anon_Hook::apply_filters('user_group_before_update', $group, $uid);
+            $group = Anon_System_Hook::apply_filters('user_group_before_update', $group, $uid);
         }
         
         $this->conn->begin_transaction();
@@ -357,14 +357,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             $this->conn->commit();
             
             if ($affected > 0 && class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_after_update_group', $uid, $oldGroup ?? null, $group);
+                Anon_System_Hook::do_action('user_after_update_group', $uid, $oldGroup ?? null, $group);
             }
             
             return $affected > 0;
         } catch (Exception $e) {
             $this->conn->rollback();
             if (class_exists('Anon_Hook')) {
-                Anon_Hook::do_action('user_update_group_failed', $uid, $group, $e);
+                Anon_System_Hook::do_action('user_update_group_failed', $uid, $group, $e);
             }
             throw $e;
         }
@@ -547,8 +547,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     private function buildAvatar($email = null, $size = 640)
     {
         $avatarUrl = 'https://www.cravatar.cn/avatar';
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $avatarUrl = Anon_Env::get('app.avatar', $avatarUrl);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $avatarUrl = Anon_System_Env::get('app.avatar', $avatarUrl);
         }
         
         if (!$email) {

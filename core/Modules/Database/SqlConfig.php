@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * SQL 配置工具类
  * 提供加载和管理 useSQL.php 配置的方法
  */
-class Anon_SqlConfig
+class Anon_Database_SqlConfig
 {
     /**
      * SQL 配置文件路径
@@ -55,7 +55,7 @@ class Anon_SqlConfig
     private static function getDefaultConfigFile(): string
     {
         if (self::$configFile === null) {
-            self::$configFile = __DIR__ . '/../../app/useSQL.php';
+            self::$configFile = __DIR__ . '/../../../app/useSQL.php';
         }
         return self::$configFile;
     }

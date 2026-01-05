@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * CLI 控制台工具
  * 提供命令行接口用于执行框架命令
  */
-class Anon_Console
+class Anon_System_Console
 {
     /**
      * @var array 注册的命令
@@ -103,7 +103,7 @@ class Anon_Console
 
         // 如果是类名，尝试从容器解析或直接实例化
         if (is_string($handler) && class_exists($handler)) {
-            $instance = Anon_Container::getInstance()->make($handler);
+            $instance = Anon_System_Container::getInstance()->make($handler);
 
             if (method_exists($instance, 'handle')) {
                 return [$instance, 'handle'];

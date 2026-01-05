@@ -1,6 +1,9 @@
 # 安装锁文件
 core/Modules/Install/installed.lock
 
+# 缓存目录
+cache/
+
 # Logs
 logs
 *.log

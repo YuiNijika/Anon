@@ -5,8 +5,26 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 请求处理助手类
  * 提供统一的请求方法检查、输入获取、验证等功能
  */
-class Anon_RequestHelper
+class Anon_Http_Request
 {
+    /**
+     * 缓存的原始输入数据
+     * @var array|null
+     */
+    private static $cachedInput = null;
+
+    /**
+     * 是否已读取输入
+     * @var bool
+     */
+    private static $inputRead = false;
+
+    /**
+     * XSS 过滤后的输入数据
+     * @var array|null
+     */
+    private static $filteredInput = null;
+
     /**
      * 检查请求方法是否匹配
      * @param string|array $allowedMethods 允许的请求方法，可以是字符串或数组
@@ -19,7 +37,7 @@ class Anon_RequestHelper
         
         if (!in_array($requestMethod, $methods)) {
             $methodsStr = implode(', ', $methods);
-            Anon_ResponseHelper::methodNotAllowed($methodsStr);
+            Anon_Http_Response::methodNotAllowed($methodsStr);
             return false;
         }
         
@@ -27,17 +45,27 @@ class Anon_RequestHelper
     }
 
     /**
-     * 获取支持 JSON 和表单数据的请求输入数据
+     * 获取请求输入数据，支持JSON和表单数据
+     * @param bool $raw 是否获取原始未过滤的数据
      * @return array 解析后的数据数组
      */
-    public static function getInput(): array
+    public static function getInput(bool $raw = false): array
     {
+        if (!$raw && self::$filteredInput !== null) {
+            return self::$filteredInput;
+        }
+
+        if (self::$inputRead && self::$cachedInput !== null) {
+            return self::$cachedInput;
+        }
+
         $input = file_get_contents('php://input');
+        self::$inputRead = true;
         
-        // 获取配置的请求体大小限制，默认 2MB
-        $maxSize = 2097152; // 2MB
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $maxSize = Anon_Env::get('app.request.maxBodySize', 2097152);
+        // 请求体大小限制默认2MB
+        $maxSize = 2097152;
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $maxSize = Anon_System_Env::get('app.request.maxBodySize', 2097152);
         }
         
         if (strlen($input) > $maxSize) {
@@ -57,9 +85,39 @@ class Anon_RequestHelper
         
         $data = $data ?: [];
         
-        $data = Anon_Hook::apply_filters('request_input', $data);
+        $data = Anon_System_Hook::apply_filters('request_input', $data);
+        
+        self::$cachedInput = $data;
         
         return $data;
+    }
+
+    /**
+     * 设置过滤后的输入数据
+     * @param array $data 过滤后的数据
+     */
+    public static function setFilteredInput(array $data): void
+    {
+        self::$filteredInput = $data;
+    }
+
+    /**
+     * 获取原始未过滤的输入数据
+     * @return array
+     */
+    public static function getRawInput(): array
+    {
+        return self::getInput(true);
+    }
+
+    /**
+     * 重置输入缓存
+     */
+    public static function resetInput(): void
+    {
+        self::$cachedInput = null;
+        self::$filteredInput = null;
+        self::$inputRead = false;
     }
 
     /**
@@ -85,7 +143,7 @@ class Anon_RequestHelper
         
         if ($value === null || $value === '') {
             $message = $errorMessage ?: "参数 {$key} 不能为空";
-            Anon_ResponseHelper::validationError($message);
+            Anon_Http_Response::validationError($message);
         }
         
         return $value;
@@ -124,7 +182,7 @@ class Anon_RequestHelper
         }
         
         if (!empty($errors)) {
-            Anon_ResponseHelper::validationError('参数验证失败', $errors);
+            Anon_Http_Response::validationError('参数验证失败', $errors);
         }
         
         return $validated;
@@ -183,19 +241,19 @@ class Anon_RequestHelper
     public static function requireAuth(): array
     {
         if (!Anon_Check::isLoggedIn()) {
-            Anon_ResponseHelper::unauthorized('请先登录');
+            Anon_Http_Response::unauthorized('请先登录');
         }
         
         $userId = self::getUserId();
         if (!$userId) {
-            Anon_ResponseHelper::unauthorized('用户未登录');
+            Anon_Http_Response::unauthorized('用户未登录');
         }
         
         $db = Anon_Database::getInstance();
         $userInfo = $db->getUserInfo($userId);
         
         if (!$userInfo) {
-            Anon_ResponseHelper::unauthorized('用户不存在');
+            Anon_Http_Response::unauthorized('用户不存在');
         }
         
         return $userInfo;
@@ -210,7 +268,7 @@ class Anon_RequestHelper
      */
     public static function generateUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!Anon_Token::isEnabled()) {
+        if (!Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
@@ -223,7 +281,7 @@ class Anon_RequestHelper
 
         $expire = $rememberMe ? 86400 * 30 : 3600;
 
-        return Anon_Token::generate([
+        return Anon_Auth_Token::generate([
             'user_id' => $userId,
             'username' => $username,
             'session_id' => $sessionId,
@@ -241,19 +299,19 @@ class Anon_RequestHelper
      */
     public static function getUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!Anon_Token::isEnabled()) {
+        if (!Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
         // 如果启用了Token刷新，总是生成新Token
-        if (Anon_Token::isRefreshEnabled()) {
+        if (Anon_Auth_Token::isRefreshEnabled()) {
             return self::generateUserToken($userId, $username, $rememberMe);
         }
 
         // 如果未启用刷新，检查是否有有效的现有 Token
-        $existingToken = Anon_Token::getTokenFromRequest();
+        $existingToken = Anon_Auth_Token::getTokenFromRequest();
         if (!empty($existingToken)) {
-            $payload = Anon_Token::verify($existingToken);
+            $payload = Anon_Auth_Token::verify($existingToken);
             // 如果现有 Token 有效，返回现有 Token
             if ($payload !== false && isset($payload['data']['user_id']) && (int)$payload['data']['user_id'] === $userId) {
                 return $existingToken;
@@ -272,7 +330,7 @@ class Anon_RequestHelper
     public static function requireToken(bool $throwException = true): bool
     {
         // 检查是否启用Token验证
-        if (!Anon_Token::isEnabled()) {
+        if (!Anon_Auth_Token::isEnabled()) {
             return true; // 未启用则直接通过
         }
 
@@ -290,12 +348,12 @@ class Anon_RequestHelper
         }
 
         // 检查是否在白名单中
-        if (Anon_Token::isWhitelisted($path)) {
+        if (Anon_Auth_Token::isWhitelisted($path)) {
             return true;
         }
 
         // 验证 Token
-        $token = Anon_Token::getTokenFromRequest();
+        $token = Anon_Auth_Token::getTokenFromRequest();
         if (empty($token)) {
             // 如果用户已通过 Session/Cookie 登录，允许降级使用 Session 验证，仅限 Debug API
             $isDebugApi = strpos($path, '/anon/debug/api/') === 0;
@@ -306,16 +364,16 @@ class Anon_RequestHelper
             
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('Token 验证失败，未提供 API Token');
+                Anon_Http_Response::forbidden('Token 验证失败，未提供 API Token');
             }
             return false;
         }
 
-        $payload = Anon_Token::verify($token);
+        $payload = Anon_Auth_Token::verify($token);
         if ($payload === false) {
             if ($throwException) {
                 Anon_Common::Header(403);
-                Anon_ResponseHelper::forbidden('Token 验证失败，请提供有效的 API Token');
+                Anon_Http_Response::forbidden('Token 验证失败，请提供有效的 API Token');
             }
             return false;
         }
@@ -340,7 +398,7 @@ class Anon_RequestHelper
             }
 
             // 如果启用了 Token 刷新，生成新 Token 并添加到响应头
-            if (Anon_Token::isRefreshEnabled()) {
+            if (Anon_Auth_Token::isRefreshEnabled()) {
                 // 根据 Token 过期时间判断是否为"记住我"
                 // 如果过期时间超过24小时，视为记住我
                 $expireTime = $payload['expire'] ?? 0;

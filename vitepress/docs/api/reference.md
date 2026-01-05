@@ -1,3 +1,35 @@
+
+## 类名变更说明
+
+框架已重构，类名已更新为更清晰的命名。旧类名仍然可用，但建议使用新类名。
+
+### 新类名（推荐使用）
+
+```php
+// Http 模块
+Anon_Http_Request::validate([...]);
+Anon_Http_Response::success($data);
+Anon_Http_Router::handle();
+
+// Auth 模块
+Anon_Auth_Token::generate([...]);
+Anon_Auth_Csrf::generate();
+```
+
+### 旧类名（仍然可用）
+
+```php
+// 旧代码仍然可以正常工作
+Anon_RequestHelper::validate([...]);
+Anon_ResponseHelper::success($data);
+Anon_Token::generate([...]);
+```
+
+### 兼容机制
+
+通过 `core/Compatibility.php` 自动创建类别名，旧代码无需修改即可继续工作。
+
+
 ﻿# API 参考文档
 
 一句话：所有核心模块的公共方法调用参考，快速查找可用方法。

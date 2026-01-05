@@ -16,7 +16,7 @@ interface UserInfo {
 }
 
 interface ApiResponse<T = any> {
-    success: boolean;
+    code: number;
     message?: string;
     data?: T;
 }
@@ -64,7 +64,7 @@ const DebugConsole = {
                     credentials: 'include'
                 });
                 const data: ApiResponse<{ token: string }> = await response.json();
-                if (data.success && data.data?.token) {
+                if (data.code === 200 && data.data?.token) {
                     localStorage.setItem('token', data.data.token);
                     return data.data.token;
                 }
@@ -92,11 +92,11 @@ const DebugConsole = {
                     headers: headers
                 });
                 const data: ApiResponse<UserInfo> = await response.json();
-                if (data.success && data.data) {
+                if (data.code === 200 && data.data) {
                     userInfo.value = data.data;
                     if (data.data.token) {
                         localStorage.setItem('token', data.data.token);
-                    } else if (!token && data.success) {
+                    } else if (!token && data.code === 200) {
                         token = await fetchToken();
                     }
                 } else {
@@ -132,7 +132,7 @@ const DebugConsole = {
                     headers: headers
                 });
                 const data: ApiResponse = await response.json();
-                if (data.success && data.data) {
+                if (data.code === 200 && data.data) {
                     (sectionData as any)[section] = data.data;
                 } else {
                     console.error('加载数据失败:', data.message);
@@ -174,7 +174,7 @@ const DebugConsole = {
                     headers: headers
                 });
                 const data: ApiResponse = await response.json();
-                if (data.success) {
+                if (data.code === 200) {
                     alert('调试数据已清理');
                     refreshData();
                 } else {
@@ -251,7 +251,7 @@ const DebugLogin = {
             try {
                 const response = await fetch('/anon/common/config');
                 const data = await response.json() as ApiResponse<{ captcha: boolean }>;
-                if (data.success && data.data?.captcha !== undefined) {
+                if (data.code === 200 && data.data?.captcha !== undefined) {
                     captchaEnabled.value = data.data.captcha;
                     if (captchaEnabled.value) {
                         refreshCaptcha();
@@ -266,7 +266,7 @@ const DebugLogin = {
             try {
                 const response = await fetch('/auth/captcha');
                 const data = await response.json() as ApiResponse<{ image: string }>;
-                if (data.success && data.data?.image) {
+                if (data.code === 200 && data.data?.image) {
                     captchaImage.value = data.data.image;
                     form.captcha = '';
                 }
@@ -301,7 +301,7 @@ const DebugLogin = {
 
                 const data = await response.json() as ApiResponse<{ token?: string }>;
 
-                if (data.success) {
+                if (data.code === 200) {
                     if (data.data?.token) {
                         localStorage.setItem('token', data.data.token);
                     }

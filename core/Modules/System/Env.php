@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 环境配置管理类
  * 负责加载和定义环境变量
  */
-class Anon_Env
+class Anon_System_Env
 {
     /**
      * 环境配置数组

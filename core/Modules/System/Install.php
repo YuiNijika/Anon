@@ -2,9 +2,9 @@
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Install
+class Anon_System_Install
 {
-    const envfile = __DIR__ . '/../../env.php';
+    const envfile = __DIR__ . '/../../../env.php';
 
     /**
      * 获取数据库表创建 SQL 语句
@@ -13,7 +13,7 @@ class Anon_Install
      */
     private static function getSqlStatements(string $tablePrefix): array
     {
-        $sqlConfigFile = __DIR__ . '/../../app/useSQL.php';
+        $sqlConfigFile = __DIR__ . '/../../../app/useSQL.php';
         $installSql = file_exists($sqlConfigFile) ? require $sqlConfigFile : [];
         
         $sqlStatements = [];
@@ -33,7 +33,7 @@ class Anon_Install
     public static function index()
     {
         // 只有在系统未安装时才能访问
-        if (Anon_Config::isInstalled()) {
+        if (Anon_System_Config::isInstalled()) {
             Anon_Common::Header(400);
             echo json_encode(
                 [
@@ -91,7 +91,7 @@ class Anon_Install
             self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
 
             require_once self::envfile;
-            $appConfigFile = __DIR__ . '/../../app/useApp.php';
+            $appConfigFile = __DIR__ . '/../../../app/useApp.php';
             $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
             
             $envConfig = [
@@ -111,7 +111,7 @@ class Anon_Install
             $envConfig = array_merge_recursive($envConfig, $appConfig);
             
             if (class_exists('Anon_Env')) {
-                Anon_Env::init($envConfig);
+                Anon_System_Env::init($envConfig);
             }
 
             // 连接到数据库
@@ -404,8 +404,8 @@ class Anon_Install
     {
         // 检查是否允许记录详细错误
         $logDetailed = false;
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $logDetailed = Anon_Env::get('app.debug.logDetailedErrors', false);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false; // 默认不记录详细错误
         }

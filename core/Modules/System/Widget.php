@@ -1,7 +1,7 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Widget
+class Anon_System_Widget
 {
     private static $instance = null;
     private $widgets = [];
@@ -40,7 +40,7 @@ class Anon_Widget
             ], $args),
         ];
         
-        Anon_Hook::do_action('widget_registered', $id, $name);
+        Anon_System_Hook::do_action('widget_registered', $id, $name);
         
         return true;
     }
@@ -50,7 +50,7 @@ class Anon_Widget
         if (isset($this->widgets[$id])) {
             unset($this->widgets[$id]);
             
-            Anon_Hook::do_action('widget_unregistered', $id);
+            Anon_System_Hook::do_action('widget_unregistered', $id);
             
             return true;
         }
@@ -78,7 +78,7 @@ class Anon_Widget
         
         $widgetArgs = array_merge($widget['args'], $args);
         
-        $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
+        $widgetArgs = Anon_System_Hook::apply_filters('widget_args', $widgetArgs, $id);
         
         ob_start();
         $result = call_user_func($callback, $widgetArgs);
@@ -89,7 +89,7 @@ class Anon_Widget
             $output = is_string($result) ? $result : '';
         }
         
-        $output = Anon_Hook::apply_filters('widget_output', $output, $id);
+        $output = Anon_System_Hook::apply_filters('widget_output', $output, $id);
         
         return $output;
     }
@@ -115,7 +115,7 @@ class Anon_Widget
         
         $widgetArgs = array_merge($widget['args'], $args);
         
-        $widgetArgs = Anon_Hook::apply_filters('widget_args', $widgetArgs, $id);
+        $widgetArgs = Anon_System_Hook::apply_filters('widget_args', $widgetArgs, $id);
         
         // 执行回调
         $result = call_user_func($callback, $widgetArgs);
@@ -147,7 +147,7 @@ class Anon_Widget
         }
         
         // 应用过滤器
-        $data = Anon_Hook::apply_filters('widget_data', $data, $id);
+        $data = Anon_System_Hook::apply_filters('widget_data', $data, $id);
         
         return $data;
     }

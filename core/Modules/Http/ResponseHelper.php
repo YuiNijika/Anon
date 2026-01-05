@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 统一JSON响应格式
  * 提供标准化的API响应格式：code、message、data
  */
-class Anon_ResponseHelper {
+class Anon_Http_Response {
     
     /**
      * 输出用于调试的 JSON 响应到控制台
@@ -70,9 +70,9 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认200
      */
     public static function success($data = null, $message = '操作成功', $httpCode = 200) {
-        Anon_Hook::do_action('response_before_success', $data, $message, $httpCode);
-        $data = Anon_Hook::apply_filters('response_data', $data);
-        $message = Anon_Hook::apply_filters('response_message', $message);
+        Anon_System_Hook::do_action('response_before_success', $data, $message, $httpCode);
+        $data = Anon_System_Hook::apply_filters('response_data', $data);
+        $message = Anon_System_Hook::apply_filters('response_message', $message);
         
         http_response_code($httpCode);
         
@@ -82,7 +82,7 @@ class Anon_ResponseHelper {
             'data' => self::cleanNullValues($data)
         ];
         
-        $response = Anon_Hook::apply_filters('response_success', $response);
+        $response = Anon_System_Hook::apply_filters('response_success', $response);
         
         self::logToConsole($response, 'success');
         
@@ -97,8 +97,8 @@ class Anon_ResponseHelper {
      * @param int $httpCode HTTP状态码，默认400
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400) {
-        Anon_Hook::do_action('response_before_error', $message, $data, $httpCode);
-        $message = Anon_Hook::apply_filters('response_error_message', $message);
+        Anon_System_Hook::do_action('response_before_error', $message, $data, $httpCode);
+        $message = Anon_System_Hook::apply_filters('response_error_message', $message);
         
         http_response_code($httpCode);
         
@@ -112,7 +112,7 @@ class Anon_ResponseHelper {
             'data' => self::cleanNullValues($data)
         ];
         
-        $response = Anon_Hook::apply_filters('response_error', $response);
+        $response = Anon_System_Hook::apply_filters('response_error', $response);
         
         self::logToConsole($response, 'error');
         
@@ -224,7 +224,7 @@ class Anon_ResponseHelper {
         $httpCode = 500;
         $data = [];
         
-        if ($exception instanceof Anon_Exception) {
+        if ($exception instanceof Anon_System_Exception) {
             // 使用框架异常类
             $httpCode = $exception->getHttpCode();
             $data = $exception->getData();
@@ -243,8 +243,8 @@ class Anon_ResponseHelper {
         
         // 检查是否允许记录详细错误信息
         $logDetailed = false;
-        if (class_exists('Anon_Env') && Anon_Env::isInitialized()) {
-            $logDetailed = Anon_Env::get('app.debug.logDetailedErrors', false);
+        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+            $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         
         // 仅在明确启用详细错误记录时返回文件路径和堆栈跟踪

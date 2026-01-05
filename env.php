@@ -1,6 +1,8 @@
 <?php
 /**
- * Anon环境配置
+ * Anon 环境配置
+ * 仅包含数据库配置和安装状态
+ * 其他配置请在 app/useApp.php 中设置
  */
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;

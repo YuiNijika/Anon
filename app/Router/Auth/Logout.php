@@ -10,8 +10,8 @@ const Anon_RouterMeta = [
 try {
     Anon_Check::logout();
     
-    Anon_ResponseHelper::success([], '登出成功');
+    Anon_Http_Response::success([], '登出成功');
     
 } catch (Exception $e) {
-    Anon_ResponseHelper::handleException($e, '登出过程中发生错误');
+    Anon_Http_Response::handleException($e, '登出过程中发生错误');
 }

@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 安全工具类
  * 提供 SQL 注入检查、XSS 自动过滤等功能
  */
-class Anon_Security
+class Anon_Security_Security
 {
     /**
      * 自动过滤输入数据防止 XSS
@@ -42,7 +42,7 @@ class Anon_Security
             } elseif (is_string($value)) {
                 // 过滤字符串
                 $filtered[$key] = $stripHtml 
-                    ? Anon_Utils_Sanitize::text($value)
+                    ? Anon_Security_Sanitize::text($value)
                     : htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
             } else {
                 $filtered[$key] = $value;

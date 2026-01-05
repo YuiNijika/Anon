@@ -1,7 +1,7 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Capability
+class Anon_Auth_Capability
 {
     private static $instance = null;
     private $db = null;
@@ -52,7 +52,7 @@ class Anon_Capability
     
     public function init(): void
     {
-        Anon_Hook::do_action('capabilities_init', $this->capabilities);
+        Anon_System_Hook::do_action('capabilities_init', $this->capabilities);
     }
     
     /**
@@ -135,7 +135,7 @@ class Anon_Capability
             return false;
         }
         
-        $userId = Anon_RequestHelper::getUserId();
+        $userId = Anon_Http_Request::getUserId();
         if (!$userId) {
             return false;
         }
@@ -147,7 +147,7 @@ class Anon_Capability
     {
         if (!$this->currentUserCan($capability)) {
             Anon_Common::Header(403);
-            Anon_ResponseHelper::forbidden('权限不足');
+            Anon_Http_Response::forbidden('权限不足');
             exit;
         }
     }

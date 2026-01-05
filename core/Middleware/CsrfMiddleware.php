@@ -30,12 +30,12 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
     public function handle($request, callable $next)
     {
         // 检查是否启用 CSRF
-        if (!Anon_Csrf::isEnabled()) {
+        if (!Anon_Auth_Csrf::isEnabled()) {
             return $next($request);
         }
         
         // 检查是否需要验证
-        if (!Anon_Csrf::requiresVerification()) {
+        if (!Anon_Auth_Csrf::requiresVerification()) {
             return $next($request);
         }
         
@@ -48,7 +48,7 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
         }
         
         // 验证 CSRF Token
-        Anon_Csrf::verify(null, true);
+        Anon_Auth_Csrf::verify(null, true);
         
         // 继续处理请求
         return $next($request);

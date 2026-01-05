@@ -5,7 +5,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  * 查询优化器
  * 提供关联查询优化、N+1 查询检测等功能
  */
-class Anon_QueryOptimizer
+class Anon_Database_QueryOptimizer
 {
     /**
      * @var array 已加载的关联数据缓存

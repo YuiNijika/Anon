@@ -6,7 +6,7 @@
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Router
+class Anon_Http_Router
 {
     /**
      * @var array 路由配置
@@ -21,7 +21,7 @@ class Anon_Router
     /**
      * @var string 日志文件路径
      */
-    private static $logFile = __DIR__ . '/../../logs/router.log';
+    private static $logFile = __DIR__ . '/../../../logs/router.log';
 
     /**
      * @var bool 是否已初始化日志系统
@@ -39,6 +39,16 @@ class Anon_Router
     private static $cachedRequestPath = null;
 
     /**
+     * @var array 路由元数据缓存
+     */
+    private static $routerMetaCache = [];
+
+    /**
+     * @var bool 是否使用持久化元数据缓存
+     */
+    private static $usePersistentMetaCache = null;
+
+    /**
      * 初始化路由系统
      * @throws RuntimeException 如果路由配置无效
      */
@@ -52,7 +62,7 @@ class Anon_Router
             }
 
             // 执行路由初始化前钩子
-            Anon_Hook::do_action('router_before_init');
+            Anon_System_Hook::do_action('router_before_init');
 
             // 记录路由系统启动
             if (self::isDebugEnabled()) {
@@ -61,13 +71,13 @@ class Anon_Router
             }
 
             // 加载应用路由配置
-            $autoRouter = Anon_Env::get('app.autoRouter', false);
+            $autoRouter = Anon_System_Env::get('app.autoRouter', false);
             if ($autoRouter) {
                 // 自动路由 扫描 Router 目录
                 self::autoRegisterRoutes();
             } else {
                 // 手动路由 加载 useRouter.php 配置
-                $routerConfig = __DIR__ . '/../../app/useRouter.php';
+                $routerConfig = __DIR__ . '/../../../app/useRouter.php';
                 if (file_exists($routerConfig)) {
                     self::registerAppRoutes(require $routerConfig);
                 } else {
@@ -79,7 +89,7 @@ class Anon_Router
             self::loadConfig();
 
             // 执行配置加载后钩子
-            Anon_Hook::do_action('router_config_loaded', self::$routes, self::$errorHandlers);
+            Anon_System_Hook::do_action('router_config_loaded', self::$routes, self::$errorHandlers);
 
             self::handleRequest();
 
@@ -90,10 +100,10 @@ class Anon_Router
             }
 
             // 执行路由初始化完成钩子
-            Anon_Hook::do_action('router_after_init');
+            Anon_System_Hook::do_action('router_after_init');
         } catch (RuntimeException $e) {
             // 执行路由错误钩子
-            Anon_Hook::do_action('router_init_error', $e);
+            Anon_System_Hook::do_action('router_init_error', $e);
 
             // 记录错误到调试系统
             if (self::isDebugEnabled()) {
@@ -114,7 +124,7 @@ class Anon_Router
      */
     private static function loadConfig(): void
     {
-        $routerConfig = Anon_Config::getRouterConfig();
+        $routerConfig = Anon_System_Config::getRouterConfig();
 
         if (!is_array($routerConfig)) {
             throw new RuntimeException("Invalid router configuration");
@@ -133,7 +143,7 @@ class Anon_Router
             throw new RuntimeException("无效的路径: {$fileView}");
         }
 
-        $baseDir = realpath(__DIR__ . '/../../app/Router');
+        $baseDir = realpath(__DIR__ . '/../../../app/Router');
         $filePath = realpath($baseDir . '/' . $fileView . '.php');
 
         if (!$filePath || !file_exists($filePath)) {
@@ -153,7 +163,7 @@ class Anon_Router
         // 执行中间件
         if (isset($meta['middleware'])) {
             $middlewares = is_array($meta['middleware']) ? $meta['middleware'] : [$meta['middleware']];
-            Anon_Middleware::pipeline($middlewares, $_REQUEST, function () use ($filePath) {
+            Anon_Http_Middleware::pipeline($middlewares, $_REQUEST, function () use ($filePath) {
                 require $filePath;
             });
         } else {
@@ -163,6 +173,7 @@ class Anon_Router
 
     /**
      * 读取路由文件中的 Anon_RouterMeta 常量配置
+     * 使用内存缓存和可选的持久化缓存提升性能
      * @param string $filePath 路由文件路径
      * @return array 路由元数据配置
      */
@@ -178,14 +189,33 @@ class Anon_Router
             ],
         ];
 
+        // 检查内存缓存
+        $cacheKey = 'meta_' . md5($filePath);
+        if (isset(self::$routerMetaCache[$cacheKey])) {
+            return self::$routerMetaCache[$cacheKey];
+        }
+
+        // 检查持久化缓存（生产环境）
+        if (self::shouldUsePersistentMetaCache()) {
+            $persistentCache = self::loadPersistentMetaCache($filePath);
+            if ($persistentCache !== null) {
+                self::$routerMetaCache[$cacheKey] = $persistentCache;
+                return $persistentCache;
+            }
+        }
+
         if (!file_exists($filePath)) {
+            self::$routerMetaCache[$cacheKey] = $defaultMeta;
             return $defaultMeta;
         }
 
         $content = file_get_contents($filePath);
         if ($content === false) {
+            self::$routerMetaCache[$cacheKey] = $defaultMeta;
             return $defaultMeta;
         }
+
+        $result = $defaultMeta;
 
         // 查找 const Anon_RouterMeta = [...] 的定义
         // const Anon_RouterMeta = [...] 或 const Anon_RouterMeta=[...]
@@ -219,7 +249,7 @@ class Anon_Router
                             }
                         }
                         
-                        return array_merge($defaultMeta, $metaArray);
+                        $result = array_merge($defaultMeta, $metaArray);
                     }
                 }
             } catch (Throwable $e) {
@@ -230,7 +260,97 @@ class Anon_Router
             }
         }
 
-        return $defaultMeta;
+        // 缓存结果
+        self::$routerMetaCache[$cacheKey] = $result;
+        
+        // 保存到持久化缓存（生产环境）
+        if (self::shouldUsePersistentMetaCache()) {
+            self::savePersistentMetaCache($filePath, $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * 是否使用持久化元数据缓存
+     * 生产环境启用，开发环境禁用
+     * @return bool
+     */
+    private static function shouldUsePersistentMetaCache(): bool
+    {
+        if (self::$usePersistentMetaCache !== null) {
+            return self::$usePersistentMetaCache;
+        }
+
+        // 调试模式下禁用持久化缓存
+        $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
+        self::$usePersistentMetaCache = !$isDebug;
+        
+        return self::$usePersistentMetaCache;
+    }
+
+    /**
+     * 加载持久化元数据缓存
+     * @param string $filePath 路由文件路径
+     * @return array|null 缓存的元数据，不存在或过期返回 null
+     */
+    private static function loadPersistentMetaCache(string $filePath): ?array
+    {
+        try {
+            $cacheKey = 'router_meta_' . md5($filePath);
+            $cached = Anon_Cache::get($cacheKey);
+            
+            if (!is_array($cached) || !isset($cached['meta']) || !isset($cached['mtime'])) {
+                return null;
+            }
+
+            // 检查缓存是否过期，基于源文件修改时间
+            $sourceTime = filemtime($filePath);
+            if ($sourceTime > $cached['mtime']) {
+                Anon_Cache::delete($cacheKey);
+                return null;
+            }
+
+            return $cached['meta'];
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 保存持久化元数据缓存
+     * @param string $filePath 路由文件路径
+     * @param array $meta 元数据
+     */
+    private static function savePersistentMetaCache(string $filePath, array $meta): void
+    {
+        try {
+            $cacheKey = 'router_meta_' . md5($filePath);
+            $cacheData = [
+                'meta' => $meta,
+                'mtime' => filemtime($filePath)
+            ];
+            
+            // 使用框架缓存系统，24小时过期
+            Anon_Cache::set($cacheKey, $cacheData, 86400);
+        } catch (Throwable $e) {
+            // 缓存失败不影响业务
+        }
+    }
+
+    /**
+     * 清除所有路由元数据缓存
+     */
+    public static function clearMetaCache(): void
+    {
+        // 清除内存缓存
+        self::$routerMetaCache = [];
+        
+        // 清除持久化缓存，由于使用了框架缓存系统，需要清除所有 router_meta_ 前缀的键
+        // 注意：Anon_Cache 的 clear() 会清除所有缓存，这里只记录日志
+        if (self::isDebugEnabled()) {
+            Anon_Debug::info('Router meta cache cleared (memory cache only, file cache will expire naturally)');
+        }
     }
 
     /**
@@ -283,7 +403,7 @@ class Anon_Router
      */
     private static function getRouteFilePath(string $routeKey, callable $handler): ?string
     {
-        $routerBaseDir = __DIR__ . '/../../app/Router';
+        $routerBaseDir = __DIR__ . '/../../../app/Router';
         
         // 尝试从闭包中提取视图路径，适用于手动路由和自动路由
         if ($handler instanceof Closure) {
@@ -347,13 +467,13 @@ class Anon_Router
         // Token 验证
         if (isset($meta['token'])) {
             if ($meta['token'] === true) {
-                Anon_RequestHelper::requireToken(true);
+                Anon_Http_Request::requireToken(true);
             }
             // token 为 false 时，跳过 Token 验证
             // token 为 null 时，使用全局配置
-        } elseif (Anon_Token::isEnabled()) {
+        } elseif (Anon_Auth_Token::isEnabled()) {
             // 如果路由元数据中没有设置 token，使用全局配置
-            Anon_RequestHelper::requireToken(true);
+            Anon_Http_Request::requireToken(true);
         }
 
         // 检查登录状态
@@ -368,7 +488,7 @@ class Anon_Router
 
             if (!in_array(strtoupper($requestMethod), array_map('strtoupper', $allowedMethods))) {
                 Anon_Common::Header(405);
-                Anon_ResponseHelper::error('不允许的请求方法', [
+                Anon_Http_Response::error('不允许的请求方法', [
                     'allowed' => $allowedMethods,
                     'received' => $requestMethod
                 ], 405);
@@ -392,8 +512,8 @@ class Anon_Router
             $cacheEnabled = $cacheConfig['enabled'] ?? false;
             $cacheTime = $cacheConfig['time'] ?? 0;
         } else {
-            $cacheEnabled = Anon_Env::get('app.cache.enabled', false);
-            $cacheTime = Anon_Env::get('app.cache.time', 0);
+            $cacheEnabled = Anon_System_Env::get('app.cache.enabled', false);
+            $cacheTime = Anon_System_Env::get('app.cache.time', 0);
         }
         
         // 检查是否应该排除缓存
@@ -424,7 +544,7 @@ class Anon_Router
         $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         
         // 检查排除路径模式
-        $excludePatterns = Anon_Env::get('app.cache.exclude', [
+        $excludePatterns = Anon_System_Env::get('app.cache.exclude', [
             '/auth/',
             '/anon/debug/',
             '/anon/install',
@@ -506,16 +626,16 @@ class Anon_Router
             }
 
             // 注册前钩子
-            Anon_Hook::do_action('app_before_register_route', $currentPath, $view, false);
+            Anon_System_Hook::do_action('app_before_register_route', $currentPath, $view, false);
 
             // 生成处理器，登录检查等由Anon_RouterMeta统一处理
             $handler = function () use ($view, $currentPath) {
                 // 执行最终视图，View方法会自动读取并应用Anon_RouterMeta配置
-                Anon_Router::View($view);
+                Anon_Http_Router::View($view);
             };
 
             // 注册到配置
-            Anon_Config::addRoute($currentPath, $handler);
+            Anon_System_Config::addRoute($currentPath, $handler);
 
             // 调试日志
             if (self::isDebugEnabled()) {
@@ -523,7 +643,7 @@ class Anon_Router
             }
 
             // 注册后钩子
-            Anon_Hook::do_action('app_after_register_route', $currentPath, $view, false);
+            Anon_System_Hook::do_action('app_after_register_route', $currentPath, $view, false);
         }
     }
 
@@ -533,19 +653,19 @@ class Anon_Router
      */
     private static function autoRegisterRoutes(): void
     {
-        $routerDir = __DIR__ . '/../../app/Router';
+        $routerDir = __DIR__ . '/../../../app/Router';
         if (!is_dir($routerDir)) {
             return;
         }
 
         // 执行自动路由扫描前钩子
-        Anon_Hook::do_action('router_before_auto_register');
+        Anon_System_Hook::do_action('router_before_auto_register');
 
         // 扫描目录并注册路由
         self::scanDirectory($routerDir, '');
 
         // 执行自动路由扫描后钩子
-        Anon_Hook::do_action('router_after_auto_register');
+        Anon_System_Hook::do_action('router_after_auto_register');
     }
 
     /**
@@ -601,7 +721,7 @@ class Anon_Router
     private static function registerAutoRoute(string $routePath, string $filePath, string $baseDir): void
     {
         // 计算相对路径
-        $routerBaseDir = __DIR__ . '/../../app/Router';
+        $routerBaseDir = __DIR__ . '/../../../app/Router';
         $relativePath = str_replace($routerBaseDir . DIRECTORY_SEPARATOR, '', $filePath);
         $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
         $viewPath = str_replace('.php', '', $relativePath);
@@ -631,15 +751,15 @@ class Anon_Router
         // 注册所有路由路径
         foreach ($routesToRegister as $path) {
             // 注册前钩子
-            Anon_Hook::do_action('app_before_register_route', $path, $viewPath, false);
+            Anon_System_Hook::do_action('app_before_register_route', $path, $viewPath, false);
 
             // 生成处理器
             $handler = function () use ($viewPath, $path) {
-                Anon_Router::View($viewPath);
+                Anon_Http_Router::View($viewPath);
             };
 
             // 注册到配置
-            Anon_Config::addRoute($path, $handler);
+            Anon_System_Config::addRoute($path, $handler);
 
             // 调试日志
             if (self::isDebugEnabled()) {
@@ -647,7 +767,7 @@ class Anon_Router
             }
 
             // 注册后钩子
-            Anon_Hook::do_action('app_after_register_route', $path, $viewPath, false);
+            Anon_System_Hook::do_action('app_after_register_route', $path, $viewPath, false);
         }
     }
 
@@ -738,8 +858,8 @@ class Anon_Router
                 self::logRouteDebug($requestPath);
             }
 
-            $requestPath = Anon_Hook::apply_filters('router_request_path', $requestPath);
-            Anon_Hook::do_action('router_before_request', $requestPath);
+            $requestPath = Anon_System_Hook::apply_filters('router_request_path', $requestPath);
+            Anon_System_Hook::do_action('router_before_request', $requestPath);
 
             if (self::isDebugEnabled()) {
                 Anon_Debug::info("Processing request: " . $requestPath, [
@@ -755,17 +875,17 @@ class Anon_Router
                 $cachedMatch = self::$routeMatchCache[$requestPath];
                 if ($cachedMatch['type'] === 'exact') {
                     self::endRouteMatching("Route matched (cached): " . $requestPath);
-                    Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
+                    Anon_System_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
                     self::dispatch($requestPath);
                     return;
                 } elseif ($cachedMatch['type'] === 'param' && $cachedMatch['route']) {
                     self::endRouteMatching("Parameter route matched (cached): " . $cachedMatch['route']['route']);
-                    Anon_Hook::do_action('router_param_route_matched', $cachedMatch['route']['route'], $cachedMatch['route']['params']);
+                    Anon_System_Hook::do_action('router_param_route_matched', $cachedMatch['route']['route'], $cachedMatch['route']['params']);
                     self::dispatchWithParams($cachedMatch['route']['route'], $cachedMatch['route']['params']);
                     return;
                 } elseif ($cachedMatch['type'] === 'none') {
                     self::endRouteMatching("No route matched (cached): " . $requestPath, 'warn');
-                    Anon_Hook::do_action('router_no_match', $requestPath);
+                    Anon_System_Hook::do_action('router_no_match', $requestPath);
                     self::handleError(404);
                     return;
                 }
@@ -778,7 +898,7 @@ class Anon_Router
                 // 缓存匹配结果
                 self::$routeMatchCache[$requestPath] = ['type' => 'exact', 'route' => $requestPath];
                 self::endRouteMatching("Route matched: " . $requestPath);
-                Anon_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
+                Anon_System_Hook::do_action('router_route_matched', $requestPath, self::$routes[$requestPath]);
                 self::dispatch($requestPath);
             } else {
                 // 参数路由匹配
@@ -792,7 +912,7 @@ class Anon_Router
                     self::endRouteMatching("Parameter route matched: " . $matchedRoute['route'], 'info', [
                         'params' => $matchedRoute['params']
                     ]);
-                    Anon_Hook::do_action('router_param_route_matched', $matchedRoute['route'], $matchedRoute['params']);
+                    Anon_System_Hook::do_action('router_param_route_matched', $matchedRoute['route'], $matchedRoute['params']);
                     self::dispatchWithParams($matchedRoute['route'], $matchedRoute['params']);
                 } else {
                     self::debugLog("No route matched for: " . $requestPath);
@@ -800,13 +920,13 @@ class Anon_Router
                     // 缓存未匹配结果
                     self::$routeMatchCache[$requestPath] = ['type' => 'none', 'route' => null];
                     self::endRouteMatching("No route matched for: " . $requestPath, 'warn');
-                    Anon_Hook::do_action('router_no_match', $requestPath);
+                    Anon_System_Hook::do_action('router_no_match', $requestPath);
                     self::handleError(404);
                 }
             }
-        } catch (Anon_Exception $e) {
+        } catch (Anon_System_Exception $e) {
             // 处理框架异常
-            Anon_Hook::do_action('router_request_error', $e, $requestPath ?? '');
+            Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
             
             if (self::isDebugEnabled()) {
                 Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
@@ -817,11 +937,11 @@ class Anon_Router
             }
             
             Anon_Common::Header($e->getHttpCode());
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         } catch (Throwable $e) {
             // 执行请求处理错误钩子
-            Anon_Hook::do_action('router_request_error', $e, $requestPath ?? '');
+            Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
 
             if (self::isDebugEnabled()) {
                 Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
@@ -833,7 +953,7 @@ class Anon_Router
 
             self::logError("Request handling failed: " . $e->getMessage(), $e->getFile(), $e->getLine());
             Anon_Common::Header(500);
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         }
     }
@@ -860,7 +980,7 @@ class Anon_Router
 
         try {
             // 获取路由元数据
-            $routeMeta = Anon_Config::getRouteMeta($routeKey);
+            $routeMeta = Anon_System_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
                 self::applyRouterMeta($routeMeta);
             } else {
@@ -869,7 +989,7 @@ class Anon_Router
             }
 
             // 执行路由执行前钩子
-            Anon_Hook::do_action('router_before_dispatch', $routeKey, $handler);
+            Anon_System_Hook::do_action('router_before_dispatch', $routeKey, $handler);
 
             // 开始执行性能监控
             if (self::isDebugEnabled()) {
@@ -885,10 +1005,10 @@ class Anon_Router
             }
 
             // 执行路由执行后钩子
-            Anon_Hook::do_action('router_after_dispatch', $routeKey, $handler);
-        } catch (Anon_Exception $e) {
+            Anon_System_Hook::do_action('router_after_dispatch', $routeKey, $handler);
+        } catch (Anon_System_Exception $e) {
             // 处理框架异常
-            Anon_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
+            Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
             
             if (self::isDebugEnabled()) {
                 Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
@@ -899,11 +1019,11 @@ class Anon_Router
             }
             
             Anon_Common::Header($e->getHttpCode());
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         } catch (Throwable $e) {
             // 执行路由执行错误钩子
-            Anon_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
+            Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
 
             if (self::isDebugEnabled()) {
                 Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
@@ -915,7 +1035,7 @@ class Anon_Router
 
             self::logError("Route execution failed [{$routeKey}]: " . $e->getMessage(), $e->getFile(), $e->getLine());
             Anon_Common::Header(500);
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         }
 
@@ -1015,7 +1135,7 @@ class Anon_Router
 
         try {
             // 获取路由元数据
-            $routeMeta = Anon_Config::getRouteMeta($routeKey);
+            $routeMeta = Anon_System_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
                 self::applyRouterMeta($routeMeta);
             } else {
@@ -1029,15 +1149,15 @@ class Anon_Router
             }
 
             $handler();
-        } catch (Anon_Exception $e) {
+        } catch (Anon_System_Exception $e) {
             // 处理框架异常
             Anon_Common::Header($e->getHttpCode());
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         } catch (Throwable $e) {
             self::logError("Route execution failed [{$routeKey}]: " . $e->getMessage(), $e->getFile(), $e->getLine());
             Anon_Common::Header(500);
-            Anon_ResponseHelper::handleException($e);
+            Anon_Http_Response::handleException($e);
             exit;
         }
 
@@ -1094,4 +1214,4 @@ class Anon_Router
 }
 
 // 初始化路由
-Anon_Router::init();
+Anon_Http_Router::init();

@@ -11,7 +11,7 @@ class Anon
      */
     public static function success($data = null, $message = '操作成功', $httpCode = 200)
     {
-        Anon_ResponseHelper::success($data, $message, $httpCode);
+        Anon_Http_Response::success($data, $message, $httpCode);
     }
 
     /**
@@ -22,7 +22,7 @@ class Anon
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400)
     {
-        Anon_ResponseHelper::error($message, $data, $httpCode);
+        Anon_Http_Response::error($message, $data, $httpCode);
     }
 
     /**
@@ -34,7 +34,7 @@ class Anon
      */
     public static function paginated($data, $pagination, $message = '获取数据成功', $httpCode = 200)
     {
-        Anon_ResponseHelper::paginated($data, $pagination, $message, $httpCode);
+        Anon_Http_Response::paginated($data, $pagination, $message, $httpCode);
     }
 
     /**
@@ -77,7 +77,7 @@ class Anon
      */
     public static function serverError($message = '服务器内部错误', $data = null)
     {
-        Anon_ResponseHelper::serverError($message, $data);
+        Anon_Http_Response::serverError($message, $data);
     }
 
     /**
@@ -87,7 +87,7 @@ class Anon
      */
     public static function validationError($message = '参数验证失败', $errors = null)
     {
-        Anon_ResponseHelper::validationError($message, $errors);
+        Anon_Http_Response::validationError($message, $errors);
     }
 
     /**
@@ -98,7 +98,7 @@ class Anon
      */
     public static function get(string $key, $default = null)
     {
-        return Anon_RequestHelper::get($key, $default);
+        return Anon_Http_Request::get($key, $default);
     }
 
     /**
@@ -109,7 +109,7 @@ class Anon
      */
     public static function post(string $key, $default = null)
     {
-        return Anon_RequestHelper::post($key, $default);
+        return Anon_Http_Request::post($key, $default);
     }
 
     /**
@@ -120,7 +120,7 @@ class Anon
      */
     public static function getParam(string $key, $default = null)
     {
-        return Anon_RequestHelper::getParam($key, $default);
+        return Anon_Http_Request::getParam($key, $default);
     }
 
     /**
@@ -129,7 +129,7 @@ class Anon
      */
     public static function input(): array
     {
-        return Anon_RequestHelper::getInput();
+        return Anon_Http_Request::getInput();
     }
 
     /**
@@ -139,7 +139,7 @@ class Anon
      */
     public static function validate(array $rules): array
     {
-        return Anon_RequestHelper::validate($rules);
+        return Anon_Http_Request::validate($rules);
     }
 
     /**
@@ -149,7 +149,7 @@ class Anon
      */
     public static function requireMethod($methods): bool
     {
-        return Anon_RequestHelper::requireMethod($methods);
+        return Anon_Http_Request::requireMethod($methods);
     }
 
     /**
@@ -158,7 +158,7 @@ class Anon
      */
     public static function method(): string
     {
-        return Anon_RequestHelper::method();
+        return Anon_Http_Request::method();
     }
 
     /**
@@ -167,7 +167,7 @@ class Anon
      */
     public static function isPost(): bool
     {
-        return Anon_RequestHelper::isPost();
+        return Anon_Http_Request::isPost();
     }
 
     /**
@@ -176,7 +176,7 @@ class Anon
      */
     public static function isGet(): bool
     {
-        return Anon_RequestHelper::isGet();
+        return Anon_Http_Request::isGet();
     }
 
     /**
@@ -192,7 +192,7 @@ class Anon
      */
     public static function route(string $path, callable $handler, array $meta = [])
     {
-        Anon_Config::addRoute($path, $handler, $meta);
+        Anon_System_Config::addRoute($path, $handler, $meta);
     }
 
     /**
@@ -205,7 +205,7 @@ class Anon
      */
     public static function staticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true)
     {
-        Anon_Config::addStaticRoute($route, $filePath, $mimeType, $cacheTime, $compress);
+        Anon_System_Config::addStaticRoute($route, $filePath, $mimeType, $cacheTime, $compress);
     }
 
     /**
@@ -250,7 +250,7 @@ class Anon
      */
     public static function userId()
     {
-        return Anon_RequestHelper::getUserId();
+        return Anon_Http_Request::getUserId();
     }
 
     /**
@@ -259,7 +259,7 @@ class Anon
      */
     public static function user()
     {
-        return Anon_RequestHelper::requireAuth();
+        return Anon_Http_Request::requireAuth();
     }
 
     /**
@@ -272,7 +272,7 @@ class Anon
      */
     public static function action(string $hook, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool
     {
-        return Anon_Hook::add_action($hook, $callback, $priority, $acceptedArgs);
+        return Anon_System_Hook::add_action($hook, $callback, $priority, $acceptedArgs);
     }
 
     /**
@@ -285,7 +285,7 @@ class Anon
      */
     public static function filter(string $hook, callable $callback, int $priority = 10, int $acceptedArgs = 1): bool
     {
-        return Anon_Hook::add_filter($hook, $callback, $priority, $acceptedArgs);
+        return Anon_System_Hook::add_filter($hook, $callback, $priority, $acceptedArgs);
     }
 
     /**
@@ -295,7 +295,7 @@ class Anon
      */
     public static function doAction(string $hook, ...$args)
     {
-        Anon_Hook::do_action($hook, ...$args);
+        Anon_System_Hook::do_action($hook, ...$args);
     }
 
     /**
@@ -307,7 +307,7 @@ class Anon
      */
     public static function applyFilter(string $hook, $value, ...$args)
     {
-        return Anon_Hook::apply_filters($hook, $value, ...$args);
+        return Anon_System_Hook::apply_filters($hook, $value, ...$args);
     }
 
     /**
@@ -318,7 +318,7 @@ class Anon
      */
     public static function config(string $key, $default = null)
     {
-        return Anon_Env::get($key, $default);
+        return Anon_System_Env::get($key, $default);
     }
 
     /**
