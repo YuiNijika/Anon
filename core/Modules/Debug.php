@@ -119,7 +119,7 @@ class Anon_Debug
         
         // 限制内存中保存的日志数量
         if (count(self::$collectors['logs']) < 1000) {
-            self::$collectors['logs'][] = $logData;
+        self::$collectors['logs'][] = $logData;
         }
     }
 
@@ -209,7 +209,7 @@ class Anon_Debug
 
         // 限制内存中保存的查询数量
         if (count(self::$queries) < 500) {
-            self::$queries[] = $queryData;
+        self::$queries[] = $queryData;
         }
         
         // 慢查询记录为 WARN，普通查询不单独记录日志
@@ -971,7 +971,7 @@ class Anon_Debug
 
         // 设置缓存控制头
         self::setCacheHeaders();
-        
+
         // 设置 HTML Content-Type
         header('Content-Type: text/html; charset=utf-8');
 
