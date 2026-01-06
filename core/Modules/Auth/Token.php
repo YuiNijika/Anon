@@ -222,17 +222,30 @@ class Anon_Auth_Token
 
     /**
      * 获取服务器密钥
-     * Token签名已包含session_id，此密钥作为额外保护层
+     * 优先使用 ANON_APP_KEY，Token签名已包含session_id，此密钥作为额外保护层
      * @return string
      */
     private static function getSecretKey(): string
     {
-        // 使用数据库密码作为服务器标识
-        if (defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD)) {
-            return ANON_DB_PASSWORD;
+        // 优先使用 APP_KEY
+        if (defined('ANON_APP_KEY') && !empty(ANON_APP_KEY)) {
+            return ANON_APP_KEY;
         }
 
-        return 'anon_default_key';
+        // 尝试从 Env 获取
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+            $appKey = Anon_System_Env::get('app.key');
+            if (!empty($appKey)) {
+                return $appKey;
+            }
+        }
+
+        // 如果没有配置 APP_KEY，抛出异常或返回特定标识
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log('Security Warning: ANON_APP_KEY not configured!');
+        }
+
+        return 'anon_default_insecure_key';
     }
 
     /**

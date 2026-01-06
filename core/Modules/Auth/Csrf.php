@@ -33,16 +33,30 @@ class Anon_Auth_Csrf
 
     /**
      * 获取 CSRF 密钥
-     * 使用数据库密码派生，确保每个部署实例唯一
+     * 优先使用 ANON_APP_KEY，确保每个部署实例唯一
      * @return string
      */
     private static function getSecretKey(): string
     {
-        $key = defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD) 
-            ? ANON_DB_PASSWORD 
-            : 'anon_default_key';
+        // 优先使用 APP_KEY
+        if (defined('ANON_APP_KEY') && !empty(ANON_APP_KEY)) {
+            return hash('sha256', ANON_APP_KEY . '_csrf');
+        }
+
+        // 尝试从 Env 获取
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+            $appKey = Anon_System_Env::get('app.key');
+            if (!empty($appKey)) {
+                return hash('sha256', $appKey . '_csrf');
+            }
+        }
+
+        // 如果没有配置 APP_KEY，抛出异常或返回特定标识
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log('Security Warning: ANON_APP_KEY not configured!');
+        }
             
-        return hash('sha256', $key . '_csrf');
+        return hash('sha256', 'anon_default_insecure_key_csrf');
     }
 
     /**

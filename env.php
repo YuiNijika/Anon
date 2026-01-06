@@ -16,5 +16,8 @@ define('ANON_DB_PASSWORD', 'root');
 define('ANON_DB_DATABASE', 'anon');
 define('ANON_DB_CHARSET', 'utf8mb4');
 
+// APP Key
+define('ANON_APP_KEY', 'base64:cC/sE72DUlNLqUIFt1SnXNOQ/AG9Kt20JIjBLYh4THM=');
+
 // 安装状态
 define('ANON_INSTALLED', true);

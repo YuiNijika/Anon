@@ -303,8 +303,18 @@ class Anon_System_Install
         $escapeValue = function($str) {
             return "'" . addcslashes($str, "'\\") . "'";
         };
+
+        // 生成随机 APP_KEY
+        $appKey = 'base64:' . base64_encode(random_bytes(32));
         
         foreach ($lines as $index => $line) {
+            // 每次安装都强制更新 APP_KEY
+            if (preg_match("/define\s*\(\s*['\"]ANON_APP_KEY['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_APP_KEY', " . $escapeValue($appKey) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_HOST['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_HOST', " . $escapeValue($dbHost) . ");" . ($comment ? ' ' . $comment : '');

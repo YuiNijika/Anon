@@ -196,15 +196,15 @@ class Anon_System_Config
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
             Anon_Http_Response::success(['ip' => $ip], '获取客户端IP成功');
         });
-        self::addRoute('/anon/common/config', function() {
-            Anon_Common::Header();
-            $config = [
-                'token' => Anon_Auth_Token::isEnabled(),
-                'captcha' => Anon_Auth_Captcha::isEnabled(),
-                'csrfToken' => class_exists('Anon_Csrf') ? Anon_Auth_Csrf::generateToken() : null
-            ];
-            Anon_Http_Response::success($config, '获取配置信息成功');
-        });
+        // self::addRoute('/anon/common/config', function() {
+        //     Anon_Common::Header();
+        //     $config = [
+        //         'token' => Anon_Auth_Token::isEnabled(),
+        //         'captcha' => Anon_Auth_Captcha::isEnabled(),
+        //         'csrfToken' => class_exists('Anon_Csrf') ? Anon_Auth_Csrf::generateToken() : null
+        //     ];
+        //     Anon_Http_Response::success($config, '获取配置信息成功');
+        // });
         self::addRoute('/anon/ciallo', function() {
             Anon_Common::Header();
             Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');

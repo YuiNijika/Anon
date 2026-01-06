@@ -467,16 +467,36 @@ class Anon_Check
 
     /**
      * 获取 Cookie 签名密钥
-     * 使用数据库密码派生，确保每个部署实例唯一
+     * 优先使用 ANON_APP_KEY，确保每个部署实例唯一
      * @return string
      */
     private static function getCookieSecret(): string
     {
-        $key = defined('ANON_DB_PASSWORD') && !empty(ANON_DB_PASSWORD) 
-            ? ANON_DB_PASSWORD 
-            : 'anon_default_key';
+        // 优先使用 APP_KEY
+        if (defined('ANON_APP_KEY') && !empty(ANON_APP_KEY)) {
+            return hash('sha256', ANON_APP_KEY . '_cookie');
+        }
+
+        // 尝试从 Env 获取
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+            $appKey = Anon_System_Env::get('app.key');
+            if (!empty($appKey)) {
+                return hash('sha256', $appKey . '_cookie');
+            }
+        }
+
+        // 如果没有配置 APP_KEY，抛出异常或返回特定标识（安装模式除外）
+        // 在安装模式下，可能还没有 APP_KEY，使用临时 Key
+        if (defined('ANON_INSTALL_MODE') && ANON_INSTALL_MODE) {
+            return 'anon_install_mode_key';
+        }
+
+        // 严重安全警告：未配置 APP_KEY
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log('Security Warning: ANON_APP_KEY not configured!');
+        }
             
-        return hash('sha256', $key . '_cookie');
+        return 'anon_default_insecure_key';
     }
 
     /**
