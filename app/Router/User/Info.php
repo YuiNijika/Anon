@@ -10,9 +10,6 @@ const Anon_RouterMeta = [
 try {
     $userInfo = Anon_Http_Request::requireAuth();
     
-    $token = Anon_Http_Request::getUserToken((int)$userInfo['uid'], $userInfo['name']);
-    $userInfo['token'] = $token ?? '';
-    
     Anon_Http_Response::success($userInfo, '获取用户信息成功');
     
 } catch (Exception $e) {

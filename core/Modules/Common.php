@@ -141,11 +141,27 @@ LICENSE;
     /**
      * 检查登录状态，未登录则直接返回 401
      * 通常与 Header() 一起使用
+     * @param string|null $message 自定义未登录消息，默认使用钩子或默认消息
      */
-    public static function RequireLogin(): void
+    public static function RequireLogin(?string $message = null): void
     {
         if (!Anon_Check::isLoggedIn()) {
             self::Header(401);
+            
+            // 如果提供了自定义消息，直接使用
+            if ($message !== null) {
+                Anon_Http_Response::unauthorized($message);
+                return;
+            }
+            
+            // 尝试通过钩子获取自定义消息
+            if (class_exists('Anon_System_Hook')) {
+                $customMessage = Anon_System_Hook::apply_filters('require_login_message', '请先登录');
+                Anon_Http_Response::unauthorized($customMessage);
+                return;
+            }
+            
+            // 默认消息
             Anon_Http_Response::unauthorized('请先登录');
         }
     }
@@ -205,8 +221,8 @@ LICENSE;
      */
     private static function getAllowedCorsOrigins(): array
     {
-        // 优先从 Anon_Env 获取
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        // 优先从 Anon_System_Env 获取
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $origins = Anon_System_Env::get('app.security.cors.origins', []);
             if (!empty($origins)) {
                 return is_array($origins) ? $origins : [$origins];

@@ -223,34 +223,43 @@ class Anon_Http_Router
             try {
                 $arrayStr = trim($matches[1]);
                 
-                // 安全解析：先尝试转换为 JSON 格式，然后解析
-                // 将 PHP 数组语法转换为 JSON 兼容格式
-                $jsonStr = self::convertPhpArrayToJson($arrayStr);
+                // 使用 eval 解析数组
+                $metaArray = null;
+                // 验证只包含安全的字符
+                $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
+                $hasKeywords = preg_match('/(true|false|null)/i', $arrayStr);
+                $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
                 
-                if ($jsonStr !== null) {
-                    $metaArray = json_decode($jsonStr, true);
-                    
-                    if (json_last_error() === JSON_ERROR_NONE && is_array($metaArray)) {
-                        // 验证数组结构，只允许白名单键
-                        $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
-                        $metaArray = array_intersect_key($metaArray, array_flip($allowedKeys));
-                        
-                        // 验证 cache 配置结构
-                        if (isset($metaArray['cache']) && is_array($metaArray['cache'])) {
-                            $cacheAllowedKeys = ['enabled', 'time'];
-                            $metaArray['cache'] = array_intersect_key($metaArray['cache'], array_flip($cacheAllowedKeys));
-                            
-                            // 类型验证
-                            if (isset($metaArray['cache']['enabled']) && !is_bool($metaArray['cache']['enabled'])) {
-                                unset($metaArray['cache']['enabled']);
-                            }
-                            if (isset($metaArray['cache']['time']) && (!is_int($metaArray['cache']['time']) || $metaArray['cache']['time'] < 0)) {
-                                unset($metaArray['cache']['time']);
-                            }
+                if ((preg_match($safePattern, $arrayStr) || $hasKeywords) && !preg_match($unsafePattern, $arrayStr)) {
+                    try {
+                        $metaArray = eval('return ' . $arrayStr . ';');
+                    } catch (Throwable $e) {
+                        if (self::isDebugEnabled()) {
+                            Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                         }
-                        
-                        $result = array_merge($defaultMeta, $metaArray);
                     }
+                }
+                
+                if (is_array($metaArray)) {
+                    // 验证数组结构，只允许白名单键
+                    $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+                    $metaArray = array_intersect_key($metaArray, array_flip($allowedKeys));
+                    
+                    // 验证 cache 配置结构
+                    if (isset($metaArray['cache']) && is_array($metaArray['cache'])) {
+                        $cacheAllowedKeys = ['enabled', 'time'];
+                        $metaArray['cache'] = array_intersect_key($metaArray['cache'], array_flip($cacheAllowedKeys));
+                        
+                        // 类型验证
+                        if (isset($metaArray['cache']['enabled']) && !is_bool($metaArray['cache']['enabled'])) {
+                            unset($metaArray['cache']['enabled']);
+                        }
+                        if (isset($metaArray['cache']['time']) && (!is_int($metaArray['cache']['time']) || $metaArray['cache']['time'] < 0)) {
+                            unset($metaArray['cache']['time']);
+                        }
+                    }
+                    
+                    $result = array_merge($defaultMeta, $metaArray);
                 }
             } catch (Throwable $e) {
                 // 解析失败时使用默认配置
@@ -467,18 +476,22 @@ class Anon_Http_Router
         // Token 验证
         if (isset($meta['token'])) {
             if ($meta['token'] === true) {
-                Anon_Http_Request::requireToken(true);
+                Anon_Http_Request::requireToken(true, false);
             }
-            // token 为 false 时，跳过 Token 验证
+            // token 为 false 时，跳过 Token 验证，不调用 requireToken
             // token 为 null 时，使用全局配置
-        } elseif (Anon_Auth_Token::isEnabled()) {
+        } else {
             // 如果路由元数据中没有设置 token，使用全局配置
-            Anon_Http_Request::requireToken(true);
+            if (Anon_Auth_Token::isEnabled()) {
+                Anon_Http_Request::requireToken(true, false);
+            }
         }
 
         // 检查登录状态
-        if ($meta['requireLogin'] ?? false) {
-            Anon_Common::RequireLogin();
+        if (!empty($meta['requireLogin'])) {
+            // 支持 requireLogin 为字符串（自定义消息）或布尔值（使用默认消息/钩子）
+            $message = is_string($meta['requireLogin']) ? $meta['requireLogin'] : null;
+            Anon_Common::RequireLogin($message);
         }
 
         // 检查 HTTP 方法
@@ -980,13 +993,13 @@ class Anon_Http_Router
 
         try {
             // 获取路由元数据
+            // 对于自动路由，路由元数据会由 View 方法从路由文件中读取，这里不需要提前应用
             $routeMeta = Anon_System_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
+                // 手动路由的元数据从配置中获取，直接应用
                 self::applyRouterMeta($routeMeta);
-            } else {
-                // 如果没有路由元数据，应用默认配置（包括全局缓存）
-                self::applyRouterMeta([]);
             }
+            // 自动路由的元数据由 View 方法处理，这里不应用空数组，避免触发全局 token 验证
 
             // 执行路由执行前钩子
             Anon_System_Hook::do_action('router_before_dispatch', $routeKey, $handler);
@@ -1135,13 +1148,13 @@ class Anon_Http_Router
 
         try {
             // 获取路由元数据
+            // 对于自动路由，路由元数据会由 View 方法从路由文件中读取，这里不需要提前应用
             $routeMeta = Anon_System_Config::getRouteMeta($routeKey);
             if ($routeMeta) {
+                // 手动路由的元数据从配置中获取，直接应用
                 self::applyRouterMeta($routeMeta);
-            } else {
-                // 如果没有路由元数据，应用默认配置（包括全局缓存）
-                self::applyRouterMeta([]);
             }
+            // 自动路由的元数据由 View 方法处理，这里不应用空数组，避免触发全局 token 验证
 
             // 将路由参数添加到$_GET
             foreach ($params as $key => $value) {

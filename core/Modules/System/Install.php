@@ -110,7 +110,7 @@ class Anon_System_Install
             ];
             $envConfig = array_merge_recursive($envConfig, $appConfig);
             
-            if (class_exists('Anon_Env')) {
+            if (class_exists('Anon_System_Env')) {
                 Anon_System_Env::init($envConfig);
             }
 
@@ -404,7 +404,7 @@ class Anon_System_Install
     {
         // 检查是否允许记录详细错误
         $logDetailed = false;
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false; // 默认不记录详细错误

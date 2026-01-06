@@ -16,7 +16,7 @@ try {
     
     $inputData = Anon_Http_Request::getInput();
     
-    if (class_exists('Anon_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+    if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -55,9 +55,9 @@ try {
         
         // 检查登录失败次数限制
         $cacheKey = 'login_fail_' . Anon_Common::GetClientIp();
-        $failCount = Anon_System_Cache::get($cacheKey) ?? 0;
+        $failCount = Anon_Cache::get($cacheKey) ?? 0;
         $failCount++;
-        Anon_System_Cache::set($cacheKey, $failCount, 900); // 15分钟
+        Anon_Cache::set($cacheKey, $failCount, 900); // 15分钟
         
         if ($failCount >= 5) {
             Anon_Http_Response::error('登录失败次数过多，请15分钟后重试', [], 429);
@@ -68,7 +68,7 @@ try {
     
     // 登录成功清除失败计数
     $cacheKey = 'login_fail_' . Anon_Common::GetClientIp();
-    Anon_System_Cache::delete($cacheKey);
+    Anon_Cache::delete($cacheKey);
     
     session_regenerate_id(true);
     
@@ -86,13 +86,12 @@ try {
     $userInfo = $db->getUserInfo($userId);
     
     $userData = [
-        'user_id' => $userId,
-        'username' => $user['name'],
-        'display_name' => $userInfo['display_name'] ?? $user['name'],
-        'email' => $user['email'],
-        'avatar' => $userInfo['avatar'] ?? '',
-        'logged_in' => true,
-        'token' => $token ?? ''
+        'token' => $token ?? '',
+        'user' => [
+            'uid' => $userId,
+            'name' => $user['name'],
+            'email' => $user['email'] ?? null,
+        ],
     ];
     
     Anon_Http_Response::success($userData, '登录成功');

@@ -83,8 +83,9 @@ class Anon_System_Cache implements Anon_CacheInterface
      */
     private function getCachePath(string $key): string
     {
-        // 验证缓存键安全性防止路径遍历，使用更严格的正则验证
-        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $key)) {
+        // 验证缓存键安全性防止路径遍历，允许冒号作为分隔符
+        // 由于使用 SHA256 哈希，冒号不会影响文件路径安全性
+        if (!preg_match('/^[a-zA-Z0-9_\-\.:]+$/', $key)) {
             throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
         }
         

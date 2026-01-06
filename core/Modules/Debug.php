@@ -354,7 +354,7 @@ class Anon_Debug
      */
     private static function writeToFile($logData)
     {
-        $logDir = __DIR__ . '/../../../logs';
+        $logDir = __DIR__ . '/../../logs';
         if (!is_dir($logDir)) {
             mkdir($logDir, 0755, true);
         }
@@ -495,7 +495,7 @@ class Anon_Debug
      */
     private static function shouldLogDetailedInfo(): bool
     {
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         return defined('ANON_DEBUG') && ANON_DEBUG;

@@ -243,7 +243,7 @@ class Anon_Http_Response {
         
         // 检查是否允许记录详细错误信息
         $logDetailed = false;
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         

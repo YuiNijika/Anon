@@ -184,6 +184,64 @@ try {
 ],
 ```
 
+## Token 接口
+
+系统提供了专门的 Token 获取接口 `/auth/token`，用于获取当前登录用户的 Token。
+
+### 接口说明
+
+- **路径**: `/auth/token`
+- **方法**: `GET`
+- **需要登录**: 是（`requireLogin: true`）
+- **返回**: `{ "code": 200, "data": { "token": "..." }, "message": "获取 Token 成功" }`
+
+### 使用场景
+
+1. **前端检查登录状态后获取 Token**
+   - 先调用 `/auth/check-login` 检查登录状态
+   - 如果已登录，再调用 `/auth/token` 获取 Token
+   - 将 Token 保存到 Cookie 或 localStorage
+
+2. **Token 刷新**
+   - 当 Token 即将过期时，前端可以调用此接口获取新的 Token
+   - 如果用户已登录，会返回新的 Token
+
+### 示例
+
+```php
+// server/app/Router/Auth/Token.php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_RouterMeta = [
+    'header' => true,
+    'requireLogin' => true,
+    'method' => 'GET',
+];
+
+try {
+    $isLoggedIn = Anon_Check::isLoggedIn();
+    $token = '';
+    
+    if ($isLoggedIn) {
+        $userId = Anon_Http_Request::getUserId();
+        $username = $_SESSION['username'] ?? '';
+        if ($userId && $username) {
+            $token = Anon_Http_Request::getUserToken($userId, $username);
+        }
+    }
+    
+    $message = $token ? '获取 Token 成功' : '用户未登录，无法获取 Token';
+    
+    Anon_Http_Response::success([
+        'token' => $token,
+    ], $message);
+    
+} catch (Exception $e) {
+    Anon_Http_Response::handleException($e, '获取 Token 时发生错误');
+}
+```
+
 **配置说明：**
 - `enabled`: 是否启用Token验证
 - `refresh`: 是否在验证后自动刷新Token

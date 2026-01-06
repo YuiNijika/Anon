@@ -36,12 +36,12 @@ return [
         'rateLimit' => [
             'register' => [
                 'ip' => [
-                    'enabled' => true, // 是否启用IP限制
+                    'enabled' => false, // 是否启用IP限制
                     'maxAttempts' => 5, // 每小时最大注册次数
                     'windowSeconds' => 3600, // 时间窗口秒数
                 ],
                 'device' => [
-                    'enabled' => true, // 是否启用设备指纹限制
+                    'enabled' => false, // 是否启用设备指纹限制
                     'maxAttempts' => 3, // 每小时最大注册次数
                     'windowSeconds' => 3600, // 时间窗口秒数
                 ],
@@ -63,10 +63,10 @@ return [
             'password' => [
                 'minLength' => 8, // 最小密码长度
                 'maxLength' => 128, // 最大密码长度
-                'requireUppercase' => true, // 需要大写字母
-                'requireLowercase' => true, // 需要小写字母
-                'requireDigit' => true, // 需要数字
-                'requireSpecial' => true, // 需要特殊字符
+                'requireUppercase' => false, // 需要大写字母
+                'requireLowercase' => false, // 需要小写字母
+                'requireDigit' => false, // 需要数字
+                'requireSpecial' => false, // 需要特殊字符
             ],
             'cors' => [
                 'origins' => [], // 允许的 CORS 来源，生产环境必须配置

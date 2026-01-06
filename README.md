@@ -2,6 +2,8 @@
 
 > 一个简洁优雅的 PHP API 开发框架
 
+开发赞助: [Cyber蝈蝈总](https://github.com/Katock-Cricket)
+
 [配套前端](https://github.com/YuiNijika/AnonClient) | [GitHub 仓库](https://github.com/YuiNijika/Anon)
 
 ## PHP 版本要求

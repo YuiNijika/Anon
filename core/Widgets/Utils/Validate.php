@@ -85,7 +85,7 @@ class Anon_Utils_Validate
      */
     private static function getPasswordConfig(string $key, $default)
     {
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get("app.security.password.{$key}", $default);
         }
         return $default;

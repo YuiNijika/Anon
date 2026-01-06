@@ -211,7 +211,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 const Anon_Http_RouterMeta = [
     'header' => true,
-    'requireLogin' => true,
+    'requireLogin' => true,  // 或使用字符串自定义消息: '请先登录'
     'method' => 'POST',
     'token' => false,
 ];
@@ -334,8 +334,8 @@ Anon_Http_Response::success(null, '操作成功');
 // ✅ 正确：使用事务
 $this->conn->begin_transaction();
 try {
-    $id = $this->db('users')->insert([...])->execute();
-    $this->db('user_meta')->insert([...])->execute();
+    $id = $this->db('users')->insert([...]);
+    $this->db('user_meta')->insert([...]);
     $this->conn->commit();
 } catch (Exception $e) {
     $this->conn->rollback();

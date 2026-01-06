@@ -75,7 +75,7 @@ class Anon_System_Plugin
      */
     public static function isEnabled(): bool
     {
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.plugins.enabled', true);
         }
         return true; // 默认启用
@@ -394,7 +394,7 @@ class Anon_System_Plugin
      */
     private static function getActivePlugins(): array
     {
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $active = Anon_System_Env::get('app.plugins.active', []);
             // 空数组表示所有插件都激活
             if (empty($active)) {

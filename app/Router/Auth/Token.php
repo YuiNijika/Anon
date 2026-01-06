@@ -3,26 +3,29 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 const Anon_RouterMeta = [
     'header' => true,
-    'requireLogin' => true,
+    'requireLogin' => '请先登录以获取 Token',
     'method' => 'GET',
-    'cache' => [
-        'enabled' => false,
-        'time' => 0, 
-    ],
 ];
 
 try {
-    $userInfo = Anon_Http_Request::requireAuth();
     
-    $token = Anon_Http_Request::getUserToken((int)$userInfo['uid'], $userInfo['name']);
+    $isLoggedIn = Anon_Check::isLoggedIn();
+    $token = '';
     
-    if ($token === null) {
-        Anon_Http_Response::success(['token_enabled' => false], 'Token验证未启用');
-    } else {
-        Anon_Http_Response::success(['token' => $token, 'token_enabled' => true], '获取Token成功');
+    if ($isLoggedIn) {
+        $userId = Anon_Http_Request::getUserId();
+        $username = $_SESSION['username'] ?? '';
+        if ($userId && $username) {
+            $token = Anon_Http_Request::getUserToken($userId, $username);
+        }
     }
     
+    $message = $token ? '获取 Token 成功' : '用户未登录，无法获取 Token';
+    
+    Anon_Http_Response::success([
+        'token' => $token,
+    ], $message);
+    
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '获取Token时发生错误');
+    Anon_Http_Response::handleException($e, '获取 Token 时发生错误');
 }
-

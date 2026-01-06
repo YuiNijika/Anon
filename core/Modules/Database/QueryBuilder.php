@@ -92,6 +92,55 @@ class Anon_Database_QueryBuilder
     }
 
     /**
+     * 准备预处理语句
+     * 兼容 Anon_Database_Connection 和 mysqli 两种连接类型
+     * @param string $sql SQL 语句
+     * @param array $params 参数数组
+     * @return mysqli_stmt|null 预处理语句对象，失败时返回 null
+     */
+    private function prepareStatement($sql, $params = [])
+    {
+        if ($this->connection instanceof Anon_Database_Connection) {
+            return $this->connection->prepare($sql, $params);
+        } elseif ($this->connection instanceof mysqli) {
+            // 使用 mysqli 的 prepare 方法，mysqli 只接受一个参数需要手动绑定
+            $stmt = $this->connection->prepare($sql);
+            if (!$stmt) {
+                return null;
+            }
+            // 手动绑定参数到预处理语句
+            if (!empty($params)) {
+                $types = '';
+                $bindParams = [];
+                foreach ($params as $param) {
+                    if (is_null($param)) {
+                        $types .= 's';
+                        $bindParams[] = null;
+                    } elseif (is_int($param)) {
+                        $types .= 'i';
+                        $bindParams[] = $param;
+                    } elseif (is_float($param)) {
+                        $types .= 'd';
+                        $bindParams[] = $param;
+                    } elseif (is_bool($param)) {
+                        $types .= 'i';
+                        $bindParams[] = $param ? 1 : 0;
+                    } else {
+                        $types .= 's';
+                        $bindParams[] = $param;
+                    }
+                }
+                if (!$stmt->bind_param($types, ...$bindParams)) {
+                    $stmt->close();
+                    return null;
+                }
+            }
+            return $stmt;
+        }
+        return null;
+    }
+
+    /**
      * 选择字段
      * @param string|array $columns 字段名
      * @return $this
@@ -501,38 +550,36 @@ class Anon_Database_QueryBuilder
         $sql = $this->toSql();
         
         // 如果连接有 prepare 方法，使用预处理语句
-        if (method_exists($this->connection, 'prepare')) {
-            $stmt = $this->connection->prepare($sql, $this->bindings);
-            if ($stmt instanceof mysqli_stmt) {
-                $stmt->execute();
-                $result = $stmt->get_result();
-                $rows = [];
-                while ($row = $result->fetch_assoc()) {
-                    $rows[] = $row;
-                }
-                $result->free();
-                $stmt->close();
-                
-                $duration = (microtime(true) - $startTime) * 1000;
-                
-                // 记录查询性能
-                if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                    Anon_Debug::query($sql, $this->bindings, $duration);
-                    
-                    // 慢查询检测和索引建议
-                    if ($duration > 100) { // 超过 100ms 视为慢查询
-                        self::analyzeSlowQuery($sql, $this->table, $duration);
-                    }
-                }
-                
-                // 保存到缓存
-                if ($this->cacheEnabled) {
-                    $cacheKey = $this->getCacheKey();
-                    Anon_Cache::set($cacheKey, $rows, $this->cacheTtl);
-                }
-                
-                return $rows;
+        $stmt = $this->prepareStatement($sql, $this->bindings);
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $rows = [];
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
             }
+            $result->free();
+            $stmt->close();
+            
+            $duration = (microtime(true) - $startTime) * 1000;
+            
+            // 记录查询性能
+            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                Anon_Debug::query($sql, $this->bindings, $duration);
+                
+                // 慢查询检测和索引建议，超过 100ms 视为慢查询
+                if ($duration > 100) {
+                    self::analyzeSlowQuery($sql, $this->table, $duration);
+                }
+            }
+            
+            // 保存到缓存
+            if ($this->cacheEnabled) {
+                $cacheKey = $this->getCacheKey();
+                Anon_Cache::set($cacheKey, $rows, $this->cacheTtl);
+            }
+            
+            return $rows;
         }
         
         // 回退到直接查询
@@ -544,7 +591,7 @@ class Anon_Database_QueryBuilder
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
                 Anon_Debug::query($sql, $this->bindings, $duration);
                 
-                // 慢查询检测
+                // 慢查询检测，超过 100ms 视为慢查询
                 if ($duration > 100) {
                     self::analyzeSlowQuery($sql, $this->table, $duration);
                 }
@@ -682,16 +729,14 @@ class Anon_Database_QueryBuilder
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES ({$placeholders})";
 
         // 执行插入
-        if (method_exists($this->connection, 'prepare')) {
-            $stmt = $this->connection->prepare($sql, $values);
-            if ($stmt instanceof mysqli_stmt) {
-                $stmt->execute();
-                // 获取真实的mysqli连接
-                $conn = $this->getMysqliConnection();
-                $insertId = $conn->insert_id ?? null;
-                $stmt->close(); // 关闭语句
-                return $insertId !== null ? (int)$insertId : true;
-            }
+        $stmt = $this->prepareStatement($sql, $values);
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->execute();
+            // 获取真实的mysqli连接
+            $conn = $this->getMysqliConnection();
+            $insertId = $conn->insert_id ?? null;
+            $stmt->close(); // 关闭语句
+            return $insertId !== null ? (int)$insertId : true;
         }
         
         // 回退到直接查询
@@ -732,14 +777,12 @@ class Anon_Database_QueryBuilder
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES " . implode(', ', $placeholders);
 
         // 执行批量插入
-        if (method_exists($this->connection, 'prepare')) {
-            $stmt = $this->connection->prepare($sql, $values);
-            if ($stmt instanceof mysqli_stmt) {
-                $stmt->execute();
-                $affected = $stmt->affected_rows;
-                $stmt->close(); // 关闭语句
-                return $affected;
-            }
+        $stmt = $this->prepareStatement($sql, $values);
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+            return $affected;
         }
         
         // 回退到直接查询
@@ -779,14 +822,12 @@ class Anon_Database_QueryBuilder
         }
 
         // 执行更新
-        if (method_exists($this->connection, 'prepare')) {
-            $stmt = $this->connection->prepare($sql, $bindings);
-            if ($stmt instanceof mysqli_stmt) {
-                $stmt->execute();
-                $affected = $stmt->affected_rows;
-                $stmt->close(); // 关闭语句
-                return $affected;
-            }
+        $stmt = $this->prepareStatement($sql, $bindings);
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+            return $affected;
         }
         
         // 回退到直接查询
@@ -812,14 +853,12 @@ class Anon_Database_QueryBuilder
         }
 
         // 执行删除
-        if (method_exists($this->connection, 'prepare')) {
-            $stmt = $this->connection->prepare($sql, $this->bindings);
-            if ($stmt instanceof mysqli_stmt) {
-                $stmt->execute();
-                $affected = $stmt->affected_rows;
-                $stmt->close(); // 关闭语句
-                return $affected;
-            }
+        $stmt = $this->prepareStatement($sql, $this->bindings);
+        if ($stmt instanceof mysqli_stmt) {
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+            return $affected;
         }
         
         // 回退到直接查询

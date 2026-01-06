@@ -64,7 +64,7 @@ class Anon_Http_Request
         
         // 请求体大小限制默认2MB
         $maxSize = 2097152;
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $maxSize = Anon_System_Env::get('app.request.maxBodySize', 2097152);
         }
         
@@ -325,10 +325,16 @@ class Anon_Http_Request
     /**
      * 验证 API Token 防止 API 被刷
      * @param bool $throwException 验证失败时是否抛出异常，默认 true
+     * @param bool $skip 是否跳过验证，默认 false
      * @return bool 验证成功返回 true，失败返回 false 或抛出异常
      */
-    public static function requireToken(bool $throwException = true): bool
+    public static function requireToken(bool $throwException = true, bool $skip = false): bool
     {
+        // 如果明确要求跳过验证，直接返回
+        if ($skip) {
+            return true;
+        }
+        
         // 检查是否启用Token验证
         if (!Anon_Auth_Token::isEnabled()) {
             return true; // 未启用则直接通过

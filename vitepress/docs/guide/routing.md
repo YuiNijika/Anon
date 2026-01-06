@@ -72,7 +72,7 @@ return [
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `header` | bool | `true` | 是否设置响应头（包含CORS、Content-Type） |
-| `requireLogin` | bool | `false` | 是否需要登录验证 |
+| `requireLogin` | bool\|string | `false` | 是否需要登录验证，`true` 使用默认消息或钩子，字符串则使用自定义消息 |
 | `method` | string\|array | `null` | 允许的HTTP方法，如 `'GET'` 或 `['GET', 'POST']` |
 | `cors` | bool | `true` | 是否设置CORS头（可选，不设置时使用默认值true） |
 | `response` | bool | `true` | 是否设置JSON响应头（可选，不设置时使用默认值true） |
@@ -89,7 +89,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 const Anon_Http_RouterMeta = [
     'header' => true,
-    'requireLogin' => true,
+    'requireLogin' => true,  // 使用默认消息或钩子自定义消息
     'method' => 'GET',
 ];
 
@@ -103,6 +103,53 @@ try {
     Anon_Http_Response::handleException($e);
 }
 ```
+
+### 示例：自定义未登录消息
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const Anon_Http_RouterMeta = [
+    'header' => true,
+    'requireLogin' => '请先登录以获取 Token',  // 直接指定自定义消息
+    'method' => 'GET',
+];
+
+try {
+    // 未登录时会返回自定义消息
+    $isLoggedIn = Anon_Check::isLoggedIn();
+    // ...
+} catch (Exception $e) {
+    Anon_Http_Response::handleException($e);
+}
+```
+
+### 使用钩子全局自定义消息
+
+在 `server/app/useApp.php` 或插件中注册钩子：
+
+```php
+// 全局修改所有使用 requireLogin: true 的路由的消息
+if (class_exists('Anon_System_Hook')) {
+    Anon_System_Hook::add_filter('require_login_message', function($defaultMessage) {
+        // 可以根据路由、用户状态等动态返回消息
+        $requestPath = $_SERVER['REQUEST_URI'] ?? '/';
+        if (strpos($requestPath, '/auth/token') !== false) {
+            return '请先登录以获取 Token';
+        }
+        if (strpos($requestPath, '/user/') !== false) {
+            return '您需要登录后才能访问用户功能';
+        }
+        return '您需要登录后才能访问此功能';
+    });
+}
+```
+
+**优先级说明：**
+1. 如果 `requireLogin` 是字符串，直接使用该字符串
+2. 如果 `requireLogin` 是 `true`，先尝试钩子 `require_login_message`
+3. 如果钩子没有返回，使用默认消息 "请先登录"
 
 ### 示例：不需要登录的POST接口
 

@@ -273,7 +273,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 $insertData['avatar'] = $avatar;
             }
             
-            $id = $this->db('users')->insert($insertData)->execute();
+            $id = $this->db('users')->insert($insertData);
             $success = $id > 0;
             $this->conn->commit();
             
@@ -315,9 +315,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         $this->conn->begin_transaction();
         try {
             $affected = $this->db('users')
-                ->update(['password' => $newPassword])
                 ->where('uid', '=', (int)$uid)
-                ->execute();
+                ->update(['password' => $newPassword]);
             $this->conn->commit();
             return $affected > 0;
         } catch (Exception $e) {
@@ -351,9 +350,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         $this->conn->begin_transaction();
         try {
             $affected = $this->db('users')
-                ->update(['`group`' => $group])
                 ->where('uid', '=', (int)$uid)
-                ->execute();
+                ->update(['`group`' => $group]);
             $this->conn->commit();
             
             if ($affected > 0 && class_exists('Anon_Hook')) {
@@ -395,6 +393,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function logLogin($uid = null, $username = null, $status = true, $message = null)
     {
         try {
+            // 如果 uid 为 null 且提供了用户名，尝试通过用户名查找 uid
+            if ($uid === null && $username !== null && $username !== '') {
+                $userInfo = $this->getUserInfoByName($username);
+                if ($userInfo && isset($userInfo['uid'])) {
+                    $uid = (int)$userInfo['uid'];
+                }
+            }
+            
             // 验证IP地址格式，无效IP设为默认值
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
             if (!filter_var($ip, FILTER_VALIDATE_IP)) {
@@ -431,7 +437,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 'user_agent' => $userAgent,
                 'status' => $status ? 1 : 0,
                 'message' => $message,
-            ])->execute();
+            ]);
             
             return $id > 0;
         } catch (Exception $e) {
@@ -547,7 +553,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     private function buildAvatar($email = null, $size = 640)
     {
         $avatarUrl = 'https://www.cravatar.cn/avatar';
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $avatarUrl = Anon_System_Env::get('app.avatar', $avatarUrl);
         }
         

@@ -241,7 +241,7 @@ class Anon_Auth_Token
      */
     private static function shouldLogDetailedErrors(): bool
     {
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         return false;

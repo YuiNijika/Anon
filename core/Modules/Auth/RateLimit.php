@@ -42,10 +42,9 @@ class Anon_Auth_RateLimit
      */
     public static function checkLimit(string $key, int $maxAttempts, int $windowSeconds): array
     {
-        $cache = Anon_Cache::getInstance();
         $cacheKey = "ratelimit:{$key}";
         
-        $data = $cache->get($cacheKey, [
+        $data = Anon_Cache::get($cacheKey, [
             'count' => 0,
             'resetAt' => time() + $windowSeconds
         ]);
@@ -65,7 +64,7 @@ class Anon_Auth_RateLimit
         
         if ($allowed) {
             $data['count']++;
-            $cache->set($cacheKey, $data, $windowSeconds);
+            Anon_Cache::set($cacheKey, $data, $windowSeconds);
         }
         
         return [
@@ -158,8 +157,7 @@ class Anon_Auth_RateLimit
      */
     public static function clearLimit(string $key): bool
     {
-        $cache = Anon_Cache::getInstance();
-        return $cache->delete("ratelimit:{$key}");
+        return Anon_Cache::delete("ratelimit:{$key}");
     }
 
     /**

@@ -76,6 +76,13 @@ class Anon_Database_Connection
         return $this->conn->affected_rows;
     }
 
+    /**
+     * 准备预处理语句并绑定参数
+     * @param string $sql SQL 语句
+     * @param array $params 参数数组
+     * @return mysqli_stmt 预处理语句对象
+     * @throws RuntimeException 当预处理失败时抛出异常
+     */
     public function prepare($sql, $params = [])
     {
         $stmt = $this->conn->prepare($sql);
@@ -107,7 +114,12 @@ class Anon_Database_Connection
                     $bindParams[] = $param;
                 }
             }
-            $stmt->bind_param($types, ...$bindParams);
+            if (!$stmt->bind_param($types, ...$bindParams)) {
+                $errorMsg = self::sanitizeError($this->conn->error);
+                error_log("SQL 参数绑定错误: " . $errorMsg);
+                $stmt->close();
+                throw new RuntimeException("SQL 参数绑定错误");
+            }
         }
         return $stmt;
     }
@@ -121,7 +133,7 @@ class Anon_Database_Connection
     {
         // 检查是否允许记录详细错误
         $logDetailed = false;
-        if (class_exists('Anon_Env') && Anon_System_Env::isInitialized()) {
+        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false; // 默认不记录详细错误
@@ -140,12 +152,18 @@ class Anon_Database_Connection
         return $error;
     }
 
+    /**
+     * 创建查询构建器实例
+     * @param string $table 表名
+     * @return Anon_Database_QueryBuilder 查询构建器实例
+     * @throws InvalidArgumentException 当表名无效时抛出异常
+     */
     public function db($table)
     {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
             throw new InvalidArgumentException("无效的表名: {$table}");
         }
-        return new Anon_Database_QueryBuilder($this->conn, ANON_DB_PREFIX . $table);
+        return new Anon_Database_QueryBuilder($this, ANON_DB_PREFIX . $table);
     }
 
 }

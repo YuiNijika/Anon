@@ -18,7 +18,7 @@ try {
     $inputData = Anon_Http_Request::getInput();
     
     // 验证码检查
-    if (class_exists('Anon_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+    if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
         if (empty($inputData['captcha'] ?? '')) {
             Anon_Http_Response::error('验证码不能为空', [], 400);
         }
@@ -46,6 +46,7 @@ try {
     $email = trim($data['email']);
     $password = $data['password'];
     $displayName = trim($inputData['display_name'] ?? '');
+    $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
     // 验证用户名格式
     if (strlen($username) < 3 || strlen($username) > 20) {
@@ -97,15 +98,37 @@ try {
     // 获取新创建的用户信息
     $newUser = $db->getUserInfoByName($username);
     
+    if (!$newUser) {
+        Anon_Http_Response::error('注册成功但获取用户信息失败', [], 500);
+    }
+    
+    // 注册成功后自动登录
+    Anon_Check::startSessionIfNotStarted();
+    session_regenerate_id(true);
+    
+    $userId = (int)$newUser['uid'];
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['username'] = $newUser['name'];
+    
+    // 设置认证 cookies
+    Anon_Check::setAuthCookies($userId, $newUser['name'], $rememberMe);
+    
+    // 生成 token
+    $token = Anon_Http_Request::generateUserToken($userId, $newUser['name'], $rememberMe);
+    
     // 注册成功后可选清除限制，根据需求决定
     // Anon_Auth_RateLimit::clearIpLimit();
     // Anon_Auth_RateLimit::clearDeviceLimit();
     
     Anon_Http_Response::success([
-        'username' => $username,
-        'display_name' => $newUser['display_name'] ?? $username,
-        'email' => $email,
-        'avatar' => $newUser['avatar'] ?? '',
+        'token' => $token ?? '',
+        'user' => [
+            'uid' => $userId,
+            'name' => $newUser['name'],
+            'email' => $newUser['email'] ?? null,
+            'display_name' => $newUser['display_name'] ?? $username,
+            'avatar' => $newUser['avatar'] ?? '',
+        ],
         'remaining' => $rateLimitResult['remaining'] ?? 0
     ], '注册成功');
     
