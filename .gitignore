@@ -1,3 +1,6 @@
+# env
+env.php
+
 # 安装锁文件
 core/Modules/Install/installed.lock
 
