@@ -1,0 +1,5 @@
+{
+    "success_url":"/anon/install",
+    "php_versions":"74,80,81,82,83,84",
+    "run_path":"/"
+}
