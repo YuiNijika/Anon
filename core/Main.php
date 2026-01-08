@@ -14,12 +14,11 @@ class Anon_Main
     const ROOT_DIR = __DIR__ . '/../';
 
     /**
-     * 启动应用
+     * 初始化框架环境
      */
-    public static function run()
+    public static function init()
     {
-        
-        require_once self::ROOT_DIR . 'env.php';
+        require_once self::ROOT_DIR . '.env.php';
         
         $appConfigFile = self::APP_DIR . 'useApp.php';
         $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
@@ -92,33 +91,98 @@ class Anon_Main
         // 按需加载能力系统
         Anon_Auth_Capability::getInstance()->init();
         
-        // 按需加载路由
-        Anon_System_Config::initSystemRoutes();
-        Anon_System_Config::initAppRoutes();
-        
         // 按需加载快捷方法封装类
         require_once self::MODULES_DIR . 'Anon.php';
         
         // 按需加载插件系统
         require_once self::MODULES_DIR . 'System/Plugin.php';
         Anon_System_Plugin::init();
-        
+
         $codeFile = self::APP_DIR . 'useCode.php';
         if (file_exists($codeFile)) {
             require_once $codeFile;
         }
-        
-        require_once self::MODULES_DIR . 'Http/Router.php';
-        
+
         // 加载兼容层
         require_once self::MODULES_DIR . '/../Compatibility.php';
-        
+    }
+
+    /**
+     * 启动 Web 应用
+     */
+    public static function run()
+    {
+        self::init();
+
+        // Web 模式下特有的初始化
+        Anon_System_Config::initSystemRoutes();
+        Anon_System_Config::initAppRoutes();
+        require_once self::MODULES_DIR . 'Http/Router.php';
+
         Anon_Debug::info('Application started', [
             'php_version' => PHP_VERSION,
             'memory_limit' => ini_get('memory_limit'),
             'max_execution_time' => ini_get('max_execution_time')
         ]);
     }
-}
 
-Anon_Main::run();
+    /**
+     * 启动 Swoole 服务
+     */
+    public static function runSwoole($argv)
+    {
+        self::init();
+        
+        // 加载 Swoole Manager
+        require_once self::MODULES_DIR . 'Server/Manager.php';
+
+        $type = $argv[2] ?? 'http';
+        $action = $argv[3] ?? 'start';
+        $host = '0.0.0.0';
+        $port = 9501;
+
+        // 简单的参数解析，用于覆盖端口
+        foreach ($argv as $arg) {
+            if (strpos($arg, '--port=') === 0) {
+                $port = (int) substr($arg, 7);
+            }
+            if (strpos($arg, '--host=') === 0) {
+                $host = substr($arg, 7);
+            }
+        }
+
+        // 调整默认端口
+        if (!in_array('--port=', $argv)) {
+            switch ($type) {
+                case 'tcp': $port = 9502; break;
+                case 'websocket': $port = 9503; break;
+            }
+        }
+
+        $manager = new Anon_Server_Manager('swoole');
+
+        try {
+            $server = $manager->create($type, [
+                'host' => $host,
+                'port' => $port
+            ]);
+
+            switch ($action) {
+                case 'start':
+                    $server->start();
+                    break;
+                case 'reload':
+                    $server->reload();
+                    break;
+                case 'stop':
+                    $server->stop();
+                    break;
+                default:
+                    echo "用法: php index.php swoole [http|tcp|websocket] [start|stop|reload] [--port=端口] [--host=主机]\n";
+                    break;
+            }
+        } catch (Exception $e) {
+            echo "错误: " . $e->getMessage() . "\n";
+        }
+    }
+}

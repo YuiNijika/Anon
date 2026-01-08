@@ -4,7 +4,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_System_Install
 {
-    const envfile = __DIR__ . '/../../../env.php';
+    const envfile = __DIR__ . '/../../../.env.php';
 
     /**
      * 获取数据库表创建 SQL 语句

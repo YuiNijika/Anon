@@ -9,5 +9,11 @@
  */
 define('ANON_ALLOWED_ACCESS', true);
 
-// 引入主程序
 require_once __DIR__ . '/core/Main.php';
+
+// CLI
+if (php_sapi_name() === 'cli' && isset($argv[1]) && $argv[1] === 'swoole') {
+    Anon_Main::runSwoole($argv);
+} else {
+    Anon_Main::run();
+}

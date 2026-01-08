@@ -7,7 +7,7 @@ export default defineConfig({
   description: "一个简单快速的 PHP API 开发框架",
   head: [
     [
-      'link', { rel: 'icon', href: './assets/favicon.jpg' } // 站点图标
+      'link', { rel: 'icon', href: '/assets/favicon.jpg' } // 站点图标
     ],
   ],
   base: '/Anon/',
@@ -94,6 +94,7 @@ export default defineConfig({
           base: '/guide/',
           items: [
             { text: '大数据处理', link: 'big-data' },
+            { text: '服务端模式 (Swoole)', link: 'server-mode' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '调试工具', link: 'debugging' },
             { text: '性能优化', link: 'performance-optimization' },
