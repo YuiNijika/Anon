@@ -19,12 +19,12 @@ class Anon_System_Widget
     }
     
     /**
-     * 注册 Widget 组件
-     * @param string $id Widget ID
-     * @param string $name Widget 名称
-     * @param callable $callback 回调函数可以返回数组或对象用于 JSON 模式或输出 HTML 用于 HTML 模式
-     * @param array $args 额外参数
-     * @param string $type 输出类型：'auto' 自动检测、'html' HTML 输出、'json' JSON 数据
+     * 注册组件
+     * @param string $id ID
+     * @param string $name 名称
+     * @param callable $callback 回调函数
+     * @param array $args 参数
+     * @param string $type 输出类型
      * @return bool
      */
     public function register(string $id, string $name, callable $callback, array $args = [], string $type = 'auto'): bool
@@ -58,10 +58,10 @@ class Anon_System_Widget
     }
     
     /**
-     * 渲染 HTML 输出模式的 Widget
-     * @param string $id Widget ID
-     * @param array $args 额外参数
-     * @return string HTML 字符串
+     * 渲染HTML
+     * @param string $id ID
+     * @param array $args 参数
+     * @return string
      */
     public function render(string $id, array $args = []): string
     {
@@ -84,7 +84,6 @@ class Anon_System_Widget
         $result = call_user_func($callback, $widgetArgs);
         $output = ob_get_clean();
         
-        // 如果回调返回了值且输出为空则使用返回值以保持向后兼容
         if (empty($output) && $result !== null) {
             $output = is_string($result) ? $result : '';
         }
@@ -95,10 +94,10 @@ class Anon_System_Widget
     }
     
     /**
-     * 获取 JSON API 模式的 Widget 数据
-     * @param string $id Widget ID
-     * @param array $args 额外参数
-     * @return array|null Widget 数据数组，不存在或失败返回 null
+     * 获取JSON数据
+     * @param string $id ID
+     * @param array $args 参数
+     * @return array|null
      */
     public function getData(string $id, array $args = []): ?array
     {
@@ -117,28 +116,22 @@ class Anon_System_Widget
         
         $widgetArgs = Anon_System_Hook::apply_filters('widget_args', $widgetArgs, $id);
         
-        // 执行回调
         $result = call_user_func($callback, $widgetArgs);
         
-        // 如果回调返回数组或对象，直接使用
         if (is_array($result)) {
             $data = $result;
         } elseif (is_object($result)) {
-            // 对象转数组
             $data = method_exists($result, 'toArray') ? $result->toArray() : (array)$result;
         } else {
-            // 如果回调没有返回值则尝试从输出缓冲获取以保持向后兼容
             ob_start();
             call_user_func($callback, $widgetArgs);
             $output = ob_get_clean();
             
-            // 尝试解析JSON输出
             if (!empty($output)) {
                 $decoded = json_decode($output, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
                     $data = $decoded;
                 } else {
-                    // 如果不是JSON，返回原始输出作为data字段
                     $data = ['content' => $output];
                 }
             } else {
@@ -146,18 +139,17 @@ class Anon_System_Widget
             }
         }
         
-        // 应用过滤器
         $data = Anon_System_Hook::apply_filters('widget_data', $data, $id);
         
         return $data;
     }
     
     /**
-     * 获取 JSON API 模式的 Widget JSON 字符串
-     * @param string $id Widget ID
-     * @param array $args 额外参数
-     * @param int $options JSON 编码选项
-     * @return string|null JSON 字符串，不存在或失败返回 null
+     * 获取JSON字符串
+     * @param string $id ID
+     * @param array $args 参数
+     * @param int $options JSON选项
+     * @return string|null
      */
     public function getJson(string $id, array $args = [], int $options = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES): ?string
     {
@@ -177,9 +169,9 @@ class Anon_System_Widget
     }
     
     /**
-     * 获取不执行回调的 Widget 信息
-     * @param string $id Widget ID
-     * @return array|null Widget 信息，不存在返回 null
+     * 获取组件信息
+     * @param string $id ID
+     * @return array|null
      */
     public function getInfo(string $id): ?array
     {
@@ -198,8 +190,8 @@ class Anon_System_Widget
     }
     
     /**
-     * 获取仅信息不执行回调的所有 Widget 列表
-     * @return array Widget 信息列表
+     * 获取组件列表
+     * @return array
      */
     public function list(): array
     {
@@ -216,7 +208,7 @@ class Anon_System_Widget
     }
     
     /**
-     * 获取所有包含回调函数的 Widget 用于内部使用
+     * 获取所有组件
      * @return array
      */
     public function all(): array

@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 缓存接口
+ * 缓存接口定义
  */
 interface Anon_CacheInterface
 {
@@ -18,7 +18,7 @@ interface Anon_CacheInterface
      * 设置缓存
      * @param string $key 缓存键
      * @param mixed $value 缓存值
-     * @param int|null $ttl 过期时间秒数，null 表示永不过期
+     * @param int|null $ttl 过期时间
      * @return bool
      */
     public function set(string $key, $value, ?int $ttl = null): bool;
@@ -31,13 +31,13 @@ interface Anon_CacheInterface
     public function delete(string $key): bool;
 
     /**
-     * 清空所有缓存
+     * 清空缓存
      * @return bool
      */
     public function clear(): bool;
 
     /**
-     * 检查缓存是否存在
+     * 检查缓存
      * @param string $key 缓存键
      * @return bool
      */
@@ -55,48 +55,44 @@ class Anon_System_Cache implements Anon_CacheInterface
     private $cacheDir;
 
     /**
-     * @var int 默认过期时间秒数
+     * @var int 默认过期时间
      */
     private $defaultTtl;
 
     /**
      * @param string|null $cacheDir 缓存目录
-     * @param int $defaultTtl 默认过期时间秒数
+     * @param int $defaultTtl 默认过期时间
      */
     public function __construct(?string $cacheDir = null, int $defaultTtl = 3600)
     {
         $this->cacheDir = $cacheDir ?? (__DIR__ . '/../../../cache');
         $this->defaultTtl = $defaultTtl;
 
-        // 创建缓存目录
         if (!is_dir($this->cacheDir)) {
             mkdir($this->cacheDir, 0755, true);
-            // 设置目录权限为 755，防止其他用户写入
             @chmod($this->cacheDir, 0755);
         }
     }
 
     /**
-     * 获取缓存文件路径
+     * 获取缓存路径
      * @param string $key 缓存键
      * @return string
      */
     private function getCachePath(string $key): string
     {
-        // 验证缓存键安全性防止路径遍历，允许冒号作为分隔符
-        // 由于使用 SHA256 哈希，冒号不会影响文件路径安全性
+        // 验证缓存键安全性
         if (!preg_match('/^[a-zA-Z0-9_\-\.:]+$/', $key)) {
-            throw new InvalidArgumentException("无效的缓存键: 包含非法字符");
+            throw new InvalidArgumentException("无效的缓存键");
         }
         
-        // 使用 SHA256 哈希，避免直接使用用户输入作为路径
+        // 使用 SHA256 哈希
         $hash = hash('sha256', $key);
         $subDir = substr($hash, 0, 2);
         $dir = $this->cacheDir . '/' . $subDir;
         
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
-            // 设置目录权限为 755，防止其他用户写入
             @chmod($dir, 0755);
         }
 
@@ -117,7 +113,7 @@ class Anon_System_Cache implements Anon_CacheInterface
             return $default;
         }
 
-        // 使用 JSON 序列化替代 unserialize，防止反序列化漏洞
+        // 使用 JSON 反序列化
         $content = @file_get_contents($path);
         if ($content === false) {
             return $default;
@@ -125,14 +121,13 @@ class Anon_System_Cache implements Anon_CacheInterface
 
         $data = @json_decode($content, true);
         if ($data === null || json_last_error() !== JSON_ERROR_NONE) {
-            // 兼容旧格式的序列化数据，但仅允许基本类型
+            // 兼容旧格式
             $data = @unserialize($content, ['allowed_classes' => false]);
             if ($data === false) {
                 return $default;
             }
         }
 
-        // 检查是否过期
         if (isset($data['expires_at']) && $data['expires_at'] < time()) {
             $this->delete($key);
             return $default;
@@ -145,7 +140,7 @@ class Anon_System_Cache implements Anon_CacheInterface
      * 设置缓存
      * @param string $key 缓存键
      * @param mixed $value 缓存值
-     * @param int|null $ttl 过期时间（秒）
+     * @param int|null $ttl 过期时间
      * @return bool
      */
     public function set(string $key, $value, ?int $ttl = null): bool
@@ -159,13 +154,12 @@ class Anon_System_Cache implements Anon_CacheInterface
             'expires_at' => $ttl > 0 ? time() + $ttl : null,
         ];
 
-        // 使用 JSON 序列化替代 serialize，防止反序列化漏洞
+        // 使用 JSON 序列化
         $json = json_encode($data, JSON_UNESCAPED_UNICODE);
         if ($json === false) {
             return false;
         }
 
-        // 设置文件权限为 600，仅所有者可读写
         $result = file_put_contents($path, $json, LOCK_EX);
         if ($result !== false) {
             @chmod($path, 0600);
@@ -191,7 +185,7 @@ class Anon_System_Cache implements Anon_CacheInterface
     }
 
     /**
-     * 清空所有缓存
+     * 清空缓存
      * @return bool
      */
     public function clear(): bool
@@ -215,7 +209,7 @@ class Anon_System_Cache implements Anon_CacheInterface
     }
 
     /**
-     * 检查缓存是否存在
+     * 检查缓存
      * @param string $key 缓存键
      * @return bool
      */
@@ -227,7 +221,6 @@ class Anon_System_Cache implements Anon_CacheInterface
             return false;
         }
 
-        // 使用 JSON 序列化替代 unserialize，防止反序列化漏洞
         $content = @file_get_contents($path);
         if ($content === false) {
             return false;
@@ -235,14 +228,12 @@ class Anon_System_Cache implements Anon_CacheInterface
 
         $data = @json_decode($content, true);
         if ($data === null || json_last_error() !== JSON_ERROR_NONE) {
-            // 兼容旧格式的序列化数据，但仅允许基本类型
             $data = @unserialize($content, ['allowed_classes' => false]);
             if ($data === false) {
                 return false;
             }
         }
 
-        // 检查是否过期
         if (isset($data['expires_at']) && $data['expires_at'] < time()) {
             $this->delete($key);
             return false;
@@ -253,7 +244,7 @@ class Anon_System_Cache implements Anon_CacheInterface
 }
 
 /**
- * 内存缓存实现（单次请求有效）
+ * 内存缓存实现
  */
 class Anon_MemoryCache implements Anon_CacheInterface
 {
@@ -275,7 +266,6 @@ class Anon_MemoryCache implements Anon_CacheInterface
      */
     public function get(string $key, $default = null)
     {
-        // 检查是否过期
         if (isset(self::$expires[$key]) && self::$expires[$key] < time()) {
             unset(self::$cache[$key], self::$expires[$key]);
             return $default;
@@ -288,7 +278,7 @@ class Anon_MemoryCache implements Anon_CacheInterface
      * 设置缓存
      * @param string $key 缓存键
      * @param mixed $value 缓存值
-     * @param int|null $ttl 过期时间（秒）
+     * @param int|null $ttl 过期时间
      * @return bool
      */
     public function set(string $key, $value, ?int $ttl = null): bool
@@ -316,7 +306,7 @@ class Anon_MemoryCache implements Anon_CacheInterface
     }
 
     /**
-     * 清空所有缓存
+     * 清空缓存
      * @return bool
      */
     public function clear(): bool
@@ -327,13 +317,12 @@ class Anon_MemoryCache implements Anon_CacheInterface
     }
 
     /**
-     * 检查缓存是否存在
+     * 检查缓存
      * @param string $key 缓存键
      * @return bool
      */
     public function has(string $key): bool
     {
-        // 检查是否过期
         if (isset(self::$expires[$key]) && self::$expires[$key] < time()) {
             unset(self::$cache[$key], self::$expires[$key]);
             return false;
@@ -360,9 +349,8 @@ class Anon_Cache
 
     /**
      * 初始化缓存
-     * @param string $driver 驱动类型 (file|memory)
+     * @param string $driver 驱动类型
      * @param array $config 配置
-     * @return void
      */
     public static function init(string $driver = 'file', array $config = []): void
     {
@@ -412,7 +400,7 @@ class Anon_Cache
      * 设置缓存
      * @param string $key 缓存键
      * @param mixed $value 缓存值
-     * @param int|null $ttl 过期时间（秒）
+     * @param int|null $ttl 过期时间
      * @return bool
      */
     public static function set(string $key, $value, ?int $ttl = null): bool
@@ -431,7 +419,7 @@ class Anon_Cache
     }
 
     /**
-     * 清空所有缓存
+     * 清空缓存
      * @return bool
      */
     public static function clear(): bool
@@ -440,7 +428,7 @@ class Anon_Cache
     }
 
     /**
-     * 检查缓存是否存在
+     * 检查缓存
      * @param string $key 缓存键
      * @return bool
      */
@@ -450,10 +438,10 @@ class Anon_Cache
     }
 
     /**
-     * 如果不存在则执行闭包并缓存结果的记住缓存
+     * 记住缓存
      * @param string $key 缓存键
      * @param callable $callback 回调函数
-     * @param int|null $ttl 过期时间（秒）
+     * @param int|null $ttl 过期时间
      * @return mixed
      */
     public static function remember(string $key, callable $callback, ?int $ttl = null)

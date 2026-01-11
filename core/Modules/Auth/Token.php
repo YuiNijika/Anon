@@ -2,30 +2,26 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * Token 验证类
- * 用于防止 API 被刷，支持签名验证和时间戳验证
+ * Token认证
  */
 class Anon_Auth_Token
 {
     /**
-     * Token 验证结果缓存
-     * 对已验证的 Token 暂存于内存缓存，避免重复计算验证逻辑
-     * @var array
+     * @var array 验证缓存
      */
     private static $verificationCache = [];
 
     /**
-     * 生成 Token
-     * @param array $data 要包含在 token 中的数据
-     * @param int|null $expire 过期时间秒数，如果为 null 则根据操作类型自动设置（敏感操作 60 秒，非敏感操作 300 秒）
-     * @param bool $isSensitive 是否为敏感操作（如删除、修改密码等），默认 false
-     * @return string Token 字符串
+     * 生成Token
+     * @param array $data 数据
+     * @param int|null $expire 过期时间
+     * @param bool $isSensitive 敏感操作
+     * @return string
      */
     public static function generate(array $data = [], ?int $expire = null, bool $isSensitive = false): string
     {
-        // 如果没有指定过期时间，根据操作类型自动设置
         if ($expire === null) {
-            $expire = $isSensitive ? 60 : 300; // 敏感操作 1 分钟，非敏感操作 5 分钟
+            $expire = $isSensitive ? 60 : 300;
         }
         
         $timestamp = time();
@@ -49,9 +45,9 @@ class Anon_Auth_Token
     }
 
     /**
-     * 验证 Token
-     * @param string|null $token Token 字符串，如果为 null 则从请求中获取
-     * @return array|false 验证成功返回 payload 数据，失败返回 false
+     * 验证Token
+     * @param string|null $token
+     * @return array|false
      */
     public static function verify(?string $token = null)
     {
@@ -63,15 +59,12 @@ class Anon_Auth_Token
             return false;
         }
 
-        // 检查缓存
         $cacheKey = 'token_' . hash('sha256', $token);
         if (isset(self::$verificationCache[$cacheKey])) {
             $cached = self::$verificationCache[$cacheKey];
-            // 检查缓存是否过期
             if ($cached['expire'] > time()) {
                 return $cached['payload'];
             } else {
-                // 缓存已过期，清除
                 unset(self::$verificationCache[$cacheKey]);
             }
         }
@@ -102,7 +95,6 @@ class Anon_Auth_Token
                 $secret = self::generateSecret($payload['data']);
                 $expectedSignature = hash_hmac('sha256', $payloadJson, $secret);
                 if (!hash_equals($expectedSignature, $signature)) {
-                    // 根据配置决定是否记录详细错误
                     $logDetailed = self::shouldLogDetailedErrors();
                     if ($logDetailed) {
                         error_log("Token signature mismatch. Expected: " . substr($expectedSignature, 0, 16) . "... Got: " . substr($signature, 0, 16) . "...");
@@ -112,7 +104,6 @@ class Anon_Auth_Token
                     return false;
                 }
             } catch (Exception $e) {
-                // 根据配置决定是否记录详细错误
                 $logDetailed = self::shouldLogDetailedErrors();
                 if ($logDetailed) {
                     error_log("Token secret generation failed: " . $e->getMessage());
@@ -122,20 +113,16 @@ class Anon_Auth_Token
                 return false;
             }
 
-            // 时间戳验证
-            // 如果时间戳差异超过2分钟，拒绝 Token 防止重放攻击
             $timestampDiff = abs(time() - $payload['timestamp']);
             $maxTimestampDiff = 120; // 2分钟时间窗口
             
             if ($timestampDiff > $maxTimestampDiff) {
-                // 记录时间戳异常并拒绝 Token
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
                     error_log("Token timestamp diff too large: {$timestampDiff} seconds, rejected");
                 }
                 return false;
             }
 
-            // 缓存验证结果，有效期设置为 Token 剩余有效期的 80%，避免缓存过期时间超过 Token 本身
             $remainingTime = $payload['expire'] - time();
             $cacheExpire = time() + (int)($remainingTime * 0.8);
             if ($cacheExpire > time()) {
@@ -147,7 +134,6 @@ class Anon_Auth_Token
 
             return $payload;
         } catch (Exception $e) {
-            // 根据配置决定是否记录详细错误
             $logDetailed = self::shouldLogDetailedErrors();
             if ($logDetailed) {
                 error_log("Token verification error: " . $e->getMessage());
@@ -159,13 +145,11 @@ class Anon_Auth_Token
     }
 
     /**
-     * 从请求中获取 Token
-     * 仅支持从 HTTP Header 获取，不支持 URL 参数和 POST 数据
-     * @return string|null Token 字符串
+     * 获取Token
+     * @return string|null
      */
     public static function getTokenFromRequest(): ?string
     {
-        // 优先从 Header 获取
         $headers = getallheaders();
         if ($headers) {
             if (isset($headers['X-API-Token'])) {
@@ -176,12 +160,10 @@ class Anon_Auth_Token
             }
         }
 
-        // 兼容环境getallheaders不可用时从$_SERVER获取
         if (isset($_SERVER['HTTP_X_API_TOKEN'])) {
             return trim($_SERVER['HTTP_X_API_TOKEN']);
         }
 
-        // 从 Authorization Header 获取 Bearer token
         if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
             $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
             if (preg_match('/Bearer\s+(.+)$/i', $authHeader, $matches)) {
@@ -193,9 +175,9 @@ class Anon_Auth_Token
     }
 
     /**
-     * 基于用户会话信息生成密钥
-     * @param array $data Token 数据
-     * @return string 密钥
+     * 生成密钥
+     * @param array $data
+     * @return string
      */
     private static function generateSecret(array $data): string
     {
@@ -207,7 +189,6 @@ class Anon_Auth_Token
             throw new RuntimeException('无法生成 Token：缺少会话ID');
         }
         
-        // 获取安全密钥
         $serverKey = self::getSecretKey();
         
         $secretData = [
@@ -222,17 +203,14 @@ class Anon_Auth_Token
 
     /**
      * 获取服务器密钥
-     * 优先使用 ANON_APP_KEY，Token签名已包含session_id，此密钥作为额外保护层
      * @return string
      */
     private static function getSecretKey(): string
     {
-        // 优先使用 APP_KEY
         if (defined('ANON_APP_KEY') && !empty(ANON_APP_KEY)) {
             return ANON_APP_KEY;
         }
 
-        // 尝试从 Env 获取
         if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $appKey = Anon_System_Env::get('app.key');
             if (!empty($appKey)) {
@@ -240,7 +218,6 @@ class Anon_Auth_Token
             }
         }
 
-        // 如果没有配置 APP_KEY，抛出异常或返回特定标识
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log('Security Warning: ANON_APP_KEY not configured!');
         }
@@ -249,7 +226,7 @@ class Anon_Auth_Token
     }
 
     /**
-     * 检查是否应该记录详细错误信息
+     * 检查详细日志
      * @return bool
      */
     private static function shouldLogDetailedErrors(): bool
@@ -261,7 +238,7 @@ class Anon_Auth_Token
     }
 
     /**
-     * 检查是否启用 Token 验证
+     * 检查启用
      * @return bool
      */
     public static function isEnabled(): bool
@@ -273,7 +250,7 @@ class Anon_Auth_Token
     }
 
     /**
-     * 检查是否启用Token刷新
+     * 检查刷新
      * @return bool
      */
     public static function isRefreshEnabled(): bool
@@ -285,8 +262,8 @@ class Anon_Auth_Token
     }
 
     /**
-     * 获取不需要 Token 验证的路由白名单
-     * @return array 路由路径数组
+     * 获取白名单
+     * @return array
      */
     public static function getWhitelist(): array
     {
@@ -311,8 +288,8 @@ class Anon_Auth_Token
     }
 
     /**
-     * 检查路由是否在白名单中
-     * @param string $route 路由路径
+     * 检查白名单
+     * @param string $route
      * @return bool
      */
     public static function isWhitelisted(string $route): bool
@@ -323,11 +300,9 @@ class Anon_Auth_Token
         }
 
         foreach ($whitelist as $pattern) {
-            // 支持精确匹配和通配符匹配
             if ($pattern === $route) {
                 return true;
             }
-            // 支持通配符，如 /api/public/*
             if (strpos($pattern, '*') !== false) {
                 $regex = '/^' . str_replace(['*', '/'], ['.*', '\/'], $pattern) . '$/';
                 if (preg_match($regex, $route)) {

@@ -3,7 +3,6 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
  * 依赖注入容器
- * 支持单例、绑定、解析依赖
  */
 class Anon_System_Container
 {
@@ -13,12 +12,12 @@ class Anon_System_Container
     private static $instance = null;
 
     /**
-     * @var array 绑定容器
+     * @var array 绑定列表
      */
     private $bindings = [];
 
     /**
-     * @var array 单例实例缓存
+     * @var array 实例缓存
      */
     private $instances = [];
 
@@ -28,12 +27,12 @@ class Anon_System_Container
     private $aliases = [];
 
     /**
-     * @var array 反射类缓存
+     * @var array 反射缓存
      */
     private static $reflectionCache = [];
 
     /**
-     * 获取容器单例
+     * 获取实例
      * @return Anon_Container
      */
     public static function getInstance(): self
@@ -45,9 +44,9 @@ class Anon_System_Container
     }
 
     /**
-     * 绑定接口或抽象类到具体实现
-     * @param string $abstract 抽象类或接口名
-     * @param mixed $concrete 具体实现，可以是类名、闭包或实例
+     * 绑定实现
+     * @param string $abstract 抽象类名
+     * @param mixed $concrete 具体实现
      * @param bool $singleton 是否单例
      * @return void
      */
@@ -61,7 +60,7 @@ class Anon_System_Container
 
     /**
      * 绑定单例
-     * @param string $abstract 抽象类或接口名
+     * @param string $abstract 抽象类名
      * @param mixed $concrete 具体实现
      * @return void
      */
@@ -72,8 +71,7 @@ class Anon_System_Container
 
     /**
      * 注册实例
-     * 直接绑定已创建的实例到容器中
-     * @param string $abstract 抽象类或接口名
+     * @param string $abstract 抽象类名
      * @param object $instance 实例对象
      * @return void
      */
@@ -94,39 +92,32 @@ class Anon_System_Container
     }
 
     /**
-     * 解析依赖并创建实例
-     * @param string $abstract 要解析的类名
-     * @param array $parameters 可选的构造函数参数
+     * 解析依赖
+     * @param string $abstract 类名
+     * @param array $parameters 参数
      * @return mixed
      * @throws RuntimeException
      */
     public function make(string $abstract, array $parameters = [])
     {
-        // 检查别名
         $abstract = $this->aliases[$abstract] ?? $abstract;
 
-        // 如果已有实例，直接返回
         if (isset($this->instances[$abstract])) {
             return $this->instances[$abstract];
         }
 
-        // 获取绑定配置
         $binding = $this->bindings[$abstract] ?? null;
 
-        // 如果绑定了具体实现
         if ($binding !== null) {
             $concrete = $binding['concrete'];
             $singleton = $binding['singleton'];
 
-            // 如果是闭包，执行闭包
             if ($concrete instanceof Closure) {
                 $instance = $concrete($this, $parameters);
             } else {
-                // 如果是类名，递归解析
                 $instance = $this->build($concrete, $parameters);
             }
 
-            // 如果是单例，缓存实例
             if ($singleton) {
                 $this->instances[$abstract] = $instance;
             }
@@ -134,54 +125,46 @@ class Anon_System_Container
             return $instance;
         }
 
-        // 如果没有绑定，尝试直接构建
         return $this->build($abstract, $parameters);
     }
 
     /**
-     * 自动解析依赖构建类实例
+     * 自动构建
      * @param string $concrete 类名
-     * @param array $parameters 手动提供的参数
+     * @param array $parameters 参数
      * @return object
      * @throws RuntimeException
      */
     private function build(string $concrete, array $parameters = []): object
     {
-        // 如果类不存在，抛出异常
         if (!class_exists($concrete)) {
             throw new RuntimeException("类不存在: {$concrete}");
         }
 
-        // 使用缓存的反射类，避免重复创建
         if (!isset(self::$reflectionCache[$concrete])) {
             self::$reflectionCache[$concrete] = new ReflectionClass($concrete);
         }
         $reflector = self::$reflectionCache[$concrete];
 
-        // 检查是否可以实例化
         if (!$reflector->isInstantiable()) {
             throw new RuntimeException("类无法实例化: {$concrete}");
         }
 
-        // 获取构造函数
         $constructor = $reflector->getConstructor();
 
-        // 如果没有构造函数，直接创建实例
         if ($constructor === null) {
             return new $concrete();
         }
 
-        // 解析构造函数参数
         $dependencies = $this->resolveDependencies($constructor->getParameters(), $parameters);
 
-        // 创建实例
         return $reflector->newInstanceArgs($dependencies);
     }
 
     /**
-     * 解析依赖参数
+     * 解析参数
      * @param ReflectionParameter[] $parameters 参数列表
-     * @param array $provided 手动提供的参数
+     * @param array $provided 提供参数
      * @return array
      * @throws RuntimeException
      */
@@ -192,21 +175,17 @@ class Anon_System_Container
         foreach ($parameters as $parameter) {
             $name = $parameter->getName();
 
-            // 如果手动提供了参数，使用提供的参数
             if (isset($provided[$name])) {
                 $dependencies[] = $provided[$name];
                 continue;
             }
 
-            // 如果参数有类型提示
             $type = $parameter->getType();
             if ($type !== null && !$type->isBuiltin()) {
                 $typeName = $type->getName();
-                // 尝试从容器解析
                 try {
                     $dependencies[] = $this->make($typeName);
                 } catch (RuntimeException $e) {
-                    // 如果无法解析且有默认值，使用默认值
                     if ($parameter->isDefaultValueAvailable()) {
                         $dependencies[] = $parameter->getDefaultValue();
                     } else {
@@ -214,7 +193,6 @@ class Anon_System_Container
                     }
                 }
             } else {
-                // 基本类型或没有类型提示
                 if ($parameter->isDefaultValueAvailable()) {
                     $dependencies[] = $parameter->getDefaultValue();
                 } else {
@@ -227,7 +205,7 @@ class Anon_System_Container
     }
 
     /**
-     * 检查是否已绑定
+     * 检查绑定
      * @param string $abstract 类名
      * @return bool
      */
@@ -238,7 +216,7 @@ class Anon_System_Container
     }
 
     /**
-     * 主要用于测试的清空容器
+     * 清空容器
      * @return void
      */
     public function flush(): void

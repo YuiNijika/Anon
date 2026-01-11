@@ -1,6 +1,17 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
+require_once __DIR__ . '/Contract/ServerInterface.php';
+require_once __DIR__ . '/Driver/Swoole/Http.php';
+require_once __DIR__ . '/Driver/Swoole/Tcp.php';
+require_once __DIR__ . '/Driver/Swoole/WebSocket.php';
+require_once __DIR__ . '/Driver/Swoole/Process.php';
+require_once __DIR__ . '/Driver/Swoole/Crontab.php';
+
+/**
+ * 服务器管理器
+ * 负责根据命令行参数创建和运行不同类型的服务器实例
+ */
 class Anon_Server_Manager
 {
     /**
@@ -13,6 +24,10 @@ class Anon_Server_Manager
      */
     protected $instance;
 
+    /**
+     * 构造函数
+     * @param string $driver 驱动类型
+     */
     public function __construct($driver = 'swoole')
     {
         $this->driver = $driver;
@@ -22,7 +37,7 @@ class Anon_Server_Manager
      * 创建服务实例
      * @param string $type 服务类型 (http, tcp, websocket)
      * @param array $config 配置数组
-     * @return object
+     * @return Anon_Server_Contract_ServerInterface
      * @throws Exception
      */
     public function create($type = 'http', $config = [])

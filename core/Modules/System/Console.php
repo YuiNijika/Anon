@@ -2,13 +2,12 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * CLI 控制台工具
- * 提供命令行接口用于执行框架命令
+ * 控制台工具
  */
 class Anon_System_Console
 {
     /**
-     * @var array 注册的命令
+     * @var array 注册命令
      */
     private static $commands = [];
 
@@ -20,8 +19,8 @@ class Anon_System_Console
     /**
      * 注册命令
      * @param string $name 命令名
-     * @param callable|string $handler 命令处理器，可以是闭包或类名
-     * @param string|null $description 命令描述
+     * @param callable|string $handler 处理器
+     * @param string|null $description 描述
      * @return void
      */
     public static function command(string $name, $handler, ?string $description = null): void
@@ -33,9 +32,9 @@ class Anon_System_Console
     }
 
     /**
-     * 注册命令别名
+     * 注册别名
      * @param string $alias 别名
-     * @param string $command 原始命令名
+     * @param string $command 命令名
      * @return void
      */
     public static function alias(string $alias, string $command): void
@@ -45,12 +44,11 @@ class Anon_System_Console
 
     /**
      * 运行命令
-     * @param array $argv 命令行参数
+     * @param array $argv 参数
      * @return int 退出码
      */
     public static function run(array $argv): int
     {
-        // 移除脚本名
         array_shift($argv);
 
         if (empty($argv)) {
@@ -61,12 +59,10 @@ class Anon_System_Console
         $commandName = $argv[0];
         $args = array_slice($argv, 1);
 
-        // 检查别名
         if (isset(self::$aliases[$commandName])) {
             $commandName = self::$aliases[$commandName];
         }
 
-        // 检查命令是否存在
         if (!isset(self::$commands[$commandName])) {
             self::error("未知命令: {$commandName}");
             self::showHelp();
@@ -76,10 +72,7 @@ class Anon_System_Console
         $command = self::$commands[$commandName];
 
         try {
-            // 解析命令处理器
             $handler = self::resolveHandler($command['handler']);
-
-            // 执行命令
             $result = $handler($args);
 
             return is_int($result) ? $result : 0;
@@ -90,18 +83,16 @@ class Anon_System_Console
     }
 
     /**
-     * 解析命令处理器
+     * 解析处理器
      * @param callable|string $handler 处理器
      * @return callable
      */
     private static function resolveHandler($handler): callable
     {
-        // 如果是闭包，直接返回
         if (is_callable($handler) && !is_string($handler)) {
             return $handler;
         }
 
-        // 如果是类名，尝试从容器解析或直接实例化
         if (is_string($handler) && class_exists($handler)) {
             $instance = Anon_System_Container::getInstance()->make($handler);
 
@@ -118,7 +109,7 @@ class Anon_System_Console
     }
 
     /**
-     * 显示帮助信息
+     * 显示帮助
      * @return void
      */
     private static function showHelp(): void
@@ -161,7 +152,7 @@ class Anon_System_Console
     }
 
     /**
-     * 输出成功消息
+     * 输出成功
      * @param string $message 消息
      * @return void
      */
@@ -189,7 +180,7 @@ class Anon_System_Console
     }
 
     /**
-     * 输出一行
+     * 输出行
      * @param string $message 消息
      * @return void
      */
@@ -199,7 +190,7 @@ class Anon_System_Console
     }
 
     /**
-     * 检查是否在 CLI 环境
+     * 检查CLI环境
      * @return bool
      */
     private static function isCli(): bool
@@ -208,7 +199,7 @@ class Anon_System_Console
     }
 
     /**
-     * 获取所有注册的命令
+     * 获取所有命令
      * @return array
      */
     public static function getCommands(): array

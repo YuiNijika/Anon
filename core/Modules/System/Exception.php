@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 框架基础异常类
+ * 基础异常
  */
 class Anon_System_Exception extends Exception
 {
@@ -28,7 +28,7 @@ class Anon_System_Exception extends Exception
 }
 
 /**
- * 未授权异常（401）
+ * 未授权异常
  */
 class Anon_UnauthorizedException extends Anon_System_Exception
 {
@@ -39,7 +39,7 @@ class Anon_UnauthorizedException extends Anon_System_Exception
 }
 
 /**
- * 禁止访问异常（403）
+ * 禁止访问异常
  */
 class Anon_ForbiddenException extends Anon_System_Exception
 {
@@ -50,7 +50,7 @@ class Anon_ForbiddenException extends Anon_System_Exception
 }
 
 /**
- * 资源未找到异常（404）
+ * 未找到异常
  */
 class Anon_NotFoundException extends Anon_System_Exception
 {
@@ -61,7 +61,7 @@ class Anon_NotFoundException extends Anon_System_Exception
 }
 
 /**
- * 参数验证异常（422）
+ * 验证异常
  */
 class Anon_ValidationException extends Anon_System_Exception
 {

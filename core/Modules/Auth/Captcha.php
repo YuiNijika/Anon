@@ -2,16 +2,16 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 验证码生成类
+ * 验证码
  */
 class Anon_Auth_Captcha
 {
     /**
-     * 生成验证码图片并返回 base64
-     * @param int $width 图片宽度
-     * @param int $height 图片高度
-     * @param int $length 验证码长度
-     * @return array ['code' => string, 'image' => string] 验证码和 base64 图片
+     * 生成
+     * @param int $width 宽度
+     * @param int $height 高度
+     * @param int $length 长度
+     * @return array
      */
     public static function generate(int $width = 120, int $height = 40, int $length = 4): array
     {
@@ -43,11 +43,11 @@ class Anon_Auth_Captcha
     }
     
     /**
-     * 生成 SVG 验证码图片
+     * 生成SVG
      * @param string $code 验证码
      * @param int $width 宽度
      * @param int $height 高度
-     * @return string SVG 字符串
+     * @return string
      */
     private static function generateSvg(string $code, int $width, int $height): string
     {
@@ -93,9 +93,9 @@ class Anon_Auth_Captcha
     }
     
     /**
-     * 验证验证码
-     * @param string $inputCode 用户输入的验证码
-     * @param bool $caseSensitive 是否区分大小写
+     * 验证
+     * @param string $inputCode 输入
+     * @param bool $caseSensitive 区分大小写
      * @return bool
      */
     public static function verify(string $inputCode, bool $caseSensitive = false): bool
@@ -126,8 +126,9 @@ class Anon_Auth_Captcha
     }
     
     /**
-     * 保存验证码到 session
+     * 保存到Session
      * @param string $code 验证码
+     * @return void
      */
     public static function saveToSession(string $code): void
     {
@@ -139,7 +140,8 @@ class Anon_Auth_Captcha
     }
     
     /**
-     * 清除验证码
+     * 清除
+     * @return void
      */
     public static function clear(): void
     {
@@ -151,7 +153,7 @@ class Anon_Auth_Captcha
     }
     
     /**
-     * 检查是否启用验证码
+     * 检查启用
      * @return bool
      */
     public static function isEnabled(): bool

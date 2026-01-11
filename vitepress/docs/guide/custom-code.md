@@ -44,3 +44,107 @@ $container->singleton('MyService', function() {
 });
 ```
 
+## 扩展权限系统
+
+通过 `anon_auth_capabilities` 过滤器可以扩展或修改角色权限配置：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+// 扩展角色权限配置
+Anon_System_Hook::add_filter('anon_auth_capabilities', function($capabilities) {
+    // 为现有角色添加新权限
+    $capabilities['admin'][] = 'manage_custom_feature';
+    $capabilities['editor'][] = 'edit_custom_content';
+    
+    // 添加新角色
+    $capabilities['moderator'] = [
+        'edit_posts',
+        'delete_posts',
+        'moderate_comments',
+    ];
+    
+    // 为特定角色添加资源级权限
+    $capabilities['author'][] = 'post:create';
+    $capabilities['author'][] = 'post:edit';
+    
+    return $capabilities;
+});
+
+// 使用权限检查
+$capability = Anon_Auth_Capability::getInstance();
+if ($capability->currentUserCan('manage_custom_feature')) {
+    // 有权限执行
+}
+```
+
+### 移除权限
+
+通过 `anon_auth_capabilities_remove` 过滤器可以移除特定角色的权限：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+// 移除角色权限
+Anon_System_Hook::add_filter('anon_auth_capabilities_remove', function($removeList) {
+    // 从 admin 角色移除 manage_widgets 权限
+    $removeList['admin'] = ['manage_widgets'];
+    
+    // 从 editor 角色移除多个权限
+    $removeList['editor'] = ['delete_posts', 'publish_posts'];
+    
+    // 从 author 角色移除单个权限（也可以使用字符串）
+    $removeList['author'] = 'publish_own_posts';
+    
+    return $removeList;
+});
+```
+
+### 权限标识格式
+
+- **简单权限**：`'manage_options'`、`'edit_posts'`
+- **资源级权限**：`'post:create'`、`'user:read'`、`'comment:delete'`
+- **通配符权限**：`'post:*'`（所有 post 操作）、`'*:read'`（所有资源的读取操作）、`'*:*'`（所有权限）
+
+### 示例：为自定义模块添加权限
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+// 为自定义模块添加权限
+Anon_System_Hook::add_filter('anon_auth_capabilities', function($capabilities) {
+    // 添加自定义模块权限
+    $capabilities['admin'][] = 'manage_shop';
+    $capabilities['admin'][] = 'shop:*';
+    
+    $capabilities['shop_manager'] = [
+        'shop:read',
+        'shop:create',
+        'shop:edit',
+        'shop:delete',
+        'order:read',
+        'order:edit',
+    ];
+    
+    $capabilities['shop_staff'] = [
+        'shop:read',
+        'order:read',
+    ];
+    
+    return $capabilities;
+});
+
+// 在路由中使用权限检查
+Anon_System_Config::addRoute('/api/shop/products', function() {
+    $capability = Anon_Auth_Capability::getInstance();
+    
+    // 要求特定权限
+    $capability->requireCapability('shop:read');
+    
+    // 业务逻辑
+    Anon_Http_Response::success(['products' => []]);
+});
+```

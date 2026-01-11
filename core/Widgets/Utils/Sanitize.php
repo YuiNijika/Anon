@@ -1,11 +1,15 @@
 <?php
+/**
+ * 清理工具类
+ *
+ * 提供 XSS 过滤、数据清洗等功能。
+ *
+ * @package Anon/Core/Widgets/Utils
+ */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-/**
- * XSS 过滤工具类
- * 提供多种数据清理和过滤方法
- */
-class Anon_Security_Sanitize
+class Anon_Utils_Sanitize
 {
     /**
      * 清理文本内容，移除 HTML 标签
@@ -46,7 +50,6 @@ class Anon_Security_Sanitize
     public static function html(string $html, ?string $allowedTags = null): string
     {
         if ($allowedTags === null) {
-            // 默认只允许安全的标签
             $allowedTags = '<p><br><strong><em><u><a><ul><ol><li><h1><h2><h3><h4><h5><h6>';
         }
         return strip_tags($html, $allowedTags);
@@ -106,15 +109,12 @@ class Anon_Security_Sanitize
     }
     
     /**
-     * 清理 SQL 特殊字符，仅用于日志记录，不应用于实际查询
-     * 注意：实际查询应使用预处理语句，此方法仅用于日志记录
+     * 清理 SQL 特殊字符，仅用于日志记录
      * @param string $string 原始字符串
      * @return string 清理后的字符串
      */
     public static function sqlForLog(string $string): string
     {
-        // 移除可能导致 SQL 注入的特殊字符，仅用于日志
         return str_replace(['\'', '"', ';', '--', '/*', '*/'], '', $string);
     }
 }
-

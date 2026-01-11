@@ -1,4 +1,12 @@
 <?php
+/**
+ * 验证工具类
+ *
+ * 提供邮箱、URL、密码强度等验证功能。
+ *
+ * @package Anon/Core/Widgets/Utils
+ */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Utils_Validate
@@ -143,4 +151,3 @@ class Anon_Utils_Validate
         return $errors;
     }
 }
-

@@ -5,34 +5,27 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_System_Hook {
     
     /**
-     * 存储所有注册的钩子
-     * @var array
+     * @var array 注册的钩子
      */
     private static $hooks = [];
     
     /**
-     * 存储钩子执行统计信息
-     * @var array
+     * @var array 钩子统计
      */
     private static $stats = [];
     
     /**
-     * 当前执行的钩子栈
-     * @var array
+     * @var array 当前钩子栈
      */
     private static $currentHook = [];
 
     /**
-     * 钩子回调缓存
-     * 缓存已解析的回调函数信息，避免重复解析
-     * @var array
+     * @var array 回调缓存
      */
     private static $callbackCache = [];
 
     /**
-     * 钩子执行结果缓存
-     * 缓存过滤器的执行结果，减少重复计算
-     * @var array
+     * @var array 结果缓存
      */
     private static $resultCache = [];
     
@@ -41,8 +34,8 @@ class Anon_System_Hook {
      * 
      * @param string $hook_name 钩子名称
      * @param callable $callback 回调函数
-     * @param int $priority 优先级，数字越小优先级越高
-     * @param int $accepted_args 接受的参数数量
+     * @param int $priority 优先级
+     * @param int $accepted_args 参数数量
      * @return bool
      */
     public static function add_action($hook_name, $callback, $priority = 10, $accepted_args = 1) {
@@ -54,8 +47,8 @@ class Anon_System_Hook {
      * 
      * @param string $hook_name 钩子名称
      * @param callable $callback 回调函数
-     * @param int $priority 优先级，数字越小优先级越高
-     * @param int $accepted_args 接受的参数数量
+     * @param int $priority 优先级
+     * @param int $accepted_args 参数数量
      * @return bool
      */
     public static function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
@@ -66,7 +59,7 @@ class Anon_System_Hook {
      * 执行动作钩子
      * 
      * @param string $hook_name 钩子名称
-     * @param mixed ...$args 传递给钩子的参数
+     * @param mixed ...$args 参数
      * @return void
      */
     public static function do_action($hook_name, ...$args) {
@@ -77,9 +70,9 @@ class Anon_System_Hook {
      * 应用过滤器钩子
      * 
      * @param string $hook_name 钩子名称
-     * @param mixed $value 要过滤的值
+     * @param mixed $value 初始值
      * @param mixed ...$args 额外参数
-     * @return mixed 过滤后的值
+     * @return mixed
      */
     public static function apply_filters($hook_name, $value, ...$args) {
         array_unshift($args, $value);
@@ -87,7 +80,7 @@ class Anon_System_Hook {
     }
     
     /**
-     * 移除指定钩子
+     * 移除钩子
      * 
      * @param string $hook_name 钩子名称
      * @param callable $callback 回调函数
@@ -103,12 +96,10 @@ class Anon_System_Hook {
         if (isset(self::$hooks[$hook_name][$priority][$hook_id])) {
             unset(self::$hooks[$hook_name][$priority][$hook_id]);
             
-            // 如果该优先级下没有钩子了，删除该优先级
             if (empty(self::$hooks[$hook_name][$priority])) {
                 unset(self::$hooks[$hook_name][$priority]);
             }
             
-            // 如果该钩子名下没有任何钩子了，删除该钩子名
             if (empty(self::$hooks[$hook_name])) {
                 unset(self::$hooks[$hook_name]);
             }
@@ -123,13 +114,12 @@ class Anon_System_Hook {
     /**
      * 移除所有钩子
      * 
-     * @param string|null $hook_name 钩子名称，null表示移除所有钩子
-     * @param int|null $priority 优先级，null表示移除所有优先级
+     * @param string|null $hook_name 钩子名称
+     * @param int|null $priority 优先级
      * @return bool
      */
     public static function removeAllHooks($hook_name = null, $priority = null) {
         if ($hook_name === null) {
-            // 移除所有钩子
             self::$hooks = [];
             self::debugLog("移除所有钩子");
             return true;
@@ -153,11 +143,11 @@ class Anon_System_Hook {
     }
     
     /**
-     * 检查钩子是否存在
+     * 检查钩子
      * 
      * @param string $hook_name 钩子名称
-     * @param callable|null $callback 回调函数，null表示检查钩子名是否存在
-     * @return bool|int 存在返回true或优先级，不存在返回false
+     * @param callable|null $callback 回调函数
+     * @return bool|int
      */
     public static function hasHook($hook_name, $callback = null) {
         if (!isset(self::$hooks[$hook_name])) {
@@ -179,7 +169,7 @@ class Anon_System_Hook {
     }
     
     /**
-     * 获取当前执行的钩子名称
+     * 获取当前钩子
      * 
      * @return string|null
      */
@@ -188,9 +178,9 @@ class Anon_System_Hook {
     }
     
     /**
-     * 获取钩子统计信息
+     * 获取钩子统计
      * 
-     * @param string|null $hook_name 钩子名称，null返回所有统计
+     * @param string|null $hook_name 钩子名称
      * @return array
      */
     public static function getHookStats($hook_name = null) {
@@ -201,7 +191,7 @@ class Anon_System_Hook {
     }
     
     /**
-     * 获取所有注册的钩子
+     * 获取所有钩子
      * 
      * @return array
      */
@@ -210,9 +200,9 @@ class Anon_System_Hook {
     }
     
     /**
-     * 清除钩子统计信息
+     * 清除统计
      * 
-     * @param string|null $hook_name 钩子名称，null清除所有统计
+     * @param string|null $hook_name 钩子名称
      */
     public static function clearStats($hook_name = null) {
         if ($hook_name !== null) {
@@ -222,66 +212,8 @@ class Anon_System_Hook {
         }
     }
     
-    // ========== 向后兼容 ==========
-    
     /**
-     * @deprecated 使用 removeHook() 代替
-     */
-    public static function remove_hook($hook_name, $callback, $priority = 10) {
-        return self::removeHook($hook_name, $callback, $priority);
-    }
-    
-    /**
-     * @deprecated 使用 removeAllHooks() 代替
-     */
-    public static function remove_all_hooks($hook_name = null, $priority = null) {
-        return self::removeAllHooks($hook_name, $priority);
-    }
-    
-    /**
-     * @deprecated 使用 hasHook() 代替
-     */
-    public static function has_hook($hook_name, $callback = null) {
-        return self::hasHook($hook_name, $callback);
-    }
-    
-    /**
-     * @deprecated 使用 getCurrentHook() 代替
-     */
-    public static function current_hook() {
-        return self::getCurrentHook();
-    }
-    
-    /**
-     * @deprecated 使用 getHookStats() 代替
-     */
-    public static function get_hook_stats($hook_name = null) {
-        return self::getHookStats($hook_name);
-    }
-    
-    /**
-     * @deprecated 使用 getAllHooks() 代替
-     */
-    public static function get_all_hooks() {
-        return self::getAllHooks();
-    }
-    
-    /**
-     * @deprecated 使用 clearStats() 代替
-     */
-    public static function clear_stats($hook_name = null) {
-        return self::clearStats($hook_name);
-    }
-    
-    /**
-     * 添加钩子的内部实现
-     * 
-     * @param string $hook_name 钩子名称
-     * @param callable $callback 回调函数
-     * @param int $priority 优先级
-     * @param int $accepted_args 接受的参数数量
-     * @param string $type 钩子类型 (action|filter)
-     * @return bool
+     * 添加钩子内部实现
      */
     private static function add_hook($hook_name, $callback, $priority, $accepted_args, $type) {
         if (!is_callable($callback)) {
@@ -289,14 +221,12 @@ class Anon_System_Hook {
             return false;
         }
 
-        // 优先使用命名函数或类方法，避免闭包
         if ($callback instanceof Closure) {
-            self::debugLog("警告: 使用闭包作为钩子回调可能影响性能，建议使用命名函数或类方法: {$hook_name}", 'WARN');
+            self::debugLog("警告: 建议使用命名函数或类方法: {$hook_name}", 'WARN');
         }
         
         $hook_id = self::getHookId($callback);
         
-        // 缓存回调函数信息
         if (!isset(self::$callbackCache[$hook_id])) {
             self::$callbackCache[$hook_id] = [
                 'callback' => $callback,
@@ -313,10 +243,8 @@ class Anon_System_Hook {
             'added_at' => microtime(true)
         ];
         
-        // 按优先级排序
         ksort(self::$hooks[$hook_name]);
         
-        // 清除该钩子的结果缓存
         if (isset(self::$resultCache[$hook_name])) {
             unset(self::$resultCache[$hook_name]);
         }
@@ -326,19 +254,13 @@ class Anon_System_Hook {
     }
     
     /**
-     * 执行钩子的内部实现
-     * 
-     * @param string $hook_name 钩子名称
-     * @param array $args 参数数组
-     * @param string $type 钩子类型 (action|filter)
-     * @return mixed
+     * 执行钩子内部实现
      */
     private static function execute_hooks($hook_name, $args, $type) {
         if (!isset(self::$hooks[$hook_name])) {
             return $type === 'filter' ? ($args[0] ?? null) : null;
         }
         
-        // 记录当前执行的钩子
         self::$currentHook[] = $hook_name;
         
         $start_time = microtime(true);
@@ -346,7 +268,6 @@ class Anon_System_Hook {
         $value = $type === 'filter' ? ($args[0] ?? null) : null;
         
         try {
-            // 按优先级执行钩子
             foreach (self::$hooks[$hook_name] as $priority => $hooks) {
                 foreach ($hooks as $hook_id => $hook_data) {
                     if ($hook_data['type'] !== $type) {
@@ -356,7 +277,6 @@ class Anon_System_Hook {
                     $callback = $hook_data['callback'];
                     $accepted_args = $hook_data['accepted_args'];
                     
-                    // 准备参数
                     $callback_args = array_slice($args, 0, $accepted_args);
                     
                     try {
@@ -366,7 +286,7 @@ class Anon_System_Hook {
                             call_user_func_array($callback, $callback_args);
                         } else {
                             $value = call_user_func_array($callback, array_merge([$value], array_slice($callback_args, 1)));
-                            $args[0] = $value; // 更新第一个参数为过滤后的值
+                            $args[0] = $value;
                         }
                         
                         $hook_time = microtime(true) - $hook_start;
@@ -384,13 +304,11 @@ class Anon_System_Hook {
                 }
             }
         } finally {
-            // 移除当前钩子
             array_pop(self::$currentHook);
         }
         
         $total_time = microtime(true) - $start_time;
         
-        // 记录统计信息
         if (!isset(self::$stats[$hook_name])) {
             self::$stats[$hook_name] = [
                 'total_calls' => 0,
@@ -409,9 +327,6 @@ class Anon_System_Hook {
     
     /**
      * 生成钩子ID
-     * 
-     * @param callable $callback 回调函数
-     * @return string
      */
     private static function getHookId($callback) {
         if (is_string($callback)) {
@@ -431,9 +346,6 @@ class Anon_System_Hook {
     
     /**
      * 调试日志
-     * 
-     * @param string $message 消息
-     * @param string $level 日志级别
      */
     private static function debugLog($message, $level = 'DEBUG') {
         if (defined('ANON_DEBUG') && ANON_DEBUG) {

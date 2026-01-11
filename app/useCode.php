@@ -4,6 +4,9 @@
  * 
  * - 注册钩子
  *      使用 Anon_System_Hook::add_action 和 Anon_System_Hook::add_filter 注册钩子
+ * - 扩展权限系统
+ *      使用 anon_auth_capabilities 过滤器扩展角色权限配置
+ *      使用 anon_auth_capabilities_remove 过滤器移除角色权限
  * - 注册自定义路由
  *      使用 Anon_System_Config::addRoute 注册自定义路由
  * - 注册错误处理器
@@ -47,6 +50,37 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 // if ($capability->currentUserCan('manage_options')) {
 //     // 有权限执行
 // }
+
+// 扩展权限系统配置
+// Anon_System_Hook::add_filter('anon_auth_capabilities', function($capabilities) {
+//     // 为现有角色添加新权限
+//     $capabilities['admin'][] = 'manage_custom_feature';
+//     $capabilities['editor'][] = 'edit_custom_content';
+//     
+//     // 添加新角色
+//     $capabilities['moderator'] = [
+//         'edit_posts',
+//         'delete_posts',
+//         'moderate_comments',
+//     ];
+//     
+//     // 为特定角色添加资源级权限
+//     $capabilities['author'][] = 'post:create';
+//     $capabilities['author'][] = 'post:edit';
+//     
+//     return $capabilities;
+// });
+
+// 移除权限系统配置
+// Anon_System_Hook::add_filter('anon_auth_capabilities_remove', function($removeList) {
+//     // 从 admin 角色移除 manage_widgets 权限
+//     $removeList['admin'] = ['manage_widgets'];
+//     
+//     // 从 editor 角色移除多个权限
+//     $removeList['editor'] = ['delete_posts', 'publish_posts'];
+//     
+//     return $removeList;
+// });
 
 // 注册自定义路由
 // Anon_System_Config::addRoute('/api/custom', function () {

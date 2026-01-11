@@ -7,7 +7,7 @@ class Anon_System_Install
     const envfile = __DIR__ . '/../../../.env.php';
 
     /**
-     * 获取数据库表创建 SQL 语句
+     * 获取建表 SQL
      * @param string $tablePrefix 表前缀
      * @return array SQL 语句数组
      */
@@ -28,11 +28,10 @@ class Anon_System_Install
     }
 
     /**
-     * 安装页面主入口
+     * 页面入口
      */
     public static function index()
     {
-        // 只有在系统未安装时才能访问
         if (Anon_System_Config::isInstalled()) {
             Anon_Common::Header(400);
             echo json_encode(
@@ -44,38 +43,38 @@ class Anon_System_Install
             exit;
         }
 
-        // 启动会话用于CSRF保护
+        // 启动会话
         if (!session_id()) {
             session_start();
         }
 
-        // 生成CSRF令牌
+        // 生成 CSRF 令牌
         if (!isset($_SESSION['install_csrf_token'])) {
             $_SESSION['install_csrf_token'] = bin2hex(random_bytes(32));
         }
 
-        // 处理表单提交
+        // 处理提交
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['db_host'])) {
             self::handleInstallSubmit();
             return;
         }
 
-        // 显示安装页面
+        // 显示页面
         self::renderInstallPage();
     }
 
     /**
-     * 处理安装表单提交
+     * 处理安装提交
      */
     private static function handleInstallSubmit()
     {
         try {
-            // CSRF验证
+            // 验证 CSRF
             if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['install_csrf_token']) {
                 throw new Exception("CSRF验证失败，请重新提交表单。");
             }
 
-            // 获取并验证数据库连接信息
+            // 验证连接信息
             $db_host = self::validateInput($_POST['db_host']);
             $db_port = isset($_POST['db_port']) ? (int)$_POST['db_port'] : 3306;
             $db_user = self::validateInput($_POST['db_user']);
@@ -87,7 +86,7 @@ class Anon_System_Install
                 throw new Exception("所有数据库连接字段都是必填的。");
             }
 
-            // 更新配置文件
+            // 更新配置
             self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
 
             require_once self::envfile;
@@ -114,18 +113,18 @@ class Anon_System_Install
                 Anon_System_Env::init($envConfig);
             }
 
-            // 连接到数据库
+            // 数据库连接
             $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
             if ($conn->connect_error) {
                 throw new Exception("数据库连接失败: " . $conn->connect_error);
             }
             echo "数据库连接成功！<br>";
 
-            // 执行 SQL 语句
+            // 执行 SQL
             self::executeSqlStatements($conn, $db_prefix);
             echo "数据表创建成功！<br>";
 
-            // 创建初始用户
+            // 创建管理员
             if (isset($_POST['username'])) {
                 $username = self::validateInput($_POST['username']);
                 $password = self::validateInput($_POST['password']);
@@ -153,11 +152,11 @@ class Anon_System_Install
     }
 
     /**
-     * 渲染安装页面
+     * 渲染页面
      */
     private static function renderInstallPage()
     {
-        // 从常量读取配置，否则使用默认值
+        // 读取配置
         $db_host = defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost';
         $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
         $db_user = defined('ANON_DB_USER') ? ANON_DB_USER : 'root';
@@ -257,7 +256,7 @@ class Anon_System_Install
     </div>
 
     <script>
-        // 密码强度检测
+        // 检测密码强度
         document.getElementById("password").addEventListener("input", function(e) {
             const password = e.target.value;
             const bar = document.getElementById("passwordStrengthBar");
@@ -270,7 +269,7 @@ class Anon_System_Install
             bar.style.width = strength + "%";
             bar.style.backgroundColor = strength < 40 ? "#e74c3c" : (strength < 70 ? "#f39c12" : "#2ecc71");
         });
-        // 表单提交前验证
+        // 提交前验证
         document.getElementById("installForm").addEventListener("submit", function(e) {
             const password = document.getElementById("password").value;
             const email = document.getElementById("email").value;
@@ -285,7 +284,7 @@ class Anon_System_Install
     }
 
     /**
-     * 更新配置文件
+     * 更新配置
      */
     private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
     {
@@ -365,7 +364,7 @@ class Anon_System_Install
     }
 
     /**
-     * 执行 SQL 语句
+     * 执行 SQL
      */
     private static function executeSqlStatements($conn, $tablePrefix)
     {
@@ -381,7 +380,7 @@ class Anon_System_Install
     }
 
     /**
-     * 插入初始用户数据
+     * 插入用户数据
      */
     private static function insertUserData($conn, $username, $password, $email, $tablePrefix, $group = 'admin')
     {
@@ -398,7 +397,7 @@ class Anon_System_Install
     }
 
     /**
-     * 验证表单输入
+     * 验证输入
      */
     private static function validateInput($data)
     {
@@ -406,26 +405,26 @@ class Anon_System_Install
     }
 
     /**
-     * 清理错误信息，移除可能的敏感信息
-     * @param string $error 原始错误信息
-     * @return string 清理后的错误信息
+     * 清理错误信息
+     * @param string $error 原始错误
+     * @return string 清理后错误
      */
     private static function sanitizeError(string $error): string
     {
-        // 检查是否允许记录详细错误
+        // 检查详细日志
         $logDetailed = false;
         if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
-            $logDetailed = false; // 默认不记录详细错误
+            $logDetailed = false; // 默认不记录
         }
         
-        // 移除可能的敏感路径信息
+        // 移除敏感路径
         if (!$logDetailed) {
             $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
         }
         
-        // 移除可能的数据库名、表名等敏感信息
+        // 移除敏感数据
         if (!$logDetailed) {
             $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
         }
@@ -434,7 +433,7 @@ class Anon_System_Install
     }
 
     /**
-     * 自定义错误处理
+     * 错误处理
      */
     private static function handleError($message)
     {

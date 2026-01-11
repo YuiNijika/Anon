@@ -8,13 +8,32 @@ if (version_compare(phpversion(), '7.4.0', '<')) {
 
 class Anon_Main
 {
+    /**
+     * 应用目录路径
+     */
     const APP_DIR = __DIR__ . '/../app/';
+
+    /**
+     * 工具类目录路径
+     */
     const WIDGETS_DIR = __DIR__ . '/Widgets/';
+
+    /**
+     * 模块目录路径
+     */
     const MODULES_DIR = __DIR__ . '/Modules/';
+
+    /**
+     * 根目录路径
+     */
     const ROOT_DIR = __DIR__ . '/../';
 
     /**
      * 初始化框架环境
+     *
+     * 加载环境配置、初始化核心模块、加载依赖文件。
+     *
+     * @return void
      */
     public static function init()
     {
@@ -39,7 +58,7 @@ class Anon_Main
         ];
         $envConfig = array_merge_recursive($envConfig, $appConfig);
         
-        // 立即加载核心模块
+        // 核心模块
         require_once self::MODULES_DIR . 'System/Env.php';
         Anon_System_Env::init($envConfig);
         require_once self::MODULES_DIR . 'System/Config.php';
@@ -47,79 +66,48 @@ class Anon_Main
         require_once self::MODULES_DIR . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
-        // 按需加载工具类
-        require_once self::WIDGETS_DIR . 'Connection.php';
-        require_once self::WIDGETS_DIR . 'Utils/Escape.php';
-        require_once self::WIDGETS_DIR . 'Utils/Sanitize.php';
-        require_once self::WIDGETS_DIR . 'Utils/Validate.php';
-        require_once self::WIDGETS_DIR . 'Utils/Text.php';
-        require_once self::WIDGETS_DIR . 'Utils/Format.php';
-        require_once self::WIDGETS_DIR . 'Utils/Array.php';
-        require_once self::WIDGETS_DIR . 'Utils/Random.php';
+        // 加载所有组件
+        require_once __DIR__ . '/Loader.php';
+        Anon_Loader::loadAll();
         
-        // 按需加载核心功能模块
-        require_once self::MODULES_DIR . 'System/Exception.php';
-        require_once self::MODULES_DIR . 'Database.php';
-        require_once self::MODULES_DIR . 'System/Install.php';
-        require_once self::MODULES_DIR . 'Http/ResponseHelper.php';
-        require_once self::MODULES_DIR . 'Http/RequestHelper.php';
-        require_once self::MODULES_DIR . 'System/Hook.php';
-        require_once self::MODULES_DIR . 'Helper.php';
-        require_once self::MODULES_DIR . 'System/Widget.php';
-        require_once self::MODULES_DIR . 'System/Container.php';
-        require_once self::MODULES_DIR . 'Http/Middleware.php';
-        require_once self::MODULES_DIR . 'System/Cache.php';
-        require_once self::MODULES_DIR . 'Database/QueryBuilder.php';
-        require_once self::MODULES_DIR . 'Database/QueryOptimizer.php';
-        require_once self::MODULES_DIR . 'Database/Sharding.php';
-        
-        // 按需加载可选功能模块
-        require_once self::MODULES_DIR . 'Auth/Token.php';
-        require_once self::MODULES_DIR . 'Auth/Captcha.php';
-        require_once self::MODULES_DIR . 'Auth/RateLimit.php';
-        require_once self::MODULES_DIR . 'Auth/Csrf.php';
-        require_once self::MODULES_DIR . 'Security/Security.php';
-        require_once self::MODULES_DIR . 'Auth/Capability.php';
-        require_once self::MODULES_DIR . 'System/Console.php';
-        
-        // 按需加载 Debug 模块
-        require_once self::MODULES_DIR . 'Debug.php';
+        // 初始化 Debug
         if (defined('ANON_DEBUG') && Anon_Debug::isEnabled()) {
             Anon_Debug::init();
         }
         
-        // 按需加载能力系统
-        Anon_Auth_Capability::getInstance()->init();
-        
-        // 按需加载快捷方法封装类
-        require_once self::MODULES_DIR . 'Anon.php';
-        
-        // 按需加载插件系统
-        require_once self::MODULES_DIR . 'System/Plugin.php';
+        // 初始化插件系统
         Anon_System_Plugin::init();
 
+        // 加载自定义代码文件
         $codeFile = self::APP_DIR . 'useCode.php';
         if (file_exists($codeFile)) {
             require_once $codeFile;
         }
-
-        // 加载兼容层
-        require_once self::MODULES_DIR . '/../Compatibility.php';
+        
+        // 初始化能力系统
+        Anon_Auth_Capability::getInstance()->init();
     }
 
     /**
-     * 启动 Web 应用
+     * 启动 FPM Web 应用
+     * @return void
      */
-    public static function run()
+    public static function runFpm()
     {
         self::init();
 
-        // Web 模式下特有的初始化
+        // 注册系统和应用路由
         Anon_System_Config::initSystemRoutes();
         Anon_System_Config::initAppRoutes();
+        
+        // 加载路由
         require_once self::MODULES_DIR . 'Http/Router.php';
+        
+        // 初始化路由系统并分发请求
+        Anon_Http_Router::init();
 
-        Anon_Debug::info('Application started', [
+        // 启动日志
+        Anon_Debug::info('Application started (FPM)', [
             'php_version' => PHP_VERSION,
             'memory_limit' => ini_get('memory_limit'),
             'max_execution_time' => ini_get('max_execution_time')
@@ -128,20 +116,23 @@ class Anon_Main
 
     /**
      * 启动 Swoole 服务
+     * @param array $argv 命令行参数
+     * @return void
      */
     public static function runSwoole($argv)
     {
         self::init();
         
-        // 加载 Swoole Manager
+        // 加载 Swoole 管理器
         require_once self::MODULES_DIR . 'Server/Manager.php';
 
+        // 解析命令行参数
         $type = $argv[2] ?? 'http';
         $action = $argv[3] ?? 'start';
         $host = '0.0.0.0';
         $port = 9501;
 
-        // 简单的参数解析，用于覆盖端口
+        // 简单的参数解析，用于覆盖默认端口和主机
         foreach ($argv as $arg) {
             if (strpos($arg, '--port=') === 0) {
                 $port = (int) substr($arg, 7);
@@ -151,7 +142,7 @@ class Anon_Main
             }
         }
 
-        // 调整默认端口
+        // 根据服务类型调整默认端口
         if (!in_array('--port=', $argv)) {
             switch ($type) {
                 case 'tcp': $port = 9502; break;
@@ -162,6 +153,7 @@ class Anon_Main
         $manager = new Anon_Server_Manager('swoole');
 
         try {
+            // 创建并运行服务实例
             $server = $manager->create($type, [
                 'host' => $host,
                 'port' => $port

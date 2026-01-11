@@ -15,12 +15,16 @@ $files = [
     '../core/Modules/Server/Contract/ServerInterface.php',
     '../core/Modules/Server/Driver/Swoole/Http.php',
     '../core/Modules/Server/Driver/Swoole/Tcp.php',
-    '../core/Modules/Server/Driver/Swoole/WebSocket.php'
+    '../core/Modules/Server/Driver/Swoole/WebSocket.php',
+    '../core/Modules/Server/Driver/Swoole/Process.php',
+    '../core/Modules/Server/Driver/Swoole/Crontab.php'
 ];
 
 echo "[1/3] 检查文件完整性...\n";
 foreach ($files as $file) {
-    if (file_exists(__DIR__ . '/' . $file)) {
+    // 修正文件路径，使用 __DIR__
+    $fullPath = realpath(__DIR__ . '/' . $file);
+    if ($fullPath && file_exists($fullPath)) {
         echo "  [√] 已找到: $file\n";
     } else {
         echo "  [×] 未找到: $file\n";
@@ -63,13 +67,19 @@ echo "\n测试流程结束。\n";
 function testServer($type, $port) {
     echo "正在测试 $type 服务 (端口 $port)...\n";
     
-    // 启动服务器进程 
+    // 启动服务器进程
+    // Windows 环境下可能无法通过此方式后台运行，仅建议在 Linux 下运行完整测试
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        echo "  [!] Windows 环境下不支持 exec 后台进程管理，请手动运行 php server/index.php swoole $type start 进行测试\n";
+        return;
+    }
+
     $cmd = "php ../index.php swoole $type start > /dev/null 2>&1 & echo $!";
     $pid = exec($cmd);
     
     sleep(1); // 等待启动
 
-    // Linux检查端口是否监听
+    // 简单检查端口是否监听 (仅 Linux)
     $check = exec("netstat -an | grep $port");
     if (strpos($check, (string)$port) !== false) {
         echo "  [√] $type 服务启动成功 (端口 $port)\n";

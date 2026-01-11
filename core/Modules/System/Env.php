@@ -2,32 +2,27 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 环境配置管理类
- * 负责加载和定义环境变量
+ * 环境配置管理
  */
 class Anon_System_Env
 {
     /**
-     * 环境配置数组
-     * @var array
+     * @var array 配置数组
      */
     private static $config = [];
 
     /**
-     * 是否已初始化
-     * @var bool
+     * @var bool 初始化状态
      */
     private static $initialized = false;
 
     /**
-     * 配置值缓存
-     * 首次解析后存入内存，后续调用直接读取缓存
-     * @var array
+     * @var array 配置缓存
      */
     private static $valueCache = [];
 
     /**
-     * 初始化环境配置
+     * 初始化配置
      * @param array $config 配置数组
      */
     public static function init(array $config): void
@@ -39,12 +34,11 @@ class Anon_System_Env
         self::$config = $config;
         self::$initialized = true;
 
-        // 定义常量
         self::defineConstants();
     }
 
     /**
-     * 定义所有配置常量
+     * 定义配置常量
      */
     private static function defineConstants(): void
     {
@@ -62,7 +56,7 @@ class Anon_System_Env
     }
 
     /**
-     * 安全定义常量
+     * 定义常量
      * @param string $name 常量名
      * @param mixed $value 常量值
      */
@@ -81,7 +75,6 @@ class Anon_System_Env
      */
     public static function get(string $key, $default = null)
     {
-        // 检查缓存
         if (isset(self::$valueCache[$key])) {
             return self::$valueCache[$key];
         }
@@ -91,20 +84,18 @@ class Anon_System_Env
 
         foreach ($keys as $k) {
             if (!isset($value[$k])) {
-                // 缓存默认值
                 self::$valueCache[$key] = $default;
                 return $default;
             }
             $value = $value[$k];
         }
 
-        // 缓存解析结果
         self::$valueCache[$key] = $value;
         return $value;
     }
 
     /**
-     * 清除配置缓存
+     * 清除缓存
      */
     public static function clearCache(): void
     {
@@ -121,7 +112,7 @@ class Anon_System_Env
     }
 
     /**
-     * 检查是否已初始化
+     * 检查初始化状态
      * @return bool
      */
     public static function isInitialized(): bool

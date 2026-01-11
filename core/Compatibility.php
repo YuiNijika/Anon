@@ -34,4 +34,4 @@ class_alias('Anon_System_Hook', 'Anon_Hook');
 class_alias('Anon_System_Install', 'Anon_Install');
 class_alias('Anon_System_Plugin', 'Anon_Plugin');
 class_alias('Anon_System_Widget', 'Anon_Widget');
-class_alias('Anon_Security_Sanitize', 'Anon_Utils_Sanitize');
+class_alias('Anon_Utils_Sanitize', 'Anon_Security_Sanitize');

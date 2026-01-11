@@ -1,8 +1,12 @@
 <?php
-
 /**
- * Debug Module
+ * 调试模块
+ *
+ * 负责系统的调试信息收集、日志记录、性能监控和错误处理。
+ *
+ * @package Anon/Core/Modules
  */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Debug
@@ -18,17 +22,17 @@ class Anon_Debug
     private static $collectors = [];
 
     /**
-     * @var string 当前请求ID
+     * @var string|null 当前请求ID
      */
     private static $requestId = null;
 
     /**
-     * @var float 请求开始时间
+     * @var float|null 请求开始时间
      */
     private static $requestStartTime = null;
 
     /**
-     * @var int 请求开始内存使用
+     * @var int|null 请求开始内存使用
      */
     private static $requestStartMemory = null;
 
@@ -39,8 +43,8 @@ class Anon_Debug
         'max_log_size' => 50, // MB
         'max_log_files' => 10,
         'log_levels' => ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'],
-        'capture_backtrace' => true, // 是否捕获调用栈
-        'backtrace_levels' => ['ERROR', 'FATAL', 'WARN'] // 哪些级别捕获调用栈
+        'capture_backtrace' => true,
+        'backtrace_levels' => ['ERROR', 'FATAL', 'WARN']
     ];
 
     /**
@@ -59,9 +63,15 @@ class Anon_Debug
     private static $queries = [];
 
     /**
-     * 初始化调试系统
+     * @var array 性能监控开始时间记录
      */
-    public static function init()
+    private static $performanceStartTimes = [];
+
+    /**
+     * 初始化调试系统
+     * @return void
+     */
+    public static function init(): void
     {
         if (self::$initialized || !defined('ANON_DEBUG') || !ANON_DEBUG) {
             return;
@@ -72,7 +82,6 @@ class Anon_Debug
         self::$requestStartTime = microtime(true);
         self::$requestStartMemory = memory_get_usage(true);
 
-        // 注册错误处理器
         set_error_handler([__CLASS__, 'errorHandler']);
         set_exception_handler([__CLASS__, 'exceptionHandler']);
         register_shutdown_function([__CLASS__, 'shutdownHandler']);
@@ -84,9 +93,12 @@ class Anon_Debug
 
     /**
      * 记录日志
-     * 优化：仅在必要时捕获调用栈，减少性能开销
+     * @param string $level 日志级别
+     * @param string $message 消息内容
+     * @param array $context 上下文数据
+     * @return void
      */
-    public static function log($level, $message, $context = [])
+    public static function log(string $level, string $message, array $context = []): void
     {
         if (!self::isEnabled() || !in_array($level, self::$config['log_levels'])) {
             return;
@@ -102,31 +114,29 @@ class Anon_Debug
             'peak_memory' => memory_get_peak_usage(true)
         ];
 
-        // 仅在配置启用且日志级别需要时捕获调用栈
-        // 这可以显著减少 DEBUG/INFO 级别日志的性能开销
-        if (self::$config['capture_backtrace'] && 
-            in_array($level, self::$config['backtrace_levels'])) {
+        if (self::$config['capture_backtrace'] && in_array($level, self::$config['backtrace_levels'])) {
             $logData['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
         }
 
-        // 写入日志文件
         self::writeToFile($logData);
 
-        // 添加到收集器（限制大小防止内存溢出）
         if (!isset(self::$collectors['logs'])) {
             self::$collectors['logs'] = [];
         }
-        
-        // 限制内存中保存的日志数量
+
         if (count(self::$collectors['logs']) < 1000) {
-        self::$collectors['logs'][] = $logData;
+            self::$collectors['logs'][] = $logData;
         }
     }
 
     /**
      * 记录性能数据
+     * @param string $name 监控名称
+     * @param float|null $startTime 开始时间
+     * @param array $data 附加数据
+     * @return void
      */
-    public static function performance($name, $startTime = null, $data = [])
+    public static function performance(string $name, ?float $startTime = null, array $data = []): void
     {
         if (!self::isEnabled()) return;
 
@@ -147,49 +157,44 @@ class Anon_Debug
     }
 
     /**
-     * @var array 性能监控开始时间记录
-     */
-    private static $performanceStartTimes = [];
-
-    /**
      * 开始性能监控
      * @param string $name 监控名称
+     * @return void
      */
-    public static function startPerformance($name)
+    public static function startPerformance(string $name): void
     {
         if (!self::isEnabled()) return;
-        
         self::$performanceStartTimes[$name] = microtime(true);
-        // 不记录性能监控开始，只在结束时记录
     }
 
     /**
      * 结束性能监控
      * @param string $name 监控名称
      * @param array $data 附加数据
+     * @return void
      */
-    public static function endPerformance($name, $data = [])
+    public static function endPerformance(string $name, array $data = []): void
     {
         if (!self::isEnabled()) return;
-        
+
         $startTime = self::$performanceStartTimes[$name] ?? null;
         if ($startTime === null) {
             self::log('WARN', "Performance monitoring end called without start: {$name}");
             return;
         }
-        
-        // 调用现有的 performance 方法记录数据
+
         self::performance($name, $startTime, $data);
-        
-        // 清理开始时间记录
         unset(self::$performanceStartTimes[$name]);
     }
 
     /**
      * 记录数据库查询
-     * 优化：延迟捕获调用栈，仅在慢查询时捕获
+     * @param string $sql SQL语句
+     * @param array $params 参数
+     * @param float $duration 执行耗时(ms)
+     * @return void
      */
-    public static function query($sql, $params = [], $duration = 0)
+    public static function query(string $sql, array $params = [], float $duration = 0): void
     {
         if (!self::isEnabled()) return;
 
@@ -200,19 +205,15 @@ class Anon_Debug
             'timestamp' => microtime(true)
         ];
 
-        // 仅在慢查询时捕获调用栈（阈值：100ms）
-        // 这可以显著减少普通查询的性能开销
         if ($duration > 100) {
             $queryData['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
             $queryData['slow'] = true;
         }
 
-        // 限制内存中保存的查询数量
         if (count(self::$queries) < 500) {
-        self::$queries[] = $queryData;
+            self::$queries[] = $queryData;
         }
-        
-        // 慢查询记录为 WARN，普通查询不单独记录日志
+
         if ($duration > 100) {
             self::log('WARN', 'Slow Database Query: ' . round($duration, 2) . 'ms', $queryData);
         }
@@ -220,8 +221,13 @@ class Anon_Debug
 
     /**
      * 错误处理器
+     * @param int $severity 错误级别
+     * @param string $message 错误信息
+     * @param string $file 文件名
+     * @param int $line 行号
+     * @return bool
      */
-    public static function errorHandler($severity, $message, $file, $line)
+    public static function errorHandler(int $severity, string $message, string $file, int $line): bool
     {
         if (!self::isEnabled()) return false;
 
@@ -238,13 +244,15 @@ class Anon_Debug
         self::$errors[] = $errorData;
         self::log('ERROR', "PHP Error: {$message}", $errorData);
 
-        return false; // 让PHP继续处理错误
+        return false;
     }
 
     /**
      * 异常处理器
+     * @param Throwable $exception 异常对象
+     * @return void
      */
-    public static function exceptionHandler($exception)
+    public static function exceptionHandler(Throwable $exception): void
     {
         if (!self::isEnabled()) return;
 
@@ -264,8 +272,9 @@ class Anon_Debug
 
     /**
      * 关闭处理器
+     * @return void
      */
-    public static function shutdownHandler()
+    public static function shutdownHandler(): void
     {
         if (!self::isEnabled()) return;
 
@@ -274,7 +283,6 @@ class Anon_Debug
             self::errorHandler($error['type'], $error['message'], $error['file'], $error['line']);
         }
 
-        // 记录请求结束信息
         $endTime = microtime(true);
         $duration = ($endTime - self::$requestStartTime) * 1000;
         $memoryUsed = memory_get_usage(true) - self::$requestStartMemory;
@@ -290,8 +298,9 @@ class Anon_Debug
 
     /**
      * 获取调试数据
+     * @return array
      */
-    public static function getData()
+    public static function getData(): array
     {
         if (!self::isEnabled()) return [];
 
@@ -322,8 +331,9 @@ class Anon_Debug
 
     /**
      * 清理调试数据
+     * @return void
      */
-    public static function clear()
+    public static function clear(): void
     {
         self::$collectors = [];
         self::$performance = [];
@@ -333,26 +343,23 @@ class Anon_Debug
 
     /**
      * 检查是否启用调试
+     * @return bool
      */
-    public static function isEnabled()
+    public static function isEnabled(): bool
     {
         if (!defined('ANON_DEBUG')) {
             return false;
         }
-        
         $value = ANON_DEBUG;
-        
-        if ($value === true || $value === 1 || $value === '1' || $value === 'true') {
-            return true;
-        }
-        
-        return false;
+        return $value === true || $value === 1 || $value === '1' || $value === 'true';
     }
 
     /**
      * 写入日志文件
+     * @param array $logData 日志数据
+     * @return void
      */
-    private static function writeToFile($logData)
+    private static function writeToFile(array $logData): void
     {
         $logDir = __DIR__ . '/../../logs';
         if (!is_dir($logDir)) {
@@ -360,50 +367,29 @@ class Anon_Debug
         }
 
         $logFile = $logDir . '/debug_' . date('Y-m-d') . '.log';
-        
-        // 格式化时间戳，包含毫秒
         $timestamp = $logData['timestamp'];
         $dateTime = date('Y-m-d H:i:s', (int)$timestamp);
         $microseconds = sprintf('%03d', (int)(($timestamp - (int)$timestamp) * 1000));
         $formattedTime = "{$dateTime}.{$microseconds}";
         
-        // 格式化日志级别，添加图标
-        $levelIcons = [
-            'DEBUG' => '',
-            'INFO' => '',
-            'WARN' => '',
-            'ERROR' => '',
-            'FATAL' => ''
-        ];
-        $formattedLevel = $logData['level'];
-        
-        // 格式化请求ID
         $requestId = $logData['request_id'] ?? 'unknown';
         $shortRequestId = substr($requestId, 0, 20);
-        
-        // 格式化内存信息
         $memory = self::formatBytes($logData['memory'] ?? 0);
         $peakMemory = self::formatBytes($logData['peak_memory'] ?? 0);
         
-        // 格式化上下文数据（生产环境过滤敏感信息）
         $contextStr = '';
         if (!empty($logData['context'])) {
-            // 移除冗余的 request_id，因为已经在日志行中显示
             $context = $logData['context'];
             unset($context['request_id']);
             
-            // 生产环境过滤敏感信息
-            $isProduction = !self::shouldLogDetailedInfo();
-            if ($isProduction) {
+            if (!self::shouldLogDetailedInfo()) {
                 $context = self::sanitizeLogContext($context);
             }
             
-            // 格式化上下文为更易读的格式
             if (!empty($context)) {
                 $contextParts = [];
                 foreach ($context as $key => $value) {
                     if (is_array($value)) {
-                        // 对于数组，使用 JSON 但限制长度
                         $jsonStr = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                         if (strlen($jsonStr) > 200) {
                             $jsonStr = substr($jsonStr, 0, 200) . '...';
@@ -419,11 +405,10 @@ class Anon_Debug
             }
         }
         
-        // 构建日志行
         $logLine = sprintf(
             "[%s] %-12s [%s] %s | mem:%s peak:%s%s\n",
             $formattedTime,
-            $formattedLevel,
+            $logData['level'],
             $shortRequestId,
             $logData['message'],
             $memory,
@@ -432,41 +417,38 @@ class Anon_Debug
         );
 
         file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
-
-        // 检查日志文件大小
         self::rotateLogIfNeeded($logFile);
     }
 
     /**
      * 日志轮转
+     * @param string $logFile 日志文件路径
+     * @return void
      */
-    private static function rotateLogIfNeeded($logFile)
+    private static function rotateLogIfNeeded(string $logFile): void
     {
         if (!file_exists($logFile)) return;
 
-        $maxSize = self::$config['max_log_size'] * 1024 * 1024; // 转换为字节
+        $maxSize = self::$config['max_log_size'] * 1024 * 1024;
         if (filesize($logFile) > $maxSize) {
             $backupFile = $logFile . '.' . time();
             rename($logFile, $backupFile);
-
-            // 清理旧日志文件
             self::cleanOldLogs(dirname($logFile));
         }
     }
 
     /**
      * 清理旧日志文件
+     * @param string $logDir 日志目录
+     * @return void
      */
-    private static function cleanOldLogs($logDir)
+    private static function cleanOldLogs(string $logDir): void
     {
         $files = glob($logDir . '/debug_*.log.*');
         if (count($files) > self::$config['max_log_files']) {
-            // 按修改时间排序
             usort($files, function($a, $b) {
                 return filemtime($a) - filemtime($b);
             });
-
-            // 删除最旧的文件
             $filesToDelete = array_slice($files, 0, count($files) - self::$config['max_log_files']);
             foreach ($filesToDelete as $file) {
                 unlink($file);
@@ -476,21 +458,21 @@ class Anon_Debug
 
     /**
      * 格式化字节数
+     * @param int $bytes 字节数
+     * @return string
      */
-    private static function formatBytes($bytes)
+    private static function formatBytes(int $bytes): string
     {
         $units = ['B', 'KB', 'MB', 'GB'];
         $bytes = max($bytes, 0);
         $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
         $pow = min($pow, count($units) - 1);
-
         $bytes /= (1 << (10 * $pow));
-
         return round($bytes, 2) . ' ' . $units[$pow];
     }
 
     /**
-     * 检查是否应该记录详细信息（包含敏感信息）
+     * 检查是否应该记录详细信息
      * @return bool
      */
     private static function shouldLogDetailedInfo(): bool
@@ -502,24 +484,21 @@ class Anon_Debug
     }
 
     /**
-     * 清理日志上下文中的敏感信息（生产环境使用）
+     * 清理日志上下文中的敏感信息
      * @param array $context 原始上下文
-     * @return array 清理后的上下文
+     * @return array
      */
     private static function sanitizeLogContext(array $context): array
     {
         $sensitiveKeys = [
             'password', 'passwd', 'pwd', 'secret', 'token', 'csrf_token', 'api_key',
-            'db_password', 'db_user', 'db_host', 'db_name',
-            'file_path', 'file', 'path', 'realpath',
+            'db_password', 'db_user', 'db_host', 'db_name', 'file_path', 'file', 'path', 'realpath',
             'sql', 'query', 'connection'
         ];
         
         $sanitized = [];
         foreach ($context as $key => $value) {
             $keyLower = strtolower($key);
-            
-            // 检查是否是敏感键
             $isSensitive = false;
             foreach ($sensitiveKeys as $sensitiveKey) {
                 if (strpos($keyLower, $sensitiveKey) !== false) {
@@ -529,17 +508,13 @@ class Anon_Debug
             }
             
             if ($isSensitive) {
-                // 替换为占位符
                 $sanitized[$key] = '[FILTERED]';
             } elseif (is_array($value)) {
-                // 递归处理数组
                 $sanitized[$key] = self::sanitizeLogContext($value);
             } elseif (is_string($value)) {
-                // 检查字符串中是否包含敏感信息（如文件路径、数据库连接字符串）
                 if (preg_match('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', $value)) {
                     $sanitized[$key] = preg_replace('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', '$1=[FILTERED]', $value);
                 } elseif (preg_match('/[a-zA-Z]:\\\\[^\\\\]+|\\/[^\\/]+/', $value) && strlen($value) > 50) {
-                    // 过滤长文件路径
                     $sanitized[$key] = '[PATH_FILTERED]';
                 } else {
                     $sanitized[$key] = $value;
@@ -548,13 +523,10 @@ class Anon_Debug
                 $sanitized[$key] = $value;
             }
         }
-        
         return $sanitized;
     }
 
-    /**
-     * 便捷方法
-     */
+    // 便捷方法
     public static function debug($message, $context = []) { self::log('DEBUG', $message, $context); }
     public static function info($message, $context = []) { self::log('INFO', $message, $context); }
     public static function warn($message, $context = []) { self::log('WARN', $message, $context); }
@@ -562,17 +534,17 @@ class Anon_Debug
     public static function fatal($message, $context = []) { self::log('FATAL', $message, $context); }
 
     /**
-     * 检查 Debug 模式是否启用
+     * 检查是否开启调试
      * @return bool
      */
-    public static function checkDebugEnabled()
+    public static function checkDebugEnabled(): bool
     {
         return self::isEnabled();
     }
 
     /**
-     * 检查debug权限
-     * @return bool|string 返回true表示有权限，返回'not_logged_in'表示未登录，返回false表示无权限
+     * 检查调试权限
+     * @return bool|string
      */
     public static function checkPermission()
     {
@@ -581,8 +553,7 @@ class Anon_Debug
         }
 
         $userId = null;
-        
-        if (class_exists('Anon_Token') && Anon_Auth_Token::isEnabled()) {
+        if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
             try {
                 $token = Anon_Auth_Token::getTokenFromRequest();
                 if ($token) {
@@ -598,12 +569,11 @@ class Anon_Debug
                         }
                     }
                 }
-            } catch (Exception $e) {
-            }
+            } catch (Exception $e) {}
         }
         
         if (!$userId && class_exists('Anon_Check') && Anon_Check::isLoggedIn()) {
-            if (class_exists('Anon_RequestHelper')) {
+            if (class_exists('Anon_Http_Request')) {
                 $userId = Anon_Http_Request::getUserId();
             }
         }
@@ -617,9 +587,10 @@ class Anon_Debug
     }
 
     /**
-     * 返回403错误
+     * 返回 403 错误
+     * @return void
      */
-    public static function return403()
+    public static function return403(): void
     {
         Anon_Common::Header(403);
         Anon_Http_Response::forbidden('需要管理员权限才能访问 Debug 控制台');
@@ -627,9 +598,10 @@ class Anon_Debug
     }
 
     /**
-     * 调试信息API
+     * 调试信息接口
+     * @return void
      */
-    public static function debugInfo()
+    public static function debugInfo(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -643,17 +615,15 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 获取调试数据
         $debugData = self::getData();
-
         Anon_Http_Response::success($debugData, 'Debug info retrieved successfully');
     }
 
     /**
-     * 性能监控API
+     * 性能监控接口
+     * @return void
      */
-    public static function performanceApi()
+    public static function performanceApi(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -667,25 +637,14 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 获取性能数据
-        $performanceData = self::getPerformanceData();
-
-        Anon_Http_Response::success($performanceData, 'Performance data retrieved successfully');
+        Anon_Http_Response::success(self::$performance, 'Performance data retrieved successfully');
     }
 
     /**
-     * 获取性能数据
+     * 日志接口
+     * @return void
      */
-    public static function getPerformanceData()
-    {
-        return self::$performance;
-    }
-
-    /**
-     * 日志API
-     */
-    public static function logs()
+    public static function logs(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -699,25 +658,14 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 获取日志数据
-        $logs = self::getLogs();
-
-        Anon_Http_Response::success($logs, 'Logs retrieved successfully');
+        Anon_Http_Response::success(self::$collectors['logs'] ?? [], 'Logs retrieved successfully');
     }
 
     /**
-     * 获取日志数据
+     * 错误日志接口
+     * @return void
      */
-    public static function getLogs()
-    {
-        return self::$collectors['logs'] ?? [];
-    }
-
-    /**
-     * 错误日志API
-     */
-    public static function errors()
+    public static function errors(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -731,25 +679,14 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 获取错误数据
-        $errors = self::getErrors();
-
-        Anon_Http_Response::success($errors, 'Errors retrieved successfully');
+        Anon_Http_Response::success(self::$errors, 'Errors retrieved successfully');
     }
 
     /**
-     * 获取错误数据
+     * Hook 调试接口
+     * @return void
      */
-    public static function getErrors()
-    {
-        return self::$errors;
-    }
-
-    /**
-     * Hook调试API
-     */
-    public static function hooks()
+    public static function hooks(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -763,61 +700,46 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 获取Hook数据
-        $hooks = self::getHookData();
-
-        Anon_Http_Response::success($hooks, 'Hook data retrieved successfully');
-    }
-
-    /**
-     * 获取Hook数据
-     */
-    public static function getHookData()
-    {
-        // 获取Hook统计数据
         $allHooks = Anon_System_Hook::getAllHooks();
         $stats = Anon_System_Hook::getHookStats();
             
-            $actions = [];
-            $filters = [];
-            
-            foreach ($allHooks as $hookName => $priorities) {
-                foreach ($priorities as $priority => $hooks) {
-                    foreach ($hooks as $hookId => $hookData) {
-                        $hookInfo = [
-                            'name' => $hookName,
-                            'priority' => $priority,
-                            'type' => $hookData['type'],
-                            'added_at' => $hookData['added_at'] ?? null
-                        ];
-                        
-                        if (isset($stats[$hookName])) {
-                            $hookInfo['stats'] = $stats[$hookName];
-                        }
-                        
-                        if ($hookData['type'] === 'action') {
-                            $actions[] = $hookInfo;
-                        } else {
-                            $filters[] = $hookInfo;
-                        }
+        $actions = [];
+        $filters = [];
+        foreach ($allHooks as $hookName => $priorities) {
+            foreach ($priorities as $priority => $hooks) {
+                foreach ($hooks as $hookId => $hookData) {
+                    $hookInfo = [
+                        'name' => $hookName,
+                        'priority' => $priority,
+                        'type' => $hookData['type'],
+                        'added_at' => $hookData['added_at'] ?? null
+                    ];
+                    if (isset($stats[$hookName])) {
+                        $hookInfo['stats'] = $stats[$hookName];
+                    }
+                    if ($hookData['type'] === 'action') {
+                        $actions[] = $hookInfo;
+                    } else {
+                        $filters[] = $hookInfo;
                     }
                 }
             }
+        }
             
-        return [
+        Anon_Http_Response::success([
             'actions' => $actions,
             'filters' => $filters,
             'total_actions' => count($actions),
             'total_filters' => count($filters),
             'stats' => $stats
-        ];
+        ], 'Hook data retrieved successfully');
     }
 
     /**
-     * 调试工具API
+     * 调试工具接口
+     * @return void
      */
-    public static function tools()
+    public static function tools(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -831,7 +753,6 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
         $tools = [
             'system_info' => [
                 'php_version' => PHP_VERSION,
@@ -839,67 +760,31 @@ class Anon_Debug
                 'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
                 'memory_limit' => ini_get('memory_limit'),
                 'max_execution_time' => ini_get('max_execution_time'),
-                'upload_max_filesize' => ini_get('upload_max_filesize'),
-                'post_max_size' => ini_get('post_max_size'),
-                'timezone' => date_default_timezone_get(),
                 'current_time' => date('Y-m-d H:i:s'),
             ],
             'debug_tools' => [
-                'clear_debug_data' => [
-                    'name' => '清理调试数据',
-                    'description' => '清理所有调试日志、性能数据和错误记录',
-                    'endpoint' => '/anon/debug/api/clear',
-                    'method' => 'POST'
-                ],
-                'export_debug_info' => [
-                    'name' => '导出调试信息',
-                    'description' => '导出完整的调试信息JSON数据',
-                    'endpoint' => '/anon/debug/api/info',
-                    'method' => 'GET'
-                ],
-                'performance_monitor' => [
-                    'name' => '性能监控',
-                    'description' => '查看系统性能数据和执行时间统计',
-                    'endpoint' => '/anon/debug/api/performance',
-                    'method' => 'GET'
-                ],
-                'system_logs' => [
-                    'name' => '系统日志',
-                    'description' => '查看系统运行日志',
-                    'endpoint' => '/anon/debug/api/logs',
-                    'method' => 'GET'
-                ],
-                'error_logs' => [
-                    'name' => '错误日志',
-                    'description' => '查看系统错误和异常记录',
-                    'endpoint' => '/anon/debug/api/errors',
-                    'method' => 'GET'
-                ],
-                'hook_debug' => [
-                    'name' => 'Hook调试',
-                    'description' => '查看Hook系统的执行统计',
-                    'endpoint' => '/anon/debug/api/hooks',
-                    'method' => 'GET'
-                ]
+                'clear_debug_data' => ['name' => '清理调试数据', 'method' => 'POST'],
+                'export_debug_info' => ['name' => '导出调试信息', 'method' => 'GET'],
+                'performance_monitor' => ['name' => '性能监控', 'method' => 'GET'],
+                'system_logs' => ['name' => '系统日志', 'method' => 'GET'],
+                'error_logs' => ['name' => '错误日志', 'method' => 'GET'],
+                'hook_debug' => ['name' => 'Hook调试', 'method' => 'GET']
             ],
             'environment' => [
                 'debug_enabled' => defined('ANON_DEBUG') && ANON_DEBUG,
-                'installed' => defined('ANON_INSTALLED') && ANON_INSTALLED,
                 'request_id' => self::$requestId,
-                'request_start_time' => self::$requestStartTime,
                 'current_memory' => memory_get_usage(true),
                 'peak_memory' => memory_get_peak_usage(true),
-                'loaded_extensions' => get_loaded_extensions(),
             ]
         ];
-
         Anon_Http_Response::success($tools, 'Debug tools retrieved successfully');
     }
 
     /**
-     * 清理调试数据API
+     * 清理数据接口
+     * @return void
      */
-    public static function clearData()
+    public static function clearData(): void
     {
         $permissionResult = self::checkPermission();
         if ($permissionResult !== true) {
@@ -913,44 +798,38 @@ class Anon_Debug
         }
 
         Anon_Common::Header();
-
-        // 清理调试数据
         self::clear();
-
         Anon_Http_Response::success(null, 'Debug data cleared successfully');
     }
 
     /**
-     * 调试控制台登录页面
+     * 登录页面
+     * @return void
      */
-    public static function login()
+    public static function login(): void
     {
         if (!self::checkDebugEnabled()) {
             Anon_Common::Header(403);
             Anon_Http_Response::forbidden('Debug 模式未启用');
         }
-        
-        // 设置缓存控制头
         self::setCacheHeaders();
-        
-        // 设置 HTML Content-Type
         header('Content-Type: text/html; charset=utf-8');
         
         $viewPath = __DIR__ . '/../Components/Debug/Login.php';
-        
         if (file_exists($viewPath)) {
             include $viewPath;
         } else {
             Anon_Common::Header(500);
-            Anon_Http_Response::serverError('登录页面文件不存在: ' . $viewPath);
+            echo '登录页面文件不存在';
         }
         exit;
     }
 
     /**
-     * 调试控制台Web界面
+     * 控制台页面
+     * @return void
      */
-    public static function console()
+    public static function console(): void
     {
         if (!self::checkDebugEnabled()) {
             Anon_Common::Header(403);
@@ -958,38 +837,33 @@ class Anon_Debug
         }
         
         $permissionResult = self::checkPermission();
-        
         if ($permissionResult === 'not_logged_in') {
             header('Location: /anon/debug/login');
             exit;
         }
-        
         if ($permissionResult !== true) {
             Anon_Common::Header(403);
             Anon_Http_Response::forbidden('需要管理员权限才能访问 Debug 控制台');
         }
 
-        // 设置缓存控制头
         self::setCacheHeaders();
-
-        // 设置 HTML Content-Type
         header('Content-Type: text/html; charset=utf-8');
 
         $viewPath = __DIR__ . '/../Components/Debug/Console.php';
-        
         if (file_exists($viewPath)) {
             include $viewPath;
         } else {
             Anon_Common::Header(500);
-            Anon_Http_Response::serverError('控制台页面文件不存在: ' . $viewPath);
+            echo '控制台页面文件不存在';
         }
         exit;
     }
 
     /**
-     * 设置缓存控制头
+     * 设置缓存头
+     * @return void
      */
-    private static function setCacheHeaders()
+    private static function setCacheHeaders(): void
     {
         $cacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
         $cacheTime = Anon_System_Env::get('app.debug.cache.time', 0);

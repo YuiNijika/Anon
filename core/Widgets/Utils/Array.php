@@ -1,8 +1,23 @@
 <?php
+/**
+ * 数组工具类
+ *
+ * 提供数组操作的便捷方法，如深度获取、设置、合并等。
+ *
+ * @package Anon/Core/Widgets/Utils
+ */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Utils_Array
 {
+    /**
+     * 获取数组中的值，支持点号分隔的键名
+     * @param array $array 数组
+     * @param string $key 键名 (e.g., 'a.b.c')
+     * @param mixed $default 默认值
+     * @return mixed
+     */
     public static function get(array $array, string $key, $default = null)
     {
         $keys = explode('.', $key);
@@ -18,6 +33,13 @@ class Anon_Utils_Array
         return $value;
     }
     
+    /**
+     * 设置数组中的值，支持点号分隔的键名
+     * @param array $array 数组引用
+     * @param string $key 键名 (e.g., 'a.b.c')
+     * @param mixed $value 值
+     * @return void
+     */
     public static function set(array &$array, string $key, $value): void
     {
         $keys = explode('.', $key);
@@ -33,6 +55,12 @@ class Anon_Utils_Array
         $current = $value;
     }
     
+    /**
+     * 深度合并两个数组
+     * @param array $array1 基础数组
+     * @param array $array2 覆盖数组
+     * @return array 合并后的数组
+     */
     public static function merge(array $array1, array $array2): array
     {
         foreach ($array2 as $key => $value) {
@@ -46,4 +74,3 @@ class Anon_Utils_Array
         return $array1;
     }
 }
-

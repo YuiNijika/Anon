@@ -3,12 +3,27 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 require_once __DIR__ . '/../../Contract/ServerInterface.php';
 
+/**
+ * Swoole TCP 服务器驱动
+ * 负责启动、停止和管理 Swoole TCP 服务器
+ */
 class Anon_Server_Driver_Swoole_Tcp implements Anon_Server_Contract_ServerInterface
 {
+    /**
+     * @var Swoole\Server Swoole 服务器实例
+     */
     protected $server;
+
+    /**
+     * @var array 配置选项
+     */
     protected $config;
 
-    public function __construct($config = [])
+    /**
+     * 构造函数
+     * @param array $config 配置数组
+     */
+    public function __construct(array $config = [])
     {
         $this->config = array_merge([
             'host' => '0.0.0.0',
@@ -18,7 +33,12 @@ class Anon_Server_Driver_Swoole_Tcp implements Anon_Server_Contract_ServerInterf
         ], $config);
     }
 
-    public function start()
+    /**
+     * 启动服务
+     * @param array $options 启动选项
+     * @return void
+     */
+    public function start(array $options = []): void
     {
         if (!class_exists('Swoole\Server')) {
             die("未安装 Swoole 扩展。\n");
@@ -47,8 +67,20 @@ class Anon_Server_Driver_Swoole_Tcp implements Anon_Server_Contract_ServerInterf
         $this->server->start();
     }
 
-    public function stop() {}
-    public function reload() 
+    /**
+     * 停止服务
+     * @return void
+     */
+    public function stop(): void
+    {
+        // Swoole 服务停止逻辑
+    }
+
+    /**
+     * 重载服务
+     * @return void
+     */
+    public function reload(): void
     {
         if ($this->server) {
             $this->server->reload();

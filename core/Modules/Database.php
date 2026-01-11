@@ -46,22 +46,23 @@ function anon_require_all_database_files($baseDir)
 
 anon_require_all_database_files(DatabaseDir);
 
+/**
+ * 数据库操作
+ */
 class Anon_Database
 {
     /**
-     * 单例实例
-     * @var Anon_Database|null
+     * @var Anon_Database|null 实例
      */
     private static $instance = null;
 
     /**
-     * 动态实例容器
-     * 包含 Repository/Service 实例
+     * @var array 实例容器
      */
     protected $instances = [];
 
     /**
-     * 私有构造函数防止外部实例化
+     * 构造函数
      */
     private function __construct()
     {
@@ -69,7 +70,7 @@ class Anon_Database
     }
 
     /**
-     * 获取单例实例
+     * 获取实例
      * @return Anon_Database
      */
     public static function getInstance(): self
@@ -99,7 +100,7 @@ class Anon_Database
     private static $bootstraped = false;
 
     /**
-     * 自动发现并实例化匹配类Anon_Database_*Repository / *Service
+     * 自动发现实例
      */
     protected function bootstrapInstances()
     {
@@ -136,6 +137,10 @@ class Anon_Database
 
     private static $connection = null;
 
+    /**
+     * 获取连接
+     * @return mixed
+     */
     private function getConnection()
     {
         if (self::$connection === null) {
@@ -145,27 +150,25 @@ class Anon_Database
     }
 
     /**
-     * 直接访问 QueryBuilder 的入口
+     * 获取数据库实例
      * @param string $table 表名
-     * @return Anon_QueryBuilder|Anon_Database_QueryBuilder
+     * @return Anon_Database_QueryBuilder
      */
     public function db($table)
     {
-        // 检查分库分表配置
         if (class_exists('Anon_Sharding') && Anon_Database_Sharding::isSharded($table)) {
-            // 如果启用了分片，需要在查询时指定分片键
-            // 这里返回基础表名，实际分片在查询时处理
+            // 分片逻辑处理
         }
 
         return new Anon_Database_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
     }
 
     /**
-     * 批量插入数据
+     * 批量插入
      * @param string $table 表名
-     * @param array $data 数据数组
+     * @param array $data 数据
      * @param int $batchSize 批次大小
-     * @return int 成功插入的总行数
+     * @return int
      */
     public function batchInsert(string $table, array $data, int $batchSize = 1000): int
     {
@@ -173,12 +176,12 @@ class Anon_Database
     }
 
     /**
-     * 批量更新数据
+     * 批量更新
      * @param string $table 表名
-     * @param array $data 数据数组
-     * @param string $keyColumn 主键字段名
+     * @param array $data 数据
+     * @param string $keyColumn 主键
      * @param int $batchSize 批次大小
-     * @return int 成功更新的总行数
+     * @return int
      */
     public function batchUpdate(string $table, array $data, string $keyColumn = 'id', int $batchSize = 1000): int
     {
@@ -186,16 +189,13 @@ class Anon_Database
     }
 
     /**
-     * 执行查询并返回结果
-     * ⚠️ 警告：直接执行原生 SQL 存在 SQL 注入风险，请优先使用 QueryBuilder
-     * @param string $sql SQL 语句
-     * @param bool $allowRawSql 是否允许执行原生 SQL（默认 false，需要在配置中启用）
-     * @return mixed 查询结果
-     * @throws RuntimeException 如果未启用原生 SQL 执行
+     * 执行查询
+     * @param string $sql SQL语句
+     * @param bool $allowRawSql 允许原生SQL
+     * @return mixed
      */
     public function query($sql, bool $allowRawSql = false)
     {
-        // 检查是否允许执行原生 SQL
         $rawSqlEnabled = Anon_System_Env::get('app.database.allowRawSql', false);
         
         if (!$allowRawSql && !$rawSqlEnabled) {
@@ -205,7 +205,6 @@ class Anon_Database
             );
         }
         
-        // 在调试模式下记录警告
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             Anon_Debug::warn("执行原生 SQL 查询（存在安全风险）", [
                 'sql_preview' => substr($sql, 0, 100) . (strlen($sql) > 100 ? '...' : '')
@@ -216,10 +215,10 @@ class Anon_Database
     }
 
     /**
-     * 创建数据表
+     * 创建表
      * @param string $table 表名
-     * @param array $columns 字段定义数组
-     * @param array $options 表选项
+     * @param array $columns 字段
+     * @param array $options 选项
      * @return bool
      */
     public function createTable(string $table, array $columns, array $options = []): bool
@@ -231,8 +230,8 @@ class Anon_Database
      * 添加字段
      * @param string $table 表名
      * @param string $column 字段名
-     * @param string|array $definition 字段定义
-     * @param string|null $after 在哪个字段之后
+     * @param mixed $definition 定义
+     * @param string|null $after 之后
      * @return bool
      */
     public function addColumn(string $table, string $column, $definition, ?string $after = null): bool
@@ -244,7 +243,7 @@ class Anon_Database
      * 修改字段
      * @param string $table 表名
      * @param string $column 字段名
-     * @param string|array $definition 新的字段定义
+     * @param mixed $definition 定义
      * @return bool
      */
     public function modifyColumn(string $table, string $column, $definition): bool
@@ -266,7 +265,7 @@ class Anon_Database
     /**
      * 删除表
      * @param string $table 表名
-     * @param bool $ifExists 是否使用 IF EXISTS
+     * @param bool $ifExists 是否存在
      * @return bool
      */
     public function dropTable(string $table, bool $ifExists = true): bool
@@ -275,7 +274,7 @@ class Anon_Database
     }
 
     /**
-     * 检查表是否存在
+     * 检查表
      * @param string $table 表名
      * @return bool
      */
@@ -285,7 +284,10 @@ class Anon_Database
     }
 
     /**
-     * 准备并返回预处理语句对象
+     * 预处理
+     * @param string $sql SQL语句
+     * @param array $params 参数
+     * @return mixed
      */
     public function prepare($sql, $params = [])
     {
@@ -293,23 +295,30 @@ class Anon_Database
     }
 
     /**
-     * 动态属性访问
-     * 兼容访问 userRepository / avatarService 等
+     * 获取属性
+     * @param string $name
+     * @return mixed
      */
     public function __get($name)
     {
         return $this->instances[$name] ?? null;
     }
 
+    /**
+     * 检查属性
+     * @param string $name
+     * @return bool
+     */
     public function __isset($name)
     {
         return isset($this->instances[$name]);
     }
 
     /**
-     * 动态方法转发自动导出数据库与服务的方法
-     * - 保持现有显式方法兼容
-     * - 新增方法无需在此类重复导出
+     * 调用方法
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
      */
     public function __call($name, $arguments)
     {
@@ -317,7 +326,6 @@ class Anon_Database
         if ($target && method_exists($target, $name)) {
             return call_user_func_array([$target, $name], $arguments);
         }
-        // 回退遍历已发现的所有实例，若存在同名方法则调用
         foreach ($this->uniqueInstances() as $repo) {
             if ($repo && method_exists($repo, $name)) {
                 return call_user_func_array([$repo, $name], $arguments);
@@ -327,12 +335,12 @@ class Anon_Database
     }
 
     /**
-     * 根据方法名前缀解析目标仓库或服务
+     * 解析目标
+     * @param string $method
+     * @return object|null
      */
     private function resolveForwardTarget($method)
     {
-        // 根据方法名前缀解析目标
-        // 如 getUser -> UserRepository / UserService
         if (preg_match('/^(get|is|add|update|delete)([A-Z][A-Za-z0-9_]*)/', $method, $m)) {
             $subject = $m[2];
             $candidates = [
@@ -353,7 +361,8 @@ class Anon_Database
     }
 
     /**
-     * 去重并返回唯一实例列表
+     * 获取唯一实例
+     * @return array
      */
     protected function uniqueInstances()
     {

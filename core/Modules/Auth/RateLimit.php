@@ -2,13 +2,12 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 防刷限制模块
- * 支持基于IP、设备指纹等多种限制方式
+ * 速率限制
  */
 class Anon_Auth_RateLimit
 {
     /**
-     * 获取客户端IP
+     * 获取IP
      * @return string
      */
     public static function getClientIp(): string
@@ -17,7 +16,7 @@ class Anon_Auth_RateLimit
     }
 
     /**
-     * 生成设备指纹
+     * 生成指纹
      * @return string
      */
     public static function generateDeviceFingerprint(): string
@@ -34,11 +33,11 @@ class Anon_Auth_RateLimit
     }
 
     /**
-     * 检查是否超过限制
-     * @param string $key 限制键（如 'register_ip', 'register_device'）
-     * @param int $maxAttempts 最大尝试次数
-     * @param int $windowSeconds 时间窗口（秒）
-     * @return array ['allowed' => bool, 'remaining' => int, 'resetAt' => int]
+     * 检查限制
+     * @param string $key 键
+     * @param int $maxAttempts 最大尝试
+     * @param int $windowSeconds 窗口秒数
+     * @return array
      */
     public static function checkLimit(string $key, int $maxAttempts, int $windowSeconds): array
     {
@@ -51,7 +50,6 @@ class Anon_Auth_RateLimit
         
         $now = time();
         
-        // 如果时间窗口已过期，重置计数
         if ($now >= $data['resetAt']) {
             $data = [
                 'count' => 0,
@@ -76,9 +74,9 @@ class Anon_Auth_RateLimit
     }
 
     /**
-     * 检查注册限制（IP + 设备指纹）
-     * @param array $config 配置数组
-     * @return array ['allowed' => bool, 'message' => string, 'remaining' => int, 'resetAt' => int]
+     * 检查注册限制
+     * @param array $config 配置
+     * @return array
      */
     public static function checkRegisterLimit(array $config = []): array
     {
@@ -97,7 +95,6 @@ class Anon_Auth_RateLimit
         
         $config = array_merge($defaultConfig, $config);
         
-        // 检查IP限制
         if ($config['ip']['enabled']) {
             $ip = self::getClientIp();
             $ipKey = "register_ip:" . hash('sha256', $ip);
@@ -115,7 +112,6 @@ class Anon_Auth_RateLimit
             }
         }
         
-        // 检查设备指纹限制
         if ($config['device']['enabled']) {
             $deviceFingerprint = self::generateDeviceFingerprint();
             $deviceKey = "register_device:" . $deviceFingerprint;
@@ -133,7 +129,6 @@ class Anon_Auth_RateLimit
             }
         }
         
-        // 返回允许状态和剩余次数
         $ipRemaining = $config['ip']['enabled'] ? $ipLimit['remaining'] : PHP_INT_MAX;
         $deviceRemaining = $config['device']['enabled'] ? $deviceLimit['remaining'] : PHP_INT_MAX;
         $remaining = min($ipRemaining, $deviceRemaining);
@@ -151,8 +146,8 @@ class Anon_Auth_RateLimit
     }
 
     /**
-     * 清除限制记录
-     * @param string $key 限制键
+     * 清除限制
+     * @param string $key 键
      * @return bool
      */
     public static function clearLimit(string $key): bool
@@ -162,7 +157,7 @@ class Anon_Auth_RateLimit
 
     /**
      * 清除IP限制
-     * @param string|null $ip IP地址，null表示当前IP
+     * @param string|null $ip
      * @return bool
      */
     public static function clearIpLimit(?string $ip = null): bool
@@ -172,8 +167,8 @@ class Anon_Auth_RateLimit
     }
 
     /**
-     * 清除设备指纹限制
-     * @param string|null $fingerprint 设备指纹，null表示当前设备
+     * 清除设备限制
+     * @param string|null $fingerprint
      * @return bool
      */
     public static function clearDeviceLimit(?string $fingerprint = null): bool

@@ -2,21 +2,17 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * CSRF 防护模块
- * 用于防止跨站请求伪造攻击
- * 支持无状态设计，基于 HMAC 的 Token 无需存储在 Session 中
+ * CSRF防护
  */
 class Anon_Auth_Csrf
 {
     /**
-     * 是否使用无状态 Token
-     * 无状态 Token 基于 HMAC，无需存储在 Session 中，减少锁竞争
-     * @var bool
+     * @var bool|null 无状态
      */
     private static $statelessEnabled = null;
 
     /**
-     * 检查是否启用无状态 Token
+     * 检查无状态
      * @return bool
      */
     private static function isStatelessEnabled(): bool
@@ -32,18 +28,15 @@ class Anon_Auth_Csrf
     }
 
     /**
-     * 获取 CSRF 密钥
-     * 优先使用 ANON_APP_KEY，确保每个部署实例唯一
+     * 获取密钥
      * @return string
      */
     private static function getSecretKey(): string
     {
-        // 优先使用 APP_KEY
         if (defined('ANON_APP_KEY') && !empty(ANON_APP_KEY)) {
             return hash('sha256', ANON_APP_KEY . '_csrf');
         }
 
-        // 尝试从 Env 获取
         if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $appKey = Anon_System_Env::get('app.key');
             if (!empty($appKey)) {
@@ -51,7 +44,6 @@ class Anon_Auth_Csrf
             }
         }
 
-        // 如果没有配置 APP_KEY，抛出异常或返回特定标识
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log('Security Warning: ANON_APP_KEY not configured!');
         }
@@ -60,9 +52,8 @@ class Anon_Auth_Csrf
     }
 
     /**
-     * 生成 CSRF Token
-     * 优先使用无状态 Token，基于 HMAC 无需存储在 Session 中
-     * @return string Token 字符串
+     * 生成Token
+     * @return string
      */
     public static function generateToken(): string
     {
@@ -83,9 +74,8 @@ class Anon_Auth_Csrf
     }
 
     /**
-     * 生成无状态 CSRF Token
-     * 基于 HMAC 的 Token，包含时间戳和随机数，无需存储在 Session 中
-     * @return string Token 字符串
+     * 生成无状态Token
+     * @return string
      */
     private static function generateStatelessToken(): string
     {
@@ -106,8 +96,8 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 获取当前 CSRF Token
-     * @return string|null Token 字符串，如果不存在则返回 null
+     * 获取Token
+     * @return string|null
      */
     public static function getToken(): ?string
     {
@@ -119,10 +109,10 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 验证 CSRF Token
-     * @param string|null $token 要验证的 Token，如果为 null 则从请求中获取
-     * @param bool $throwException 验证失败时是否抛出异常
-     * @return bool 验证成功返回 true，失败返回 false
+     * 验证Token
+     * @param string|null $token
+     * @param bool $throwException
+     * @return bool
      */
     public static function verify(?string $token = null, bool $throwException = true): bool
     {
@@ -154,7 +144,6 @@ class Anon_Auth_Csrf
             return false;
         }
         
-        // 使用 hash_equals 防止时序攻击
         if (!hash_equals($_SESSION['csrf_token'], $token)) {
             if ($throwException) {
                 Anon_Common::Header(403);
@@ -163,17 +152,16 @@ class Anon_Auth_Csrf
             return false;
         }
         
-        // 验证通过后立即失效，生成新 Token（一次性使用）
         self::refreshToken();
         
         return true;
     }
 
     /**
-     * 验证无状态 CSRF Token
-     * @param string $token Token 字符串
-     * @param bool $throwException 验证失败时是否抛出异常
-     * @return bool 验证成功返回 true，失败返回 false
+     * 验证无状态Token
+     * @param string $token
+     * @param bool $throwException
+     * @return bool
      */
     private static function verifyStatelessToken(string $token, bool $throwException = true): bool
     {
@@ -198,7 +186,6 @@ class Anon_Auth_Csrf
 
             list($payload, $signature) = $parts;
 
-            // 验证签名
             $expectedSignature = hash_hmac('sha256', $payload, self::getSecretKey());
             if (!hash_equals($expectedSignature, $signature)) {
                 if ($throwException) {
@@ -208,7 +195,6 @@ class Anon_Auth_Csrf
                 return false;
             }
 
-            // 解析 payload
             $data = json_decode(base64_decode($payload, true), true);
             if (!is_array($data) || !isset($data['timestamp']) || !isset($data['nonce'])) {
                 if ($throwException) {
@@ -218,7 +204,6 @@ class Anon_Auth_Csrf
                 return false;
             }
 
-            // 验证时间戳，Token 有效期 2 小时
             $maxAge = 7200;
             if (time() - $data['timestamp'] > $maxAge) {
                 if ($throwException) {
@@ -228,7 +213,6 @@ class Anon_Auth_Csrf
                 return false;
             }
 
-            // 验证 Session ID 匹配（如果存在 Session）
             if (session_status() === PHP_SESSION_ACTIVE && isset($data['session_id'])) {
                 $currentSessionId = session_id();
                 if ($currentSessionId && $data['session_id'] !== $currentSessionId) {
@@ -251,28 +235,21 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 从请求中获取 CSRF Token
-     * 支持从以下位置获取：
-     * 1. HTTP Header: X-CSRF-Token
-     * 2. POST 参数: _csrf_token
-     * 3. GET 参数: _csrf_token
-     * @return string|null Token 字符串，如果不存在则返回 null
+     * 获取Token
+     * @return string|null
      */
     public static function getTokenFromRequest(): ?string
     {
-        // 优先从 Header 获取
         $headers = getallheaders();
         if (isset($headers['X-CSRF-Token'])) {
             return $headers['X-CSRF-Token'];
         }
         
-        // 从 POST 参数获取
         $inputData = Anon_Http_Request::getInput();
         if (isset($inputData['_csrf_token'])) {
             return $inputData['_csrf_token'];
         }
         
-        // 从 GET 参数获取
         if (isset($_GET['_csrf_token'])) {
             return $_GET['_csrf_token'];
         }
@@ -281,8 +258,8 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 刷新 CSRF Token
-     * @return string 新的 Token 字符串
+     * 刷新Token
+     * @return string
      */
     public static function refreshToken(): string
     {
@@ -297,7 +274,8 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 清除 CSRF Token
+     * 清除Token
+     * @return void
      */
     public static function clearToken(): void
     {
@@ -310,7 +288,7 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 检查是否启用 CSRF 防护
+     * 检查启用
      * @return bool
      */
     public static function isEnabled(): bool
@@ -322,9 +300,8 @@ class Anon_Auth_Csrf
     }
     
     /**
-     * 检查请求方法是否需要 CSRF 验证
-     * 默认只验证 POST、PUT、PATCH、DELETE 等修改性请求
-     * @param string|null $method HTTP 方法，如果为 null 则从请求中获取
+     * 检查是否需要验证
+     * @param string|null $method
      * @return bool
      */
     public static function requiresVerification(?string $method = null): bool

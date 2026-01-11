@@ -1,13 +1,34 @@
 <?php
+/**
+ * 数据库连接组件
+ *
+ * 封装 mysqli 连接，提供基础的查询和预处理功能。
+ *
+ * @package Anon/Core/Widgets
+ */
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Database_Connection
 {
+    /**
+     * @var mysqli|null 数据库连接实例
+     */
     protected $conn;
 
+    /**
+     * @var Anon_Database_Connection|null 单例实例
+     */
     private static $instance = null;
+
+    /**
+     * @var mysqli|null 共享的 mysqli 连接
+     */
     private static $connInstance = null;
 
+    /**
+     * 构造函数
+     */
     protected function __construct()
     {
         if (self::$connInstance === null) {
@@ -30,7 +51,11 @@ class Anon_Database_Connection
         $this->conn = self::$connInstance;
     }
 
-    public static function getInstance()
+    /**
+     * 获取单例实例
+     * @return Anon_Database_Connection
+     */
+    public static function getInstance(): Anon_Database_Connection
     {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -40,16 +65,12 @@ class Anon_Database_Connection
 
     /**
      * 执行原始 SQL 查询
-     * 此方法直接执行 SQL，不进行参数绑定
-     * 请确保 $sql 不包含用户输入，优先使用 prepare() 和 QueryBuilder
-     * 
      * @param string $sql SQL 语句
      * @return array|int 查询结果数组或影响的行数
      * @throws RuntimeException
      */
-    public function query($sql)
+    public function query(string $sql)
     {
-        // 检测可能的 SQL 注入特征
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             if (preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) && 
                 preg_match('/(\$|%|_|\'|"|`)/', $sql)) {
@@ -69,7 +90,7 @@ class Anon_Database_Connection
             while ($row = $result->fetch_assoc()) {
                 $rows[] = $row;
             }
-            $result->free(); // 释放结果集
+            $result->free();
             return $rows;
         }
 
@@ -83,11 +104,10 @@ class Anon_Database_Connection
      * @return mysqli_stmt 预处理语句对象
      * @throws RuntimeException 当预处理失败时抛出异常
      */
-    public function prepare($sql, $params = [])
+    public function prepare(string $sql, array $params = []): mysqli_stmt
     {
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
-            // 不记录完整的 SQL 错误信息，防止泄露敏感信息
             $errorMsg = self::sanitizeError($this->conn->error);
             error_log("SQL 预处理错误: " . $errorMsg);
             throw new RuntimeException("SQL 预处理错误");
@@ -131,21 +151,15 @@ class Anon_Database_Connection
      */
     private static function sanitizeError(string $error): string
     {
-        // 检查是否允许记录详细错误
         $logDetailed = false;
         if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
-            $logDetailed = false; // 默认不记录详细错误
+            $logDetailed = false;
         }
         
-        // 移除可能的敏感路径信息
         if (!$logDetailed) {
             $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
-        }
-        
-        // 移除可能的数据库名、表名等敏感信息
-        if (!$logDetailed) {
             $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
         }
         
@@ -158,13 +172,11 @@ class Anon_Database_Connection
      * @return Anon_Database_QueryBuilder 查询构建器实例
      * @throws InvalidArgumentException 当表名无效时抛出异常
      */
-    public function db($table)
+    public function db(string $table): Anon_Database_QueryBuilder
     {
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
             throw new InvalidArgumentException("无效的表名: {$table}");
         }
         return new Anon_Database_QueryBuilder($this, ANON_DB_PREFIX . $table);
     }
-
 }
-

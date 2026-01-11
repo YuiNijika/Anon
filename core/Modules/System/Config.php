@@ -1,15 +1,14 @@
 <?php
 
 /**
- * Anon配置
+ * 系统配置
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_System_Config
 {
     /**
-     * 路由配置
-     * @var array
+     * @var array 路由配置
      */
     private static $routerConfig = [
         'routes' => [],
@@ -21,15 +20,13 @@ class Anon_System_Config
      * 注册路由
      * @param string $path 路由路径
      * @param callable $handler 处理函数
-     * @param array $meta 路由元数据（可选）
-     * @throws RuntimeException 如果路由冲突
+     * @param array $meta 路由元数据
+     * @throws RuntimeException
      */
     public static function addRoute(string $path, callable $handler, array $meta = [])
     {
-        // 规范化路由键，确保以 / 开头，避免匹配失败
         $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
         
-        // 检测路由冲突
         if (isset(self::$routerConfig['routes'][$normalized])) {
             $existingHandler = self::$routerConfig['routes'][$normalized];
             $conflictInfo = self::detectRouteConflict($normalized, $handler, $existingHandler);
@@ -45,7 +42,6 @@ class Anon_System_Config
         
         self::$routerConfig['routes'][$normalized] = $handler;
         
-        // 存储路由元数据
         if (!empty($meta)) {
             $defaultMeta = [
                 'header' => true,
@@ -57,16 +53,13 @@ class Anon_System_Config
                 ],
             ];
             
-            // 验证并合并元数据
             $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
             $meta = array_intersect_key($meta, array_flip($allowedKeys));
             
-            // 验证 cache 配置结构
             if (isset($meta['cache']) && is_array($meta['cache'])) {
                 $cacheAllowedKeys = ['enabled', 'time'];
                 $meta['cache'] = array_intersect_key($meta['cache'], array_flip($cacheAllowedKeys));
                 
-                // 类型验证
                 if (isset($meta['cache']['enabled']) && !is_bool($meta['cache']['enabled'])) {
                     unset($meta['cache']['enabled']);
                 }
@@ -82,7 +75,7 @@ class Anon_System_Config
     /**
      * 获取路由元数据
      * @param string $path 路由路径
-     * @return array|null 路由元数据，未找到返回 null
+     * @return array|null
      */
     public static function getRouteMeta(string $path): ?array
     {
@@ -103,9 +96,9 @@ class Anon_System_Config
     /**
      * 注册静态文件路由
      * @param string $route 路由路径
-     * @param string $filePath 文件完整路径
+     * @param string $filePath 文件路径
      * @param string $mimeType MIME类型
-     * @param int $cacheTime 缓存时间（秒），0表示不缓存
+     * @param int $cacheTime 缓存时间（秒）
      * @param bool $compress 是否启用压缩
      */
     public static function addStaticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true, array $meta = [])
@@ -157,7 +150,7 @@ class Anon_System_Config
 
     /**
      * 获取路由配置
-     * @return array 路由配置数组
+     * @return array
      */
     public static function getRouterConfig(): array
     {
@@ -165,7 +158,7 @@ class Anon_System_Config
     }
 
     /**
-     * 判断程序是否安装
+     * 检查安装状态
      * @return bool
      */
     public static function isInstalled(): bool
@@ -178,7 +171,6 @@ class Anon_System_Config
      */
     public static function initSystemRoutes()
     {
-        // 调试输出路由注册信息
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registering system routes...");
         }
@@ -196,24 +188,13 @@ class Anon_System_Config
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
             Anon_Http_Response::success(['ip' => $ip], '获取客户端IP成功');
         });
-        // self::addRoute('/anon/common/config', function() {
-        //     Anon_Common::Header();
-        //     $config = [
-        //         'token' => Anon_Auth_Token::isEnabled(),
-        //         'captcha' => Anon_Auth_Captcha::isEnabled(),
-        //         'csrfToken' => class_exists('Anon_Csrf') ? Anon_Auth_Csrf::generateToken() : null
-        //     ];
-        //     Anon_Http_Response::success($config, '获取配置信息成功');
-        // });
         self::addRoute('/anon/ciallo', function() {
             Anon_Common::Header();
             Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');
         });
 
-        // 注册静态文件路由
         $staticDir = __DIR__ . '/../../Static/';
         
-        // 获取 debug 缓存配置
         $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
         $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
@@ -222,11 +203,8 @@ class Anon_System_Config
         self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
 
-        // 注册Install路由
         self::addRoute('/anon/install', [Anon_System_Install::class, 'index']);
-        // 注册anon路由
         self::addRoute('/anon', function() {
-            // 检查系统是否已安装
             if (self::isInstalled()) {
                 Anon_Common::Header(403);
                 echo json_encode([
@@ -235,12 +213,10 @@ class Anon_System_Config
                 ]);
                 exit;
             } else {
-                // 如果未安装，调用安装类
                 Anon_System_Install::index();
             }
         });
         
-        // 调试输出已注册的路由
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered system routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
@@ -251,13 +227,10 @@ class Anon_System_Config
      */
     public static function initAppRoutes()
     {
-        // 调试输出路由注册信息
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registering app routes...");
         }
 
-        // 注册Debug路由
-        // API路由
         self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
         self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
         self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
@@ -265,11 +238,9 @@ class Anon_System_Config
         self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
         self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
         self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
-        // 页面路由
         self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
         self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
 
-        // 调试输出已注册的路由
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered app routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
@@ -278,18 +249,16 @@ class Anon_System_Config
     /**
      * 检测路由冲突
      * @param string $path 路由路径
-     * @param callable $newHandler 新的处理函数
-     * @param callable $existingHandler 已存在的处理函数
-     * @return array 冲突信息
+     * @param callable $newHandler 新处理函数
+     * @param callable $existingHandler 现有处理函数
+     * @return array
      */
     private static function detectRouteConflict(string $path, callable $newHandler, callable $existingHandler): array
     {
-        // 检查是否是同一个处理函数（允许重复注册相同的处理函数）
         if ($newHandler === $existingHandler) {
             return ['conflict' => false, 'details' => ''];
         }
         
-        // 检查处理函数是否相同（通过反射比较）
         $newReflection = self::getCallableReflection($newHandler);
         $existingReflection = self::getCallableReflection($existingHandler);
         
@@ -302,7 +271,6 @@ class Anon_System_Config
             }
         }
         
-        // 存在冲突
         $newInfo = self::formatHandlerInfo($newHandler);
         $existingInfo = self::formatHandlerInfo($existingHandler);
         
@@ -313,7 +281,7 @@ class Anon_System_Config
     }
 
     /**
-     * 获取可调用对象的反射信息
+     * 获取反射信息
      * @param callable $handler 处理函数
      * @return array|null
      */
@@ -340,7 +308,7 @@ class Anon_System_Config
                 ];
             }
         } catch (Exception $e) {
-            // 忽略反射错误
+            // 忽略
         }
         
         return null;
@@ -366,8 +334,8 @@ class Anon_System_Config
     }
 
     /**
-     * 获取所有路由列表（用于 CLI 命令）
-     * @return array 路由列表，包含冲突信息
+     * 获取路由列表
+     * @return array
      */
     public static function getRoutesList(): array
     {
@@ -393,7 +361,6 @@ class Anon_System_Config
             $routes[] = $routeInfo;
         }
         
-        // 检测冲突（检查是否有多个处理函数注册到同一路径）
         $pathCounts = [];
         foreach (self::$routerConfig['routes'] as $path => $handler) {
             if (!isset($pathCounts[$path])) {
@@ -405,7 +372,6 @@ class Anon_System_Config
         foreach ($pathCounts as $path => $handlers) {
             if (count($handlers) > 1) {
                 $conflicts[$path] = count($handlers);
-                // 标记冲突的路由
                 foreach ($routes as &$route) {
                     if ($route['path'] === $path) {
                         $route['conflict'] = true;
