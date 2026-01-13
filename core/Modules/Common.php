@@ -4,8 +4,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $requestPath = parse_url($requestUri, PHP_URL_PATH);
 $isInstallPath = strpos($requestPath, '/anon/install') === 0 || $requestPath === '/anon';
+$isStaticPath = strpos($requestPath, '/anon/static/') === 0;
 
-if (!Anon_System_Config::isInstalled() && !$isInstallPath) {
+if (!Anon_System_Config::isInstalled() && !$isInstallPath && !$isStaticPath) {
     header('Location: /anon/install');
     exit;
 }
@@ -155,14 +156,9 @@ LICENSE;
             }
             
             // 尝试通过钩子获取自定义消息
-            if (class_exists('Anon_System_Hook')) {
-                $customMessage = Anon_System_Hook::apply_filters('require_login_message', '请先登录');
-                Anon_Http_Response::unauthorized($customMessage);
-                return;
-            }
-            
-            // 默认消息
-            Anon_Http_Response::unauthorized('请先登录');
+            $customMessage = Anon_System_Hook::apply_filters('require_login_message', '请先登录');
+            Anon_Http_Response::unauthorized($customMessage);
+            return;
         }
     }
 
@@ -186,7 +182,7 @@ LICENSE;
                     return;
                 }
             } else {
-                // 未配置允许列表，使用请求来源（仅限开发环境）
+                // 未配置允许列表，使用请求来源，仅限开发环境
                 $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
                 if ($isDebug) {
                     header("Access-Control-Allow-Origin: " . $origin);
@@ -222,7 +218,7 @@ LICENSE;
     private static function getAllowedCorsOrigins(): array
     {
         // 优先从 Anon_System_Env 获取
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $origins = Anon_System_Env::get('app.security.cors.origins', []);
             if (!empty($origins)) {
                 return is_array($origins) ? $origins : [$origins];
@@ -299,6 +295,16 @@ LICENSE;
 
         // 所有来源都找不到有效IP时返回默认值
         return null;
+    }
+
+    public static function Components(string $name): void
+    {
+        $path = __DIR__ . '/../Components/' . $name . '.php';
+        if (file_exists($path)) {
+            require $path;
+            return;
+        }
+        throw new RuntimeException("组件未找到: {$name}");
     }
 }
 
@@ -478,14 +484,14 @@ class Anon_Check
         }
 
         // 尝试从 Env 获取
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $appKey = Anon_System_Env::get('app.key');
             if (!empty($appKey)) {
                 return hash('sha256', $appKey . '_cookie');
             }
         }
 
-        // 如果没有配置 APP_KEY，抛出异常或返回特定标识（安装模式除外）
+        // 如果没有配置 APP_KEY，抛出异常或返回特定标识，安装模式除外
         // 在安装模式下，可能还没有 APP_KEY，使用临时 Key
         if (defined('ANON_INSTALL_MODE') && ANON_INSTALL_MODE) {
             return 'anon_install_mode_key';

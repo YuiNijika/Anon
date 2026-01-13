@@ -202,8 +202,18 @@ class Anon_System_Config
         self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
         self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 0, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 0, true, ['token' => false]);
 
         self::addRoute('/anon/install', [Anon_System_Install::class, 'index']);
+        self::addRoute('/anon/install/api/token', [Anon_System_Install::class, 'apiGetToken']);
+        self::addRoute('/anon/install/api/mode', [Anon_System_Install::class, 'apiSelectMode']);
+        self::addRoute('/anon/install/api/get-mode', [Anon_System_Install::class, 'apiGetMode']);
+        self::addRoute('/anon/install/api/database', [Anon_System_Install::class, 'apiDatabaseConfig']);
+        self::addRoute('/anon/install/api/site', [Anon_System_Install::class, 'apiSiteConfig']);
+        self::addRoute('/anon/install/api/back', [Anon_System_Install::class, 'apiBack']);
+        self::addRoute('/anon/install/api/install', [Anon_System_Install::class, 'apiInstall']);
+        self::addRoute('/anon/install/api/confirm-overwrite', [Anon_System_Install::class, 'apiConfirmOverwrite']);
         self::addRoute('/anon', function() {
             if (self::isInstalled()) {
                 Anon_Common::Header(403);
@@ -231,12 +241,14 @@ class Anon_System_Config
             error_log("Registering app routes...");
         }
 
-        self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
-        self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
-        self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
-        self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
-        self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
-        self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
+        if (class_exists('Anon_Debug')) {
+            self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
+            self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
+            self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
+            self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
+            self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
+            self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
+        }
         self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
         self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
         self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);

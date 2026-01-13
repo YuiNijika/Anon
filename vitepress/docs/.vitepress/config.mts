@@ -44,6 +44,7 @@ export default defineConfig({
     // 顶部栏
     nav: [
       { text: "快速开始", link: "/guide/quick-start" },
+      { text: "安装指南", link: "/guide/installation" },
       { text: "API 参考", link: "/api/reference" },
       {
         text: "指南",
@@ -74,6 +75,7 @@ export default defineConfig({
           text: '入门指南',
           items: [
             { text: '快速开始', link: 'quick-start' },
+            { text: '安装指南', link: 'installation' },
             { text: '配置说明', link: 'configuration' },
             { text: '路由系统', link: 'routing' },
             { text: '数据库操作', link: 'database' }

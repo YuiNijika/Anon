@@ -156,7 +156,7 @@ class Anon_Database
      */
     public function db($table)
     {
-        if (class_exists('Anon_Sharding') && Anon_Database_Sharding::isSharded($table)) {
+        if (Anon_Database_Sharding::isSharded($table)) {
             // 分片逻辑处理
         }
 

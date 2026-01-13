@@ -1,0 +1,977 @@
+# 主题系统
+
+Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支持不区分大小写的文件查找，让主题开发更加灵活。
+
+## 主题目录结构
+
+主题文件位于 `server/app/Theme/{themeName}/` 目录：
+
+**重要提示：** 为了兼容 Linux 系统，所有目录和文件名应使用**小写**。系统支持不区分大小写查找，但建议统一使用小写以避免跨平台问题。
+
+```
+app/Theme/
+└── default/              # 主题名称（建议小写）
+    ├── index.php         # 首页模板
+    ├── about.php         # 关于页模板
+    ├── post.php          # 文章模板
+    ├── category.php      # 分类页模板
+    ├── components/       # 组件目录（小写）
+    │   ├── head.php      # 头部组件
+    │   └── foot.php      # 底部组件
+    ├── pages/            # 自动路由页面目录（小写）
+    │   └── test.php      # 自动注册为 /test
+    ├── partials/         # 模板片段目录（小写）
+    │   ├── header.php    # 头部片段
+    │   ├── footer.php    # 底部片段
+    │   └── sidebar.php   # 侧边栏片段
+    ├── assets/           # 静态资源目录（小写，可选）
+    │   ├── style.css     # 自动注册为 /assets/css/style
+    │   ├── script.js     # 自动注册为 /assets/js/script
+    │   └── logo.png      # 自动注册为 /assets/images/logo
+    └── info.json         # 主题信息文件（小写）
+```
+
+## 基本使用
+
+### 1. 创建主题
+
+在 `app/Theme/` 目录下创建主题文件夹：
+
+```bash
+mkdir -p app/Theme/mytheme
+```
+
+### 2. 创建模板文件
+
+创建 `index.php` 作为首页模板：
+
+```php
+<!-- app/Theme/mytheme/index.php -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title><?php echo $title ?? '首页'; ?></title>
+    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+</head>
+<body>
+    <?php Anon_Cms_Theme::partial('header'); ?>
+    
+    <main>
+        <h1><?php echo $siteTitle ?? '我的网站'; ?></h1>
+        <div><?php echo $content ?? ''; ?></div>
+    </main>
+    
+    <?php Anon_Cms_Theme::partial('footer'); ?>
+    
+    <script src="<?php echo Anon_Cms_Theme::assets('script.js'); ?>"></script>
+</body>
+</html>
+```
+
+### 3. 配置主题
+
+在 `useApp.php` 中设置主题：
+
+```php
+'cms' => [
+    'theme' => 'mytheme',  // 使用 mytheme 主题
+    'routes' => [
+        '/' => 'index',
+        '/post/{id}' => 'post',
+    ],
+],
+```
+
+## 模板 API
+
+### Anon_Cms_Theme::render()
+
+渲染模板文件：
+
+```php
+Anon_Cms_Theme::render(string $templateName, array $data = []): void
+```
+
+**参数：**
+
+- `$templateName`: 模板名称（不包含扩展名）
+- `$data`: 传递给模板的数据数组
+
+**模板回退机制：**
+
+- 如果找不到 `post`、`page`、`error` 模板，系统会自动回退到 `index` 模板
+- 这样可以确保即使没有创建专门的模板文件，也能正常显示页面
+
+**示例：**
+
+```php
+Anon_Cms_Theme::render('post', [
+    'title' => '文章标题',
+    'content' => '<p>文章内容</p>',
+    'author' => '作者名',
+]);
+```
+
+### Anon_Cms::getPageType()
+
+获取页面类型：
+
+```php
+Anon_Cms::getPageType(string $templateName): string
+```
+
+**参数：**
+
+- `$templateName`: 模板名称
+
+**返回值：**
+
+- `'index'`: 首页类型
+- `'post'`: 文章类型
+- `'page'`: 页面类型
+- `'error'`: 错误页类型
+- `'other'`: 其他类型
+
+**示例：**
+
+```php
+$pageType = Anon_Cms::getPageType('post'); // 返回 'post'
+$pageType = Anon_Cms::getPageType('pages/Test'); // 返回 'other'
+$pageType = Anon_Cms::getPageType('error'); // 返回 'error'
+```
+
+### Anon_Cms_Theme::partial()
+
+包含模板片段：
+
+```php
+Anon_Cms_Theme::partial(string $partialName, array $data = []): void
+```
+
+**参数：**
+
+- `$partialName`: 片段名称（不包含扩展名）
+- `$data`: 传递给片段的数据数组
+
+**示例：**
+
+```php
+<!-- 在模板中 -->
+<?php Anon_Cms_Theme::partial('header', ['title' => '页面标题']); ?>
+```
+
+片段文件应放在 `partials/` 目录：
+
+```php
+<!-- app/Theme/default/partials/header.php -->
+<header>
+    <h1><?php echo $title ?? '网站标题'; ?></h1>
+    <nav>
+        <a href="/">首页</a>
+        <a href="/about">关于</a>
+    </nav>
+</header>
+```
+
+### Anon_Cms_Theme::assets()
+
+获取主题资源 URL。系统会自动将文件按类型分类注册路由，并移除文件扩展名：
+
+```php
+Anon_Cms_Theme::assets(string $path): string
+```
+
+**参数：**
+
+- `$path`: 资源路径（相对于主题目录的 assets 目录）
+
+**路由规则：**
+
+- `.css` 文件 → `/assets/css/{文件名}`
+- `.js` 文件 → `/assets/js/{文件名}`
+- `.json` 文件 → `/assets/json/{文件名}`
+- 图片文件（`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico`） → `/assets/images/{文件名}`
+- 字体文件（`.woff`, `.woff2`, `.ttf`, `.eot`） → `/assets/fonts/{文件名}`
+- 其他类型 → `/assets/files/{文件名}`
+
+**示例：**
+
+```php
+<!-- style.css 文件会注册为 /assets/css/style -->
+<link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+
+<!-- main.js 文件会注册为 /assets/js/main -->
+<script src="<?php echo Anon_Cms_Theme::assets('main.js'); ?>">
+
+<!-- logo.png 文件会注册为 /assets/images/logo -->
+<img src="<?php echo Anon_Cms_Theme::assets('logo.png'); ?>" alt="Logo">
+```
+
+**注意：** 静态资源会自动注册路由，无需手动配置。系统会在启动时扫描 `assets/` 目录下的所有文件并自动注册。
+
+### Anon_Cms_Theme::components()
+
+导入组件，类似 Vue 的组件导入机制：
+
+```php
+Anon_Cms_Theme::components(string $componentPath, array $data = []): void
+```
+
+**参数：**
+
+- `$componentPath`: 组件路径，支持点号或斜杠分隔，如 `'head'`、`'App.Header'` 或 `'App/Header'`
+- `$data`: 传递给组件的数据数组
+
+**组件查找规则：**
+
+- 组件文件位于 `components/` 目录（小写）
+- 方法会自动处理 `components/` 或 `components.` 前缀，直接写组件名即可
+- 支持不区分大小写查找，但建议使用小写目录名
+- 支持 `.php`、`.html`、`.htm` 扩展名
+
+**示例：**
+
+```php
+<!-- 导入 components 目录下的组件 -->
+<?php Anon_Cms_Theme::components('head'); ?>
+<?php Anon_Cms_Theme::components('foot'); ?>
+
+<!-- 导入嵌套组件 -->
+<?php Anon_Cms_Theme::components('App.Header', ['title' => '页面标题']); ?>
+<?php Anon_Cms_Theme::components('App/Footer', ['copyright' => '2024']); ?>
+```
+
+### Anon_Cms_Theme::getCurrentTheme()
+
+获取当前主题名称：
+
+```php
+$themeName = Anon_Cms_Theme::getCurrentTheme(); // 返回 'default'
+```
+
+### Anon_Cms_Theme::info()
+
+获取主题信息，从主题目录的 `Info.json` 文件中读取：
+
+```php
+Anon_Cms_Theme::info(?string $key = null): mixed
+```
+
+**参数：**
+
+- `$key`: 信息键名（可选），如果为 null 则返回所有信息
+
+**返回值：**
+
+- 如果指定了 `$key`，返回对应的值
+- 如果 `$key` 为 null，返回包含所有主题信息的数组
+
+**示例：**
+
+```php
+// 获取所有主题信息
+$themeInfo = Anon_Cms_Theme::info();
+// 返回: ['name' => 'Default', 'description' => '默认主题', 'author' => 'YuiNijika', ...]
+
+// 获取特定信息
+$themeName = Anon_Cms_Theme::info('name'); // 返回 'Default'
+$author = Anon_Cms_Theme::info('author'); // 返回 'YuiNijika'
+$version = Anon_Cms_Theme::info('version'); // 返回 '1.0.0'
+```
+
+**Info.json 文件格式：**
+
+主题目录下的 `Info.json` 文件应包含以下字段：
+
+```json
+{
+    "name": "Default",
+    "description": "默认主题",
+    "author": "YuiNijika",
+    "version": "1.0.0",
+    "url": "https://github.com/YuiNijika/AnonTheme-Default",
+    "screenshot": "screenshot.png"
+}
+```
+
+## HTML 辅助方法
+
+### Anon_Cms_Theme::head()
+
+输出完整的 HTML head 标签，包括 SEO meta 标签：
+
+```php
+Anon_Cms_Theme::head(array $options = []): void
+```
+
+**参数：**
+
+- `title`: 页面标题
+- `description`: 页面描述
+- `keywords`: 关键词，字符串或数组
+- `author`: 作者
+- `robots`: robots 标签，默认 'index, follow'
+- `canonical`: canonical URL
+- `og`: Open Graph 标签数组
+- `twitter`: Twitter Card 标签数组
+- `charset`: 字符编码，默认 'UTF-8'
+- `viewport`: viewport 设置，默认 'width=device-width, initial-scale=1.0'
+- `lang`: 语言，默认 'zh-CN'
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::head([
+    'title' => '文章标题',
+    'description' => '这是文章的描述',
+    'keywords' => ['文章', '博客', 'Anon'],
+    'canonical' => '/post/123',
+    'og' => [
+        'title' => '文章标题',
+        'description' => '这是文章的描述',
+        'type' => 'article',
+        'url' => '/post/123',
+        'image' => '/images/post-123.jpg',
+    ],
+]); ?>
+```
+
+### Anon_Cms_Theme::title()
+
+输出页面标题标签：
+
+```php
+Anon_Cms_Theme::title(?string $title = null, string $separator = ' - ', bool $reverse = false): void
+```
+
+**参数：**
+
+- `$title`: 页面标题，如果为 null 则使用站点名称
+- `$separator`: 标题和站点名称之间的分隔符
+- `$reverse`: 是否反转顺序（站点名称在前）
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::title('文章标题'); ?>
+<!-- 输出: <title>文章标题 - 站点名称</title> -->
+
+<?php Anon_Cms_Theme::title('文章标题', ' | ', true); ?>
+<!-- 输出: <title>站点名称 | 文章标题</title> -->
+```
+
+### Anon_Cms_Theme::meta()
+
+输出 SEO meta 标签：
+
+```php
+Anon_Cms_Theme::meta(array $meta = []): void
+```
+
+**支持的键：**
+
+- `description`: 页面描述
+- `keywords`: 关键词，字符串或数组
+- `author`: 作者
+- `robots`: robots 标签
+- `canonical`: canonical URL
+- `og`: Open Graph 标签数组
+- `twitter`: Twitter Card 标签数组
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::meta([
+    'description' => '这是页面描述',
+    'keywords' => ['关键词1', '关键词2'],
+    'canonical' => '/post/123',
+    'og' => [
+        'title' => '文章标题',
+        'type' => 'article',
+    ],
+]); ?>
+```
+
+### Anon_Cms_Theme::stylesheet()
+
+输出样式表链接：
+
+```php
+Anon_Cms_Theme::stylesheet(string|array $styles, array $attributes = []): void
+```
+
+**参数：**
+
+- `$styles`: 样式文件路径，可以是字符串或数组
+- `$attributes`: 额外属性数组
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::stylesheet('style.css'); ?>
+<!-- 输出: <link rel="stylesheet" href="/assets/css/style"> -->
+
+<?php Anon_Cms_Theme::stylesheet(['style.css', 'custom.css']); ?>
+<!-- 输出多个样式表链接 -->
+
+<?php Anon_Cms_Theme::stylesheet('style.css', ['media' => 'print']); ?>
+<!-- 输出带额外属性的样式表链接 -->
+```
+
+### Anon_Cms_Theme::script()
+
+输出脚本标签：
+
+```php
+Anon_Cms_Theme::script(string|array $scripts, array $attributes = []): void
+```
+
+**参数：**
+
+- `$scripts`: 脚本文件路径，可以是字符串或数组
+- `$attributes`: 额外属性数组
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::script('main.js'); ?>
+<!-- 输出: <script src="/assets/js/main"></script> -->
+
+<?php Anon_Cms_Theme::script(['main.js', 'custom.js']); ?>
+<!-- 输出多个脚本标签 -->
+
+<?php Anon_Cms_Theme::script('main.js', ['defer' => 'defer']); ?>
+<!-- 输出带额外属性的脚本标签 -->
+```
+
+### Anon_Cms_Theme::favicon()
+
+输出 favicon 链接：
+
+```php
+Anon_Cms_Theme::favicon(string $path = 'favicon.ico'): void
+```
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::favicon('favicon.ico'); ?>
+<!-- 输出: <link rel="icon" href="/assets/images/favicon"> -->
+```
+
+### Anon_Cms_Theme::escape()
+
+转义 HTML 输出，防止 XSS 攻击：
+
+```php
+Anon_Cms_Theme::escape(string $text, int $flags = ENT_QUOTES): string
+```
+
+**示例：**
+
+```php
+<h1><?php echo Anon_Cms_Theme::escape($title ?? ''); ?></h1>
+```
+
+### Anon_Cms_Theme::jsonLd()
+
+输出 JSON-LD 结构化数据：
+
+```php
+Anon_Cms_Theme::jsonLd(array $data): void
+```
+
+**示例：**
+
+```php
+<?php Anon_Cms_Theme::jsonLd([
+    '@context' => 'https://schema.org',
+    '@type' => 'Article',
+    'headline' => '文章标题',
+    'author' => [
+        '@type' => 'Person',
+        'name' => '作者名',
+    ],
+]); ?>
+```
+
+## 静态资源管理
+
+### 自动路由注册
+
+系统会自动扫描主题目录下的 `assets/` 文件夹，并为所有文件注册静态资源路由。文件会按类型分类到不同的目录：
+
+```
+assets/
+├── style.css      → /assets/css/style
+├── script.js      → /assets/js/script
+├── logo.png       → /assets/images/logo
+└── font.woff2     → /assets/fonts/font
+```
+
+### 文件类型映射
+
+系统支持以下文件类型映射：
+
+| 扩展名 | 路由目录 | MIME 类型 |
+|--------|---------|-----------|
+| `.css` | `css` | `text/css` |
+| `.js` | `js` | `application/javascript` |
+| `.json` | `json` | `application/json` |
+| `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico` | `images` | `image/*` |
+| `.woff`, `.woff2`, `.ttf`, `.eot` | `fonts` | `font/*` |
+| 其他 | `files` | `application/octet-stream` |
+
+### 自定义文件类型映射
+
+可以通过钩子自定义文件类型映射：
+
+```php
+// 在 useCode.php 或插件中
+
+// 添加新的 MIME 类型
+Anon_System_Hook::add_filter('cms_theme_mime_types', function($mimeTypes) {
+    $mimeTypes['webp'] = 'image/webp';
+    $mimeTypes['mp4'] = 'video/mp4';
+    return $mimeTypes;
+});
+
+// 修改文件类型到目录的映射
+Anon_System_Hook::add_filter('cms_theme_type_dirs', function($typeDirs) {
+    $typeDirs['webp'] = 'images';
+    $typeDirs['mp4'] = 'videos';
+    $typeDirs['css'] = 'styles'; // 修改现有映射
+    return $typeDirs;
+});
+```
+
+**钩子说明：**
+
+- `cms_theme_mime_types`: 修改 MIME 类型映射
+- `cms_theme_type_dirs`: 修改文件类型到目录的映射
+
+## 自动路由注册
+
+### pages 目录
+
+在主题目录下创建 `pages/` 目录（小写），系统会自动为其中的 PHP 文件注册路由：
+
+```
+app/Theme/default/
+└── pages/
+    ├── index.php      → 自动注册为 / 和 /index
+    ├── about.php      → 自动注册为 /about
+    └── contact.php    → 自动注册为 /contact
+```
+
+**注意：** 目录名必须使用小写 `pages/`，文件名建议使用小写以避免跨平台问题。
+
+**路由规则：**
+
+- 文件名（不含扩展名）作为路由路径
+- `Index.php` 会同时注册 `/` 和 `/index`
+- 支持嵌套目录，如 `Pages/Blog/Index.php` → `/blog` 和 `/blog/index`
+
+**示例：**
+
+```php
+<!-- app/Theme/default/pages/about.php -->
+<?php
+const Anon_PageMeta = [
+    'title' => '关于我们',
+    'description' => '这是关于页面的描述',
+    'keywords' => '关于, 公司, 团队'
+];
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title><?php echo Anon_PageMeta['title']; ?></title>
+</head>
+<body>
+    <h1>关于我们</h1>
+    <p>这是关于页面的内容</p>
+</body>
+</html>
+```
+
+## SEO 管理
+
+### Anon_PageMeta
+
+在模板文件中定义 `Anon_PageMeta` 常量来设置页面 SEO 信息：
+
+```php
+<?php
+const Anon_PageMeta = [
+    'title' => '文章标题',
+    'description' => '文章描述',
+    'keywords' => '关键词1, 关键词2'
+];
+?>
+```
+
+系统会自动生成以下 SEO 标签：
+
+- `canonical` URL（基于当前请求路径）
+- `author`（从配置中获取）
+- Open Graph 标签
+- Twitter Card 标签
+- `robots` 标签（默认为 `index, follow`）
+
+### 使用 Anon_Cms_PageMeta
+
+在模板中使用 `Anon_Cms_PageMeta` 类获取 SEO 信息：
+
+```php
+<?php
+// 获取 SEO 信息
+$seo = Anon_Cms_PageMeta::getSeo();
+
+// 获取错误信息（用于错误页面）
+$error = Anon_Cms_PageMeta::getError();
+?>
+```
+
+**示例：**
+
+```php
+<!-- app/Theme/default/post.php -->
+<?php
+const Anon_PageMeta = [
+    'title' => '文章标题',
+    'description' => '这是文章的描述',
+    'keywords' => '文章, 博客'
+];
+
+$seo = Anon_Cms_PageMeta::getSeo();
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title><?php echo htmlspecialchars($seo['title']); ?></title>
+    <meta name="description" content="<?php echo htmlspecialchars($seo['description']); ?>">
+    <link rel="canonical" href="<?php echo htmlspecialchars($seo['canonical']); ?>">
+</head>
+<body>
+    <!-- 页面内容 -->
+</body>
+</html>
+```
+
+## 文件查找规则
+
+### 不区分大小写
+
+主题系统支持不区分大小写的文件查找：
+
+- `index.php`、`Index.php`、`INDEX.php` 都会被识别
+- `header.php`、`Header.php`、`HEADER.php` 都会被识别
+
+### 支持的扩展名
+
+系统会自动查找以下扩展名的文件：
+
+- `.php`（优先）
+- `.html`
+- `.htm`
+
+### 查找顺序
+
+1. 精确匹配（区分大小写）
+2. 不区分大小写匹配
+3. 如果找不到，抛出异常
+
+## 模板变量
+
+### 传递变量
+
+在渲染模板时传递变量：
+
+```php
+Anon_Cms_Theme::render('post', [
+    'post' => [
+        'id' => 1,
+        'title' => '文章标题',
+        'content' => '文章内容',
+    ],
+    'author' => '作者名',
+]);
+```
+
+### 在模板中使用
+
+变量会被提取到当前作用域：
+
+```php
+<!-- app/Theme/default/post.php -->
+<h1><?php echo htmlspecialchars($post['title'] ?? ''); ?></h1>
+<div><?php echo $post['content'] ?? ''; ?></div>
+<p>作者：<?php echo htmlspecialchars($author ?? ''); ?></p>
+```
+
+### 全局变量
+
+以下变量在所有模板中可用：
+
+- `Anon_Common::NAME` - 框架名称
+- `Anon_Common::VERSION` - 框架版本
+- `Anon_Cms_Theme::getCurrentTheme()` - 当前主题名称
+
+## 路由参数
+
+当使用参数路由时，参数会自动传递给模板：
+
+```php
+// useApp.php
+'routes' => [
+    '/post/{id}' => 'post',
+],
+```
+
+在模板中可以直接使用 `$id` 变量：
+
+```php
+<!-- app/Theme/default/post.php -->
+<?php
+$postId = $id ?? 0;
+// 使用 $postId 获取文章数据
+?>
+<h1>文章 ID: <?php echo htmlspecialchars($postId); ?></h1>
+```
+
+## 模板片段
+
+### 创建片段
+
+在 `partials/` 目录（小写）下创建片段文件：
+
+```php
+<!-- app/Theme/default/partials/header.php -->
+<header class="site-header">
+    <div class="container">
+        <h1><?php echo $siteTitle ?? '我的网站'; ?></h1>
+        <nav>
+            <a href="/">首页</a>
+            <a href="/about">关于</a>
+            <a href="/contact">联系</a>
+        </nav>
+    </div>
+</header>
+```
+
+### 使用片段
+
+在模板中包含片段：
+
+```php
+<?php Anon_Cms_Theme::partial('header', ['siteTitle' => '我的网站']); ?>
+```
+
+### 片段嵌套
+
+片段可以嵌套使用：
+
+```php
+<!-- app/Theme/default/partials/nav.php -->
+<nav>
+    <?php Anon_Cms_Theme::partial('nav-item', ['text' => '首页', 'url' => '/']); ?>
+    <?php Anon_Cms_Theme::partial('nav-item', ['text' => '关于', 'url' => '/about']); ?>
+</nav>
+```
+
+## 布局模板
+
+### 创建布局
+
+创建一个基础布局模板：
+
+```php
+<!-- app/Theme/default/layout.php -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title><?php echo $title ?? '页面标题'; ?></title>
+    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+</head>
+<body>
+    <?php Anon_Cms_Theme::partial('header'); ?>
+    
+    <main>
+        <?php echo $content ?? ''; ?>
+    </main>
+    
+    <?php Anon_Cms_Theme::partial('footer'); ?>
+</body>
+</html>
+```
+
+### 使用布局
+
+在具体页面模板中使用布局：
+
+```php
+<!-- app/Theme/default/index.php -->
+<?php
+$title = '首页';
+$content = '<h1>欢迎访问</h1><p>这是首页内容</p>';
+Anon_Cms_Theme::render('layout', compact('title', 'content'));
+?>
+```
+
+## 最佳实践
+
+### 1. 安全性
+
+始终转义输出，防止 XSS 攻击：
+
+```php
+<!-- 正确 -->
+<h1><?php echo htmlspecialchars($title ?? ''); ?></h1>
+
+<!-- 错误 -->
+<h1><?php echo $title ?? ''; ?></h1>
+```
+
+### 2. 默认值
+
+为变量提供默认值：
+
+```php
+<?php echo $title ?? '默认标题'; ?>
+<?php echo $content ?? ''; ?>
+```
+
+### 3. 代码组织
+
+- 将公共部分提取为片段
+- 使用布局模板减少重复
+- 保持模板简洁，复杂逻辑放在路由处理中
+
+### 4. 性能
+
+- 避免在模板中执行数据库查询
+- 使用缓存提高性能
+- 合理使用模板片段
+
+## 完整示例
+
+### 主题结构
+
+```
+app/Theme/default/
+├── index.php
+├── post.php
+├── layout.php
+├── components/      # 组件目录（小写）
+│   ├── head.php
+│   └── foot.php
+├── pages/           # 自动路由页面目录（小写）
+│   └── about.php
+├── partials/        # 模板片段目录（小写）
+│   ├── header.php
+│   ├── footer.php
+│   └── nav.php
+└── assets/          # 静态资源目录（小写）
+    ├── style.css
+    └── main.js
+```
+
+### 布局模板
+
+```php
+<!-- app/Theme/default/layout.php -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($title ?? '页面标题'); ?></title>
+    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+</head>
+<body>
+    <?php Anon_Cms_Theme::partial('header'); ?>
+    
+    <main class="container">
+        <?php echo $content ?? ''; ?>
+    </main>
+    
+    <?php Anon_Cms_Theme::partial('footer'); ?>
+    
+    <script src="<?php echo Anon_Cms_Theme::assets('main.js'); ?>"></script>
+</body>
+</html>
+```
+
+### 首页模板
+
+```php
+<!-- app/Theme/default/index.php -->
+<?php
+$title = '首页';
+$content = '
+    <h1>欢迎访问</h1>
+    <p>这是首页内容</p>
+';
+Anon_Cms_Theme::render('layout', compact('title', 'content'));
+?>
+```
+
+### 文章页模板
+
+```php
+<!-- app/Theme/default/post.php -->
+<?php
+const Anon_PageMeta = [
+    'title' => '文章标题',
+    'description' => '这是文章的描述',
+    'keywords' => '文章, 博客'
+];
+
+$postId = $id ?? 0;
+// 这里应该从数据库获取文章数据
+$post = [
+    'title' => '文章标题',
+    'content' => '<p>文章内容</p>',
+];
+
+$seo = Anon_Cms_PageMeta::getSeo();
+$title = htmlspecialchars($post['title']);
+$content = $post['content'];
+Anon_Cms_Theme::render('layout', compact('title', 'content'));
+?>
+```
+
+## 调试技巧
+
+### 检查模板路径
+
+```php
+<?php
+$themeDir = Anon_Cms_Theme::getThemeDir();
+echo "主题目录: {$themeDir}";
+?>
+```
+
+### 检查当前主题
+
+```php
+<?php
+echo "当前主题: " . Anon_Cms_Theme::getCurrentTheme();
+?>
+```
+
+### 模板错误处理
+
+如果模板文件不存在，系统会抛出异常。可以在路由处理中捕获：
+
+```php
+try {
+    Anon_Cms_Theme::render('nonexistent');
+} catch (RuntimeException $e) {
+    // 处理模板不存在的情况
+    echo "模板未找到: " . $e->getMessage();
+}
+```

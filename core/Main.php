@@ -66,26 +66,31 @@ class Anon_Main
         require_once self::MODULES_DIR . 'Common.php';
         Anon_Common::defineConstantsFromEnv();
         
-        // 加载所有组件
         require_once __DIR__ . '/Loader.php';
         Anon_Loader::loadAll();
         
-        // 初始化 Debug
-        if (defined('ANON_DEBUG') && Anon_Debug::isEnabled()) {
+        $mode = Anon_System_Env::get('app.mode', 'api');
+        if ($mode === 'cms') {
+            Anon_Loader::loadCmsModules();
+        }
+        
+        Anon_Loader::loadDebug();
+        if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
             Anon_Debug::init();
         }
         
-        // 初始化插件系统
-        Anon_System_Plugin::init();
-
-        // 加载自定义代码文件
+        if (class_exists('Anon_System_Plugin')) {
+            Anon_System_Plugin::init();
+        }
+        
         $codeFile = self::APP_DIR . 'useCode.php';
         if (file_exists($codeFile)) {
             require_once $codeFile;
         }
         
-        // 初始化能力系统
-        Anon_Auth_Capability::getInstance()->init();
+        if (class_exists('Anon_Auth_Capability')) {
+            Anon_Auth_Capability::getInstance()->init();
+        }
     }
 
     /**
@@ -100,18 +105,16 @@ class Anon_Main
         Anon_System_Config::initSystemRoutes();
         Anon_System_Config::initAppRoutes();
         
-        // 加载路由
-        require_once self::MODULES_DIR . 'Http/Router.php';
-        
         // 初始化路由系统并分发请求
         Anon_Http_Router::init();
 
-        // 启动日志
-        Anon_Debug::info('Application started (FPM)', [
-            'php_version' => PHP_VERSION,
-            'memory_limit' => ini_get('memory_limit'),
-            'max_execution_time' => ini_get('max_execution_time')
-        ]);
+        if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+            Anon_Debug::info('Application started (FPM)', [
+                'php_version' => PHP_VERSION,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time')
+            ]);
+        }
     }
 
     /**

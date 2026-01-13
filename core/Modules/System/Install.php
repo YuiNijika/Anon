@@ -9,15 +9,39 @@ class Anon_System_Install
     /**
      * 获取建表 SQL
      * @param string $tablePrefix 表前缀
+     * @param string $mode 安装模式：'api' 或 'cms'
      * @return array SQL 语句数组
      */
-    private static function getSqlStatements(string $tablePrefix): array
+    private static function getSqlStatements(string $tablePrefix, string $mode = 'api'): array
     {
         $sqlConfigFile = __DIR__ . '/../../../app/useSQL.php';
         $installSql = file_exists($sqlConfigFile) ? require $sqlConfigFile : [];
         
         $sqlStatements = [];
-        foreach ($installSql as $tableName => $sql) {
+        
+        if (isset($installSql['api']) || isset($installSql['cms'])) {
+            $globalTables = [];
+            $modeTables = [];
+            
+            foreach ($installSql as $key => $value) {
+                if ($key === 'api' || $key === 'cms') {
+                    continue;
+                }
+                if (is_string($value)) {
+                    $globalTables[$key] = $value;
+                }
+            }
+            
+            if (isset($installSql[$mode]) && is_array($installSql[$mode])) {
+                $modeTables = $installSql[$mode];
+            }
+            
+            $allTables = array_merge($globalTables, $modeTables);
+        } else {
+            $allTables = $installSql;
+        }
+        
+        foreach ($allTables as $tableName => $sql) {
             if (is_string($sql)) {
                 $sql = str_replace('{prefix}', $tablePrefix, $sql);
                 $sqlStatements[] = $sql;
@@ -33,14 +57,7 @@ class Anon_System_Install
     public static function index()
     {
         if (Anon_System_Config::isInstalled()) {
-            Anon_Common::Header(400);
-            echo json_encode(
-                [
-                    'code' => 400,
-                    'error' => '系统已安装，无法重复安装。'
-                ]
-            );
-            exit;
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
         }
 
         // 启动会话
@@ -53,240 +70,395 @@ class Anon_System_Install
             $_SESSION['install_csrf_token'] = bin2hex(random_bytes(32));
         }
 
-        // 处理提交
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['db_host'])) {
-            self::handleInstallSubmit();
-            return;
+        // 检查是否已配置安装模式
+        $installMode = Anon_System_Env::get('app.install.mode', null);
+        
+        // 如果已配置模式，则跳过模式选择步骤
+        if ($installMode !== null && in_array($installMode, ['api', 'cms'])) {
+            if (!isset($_SESSION['install_mode'])) {
+                $_SESSION['install_mode'] = $installMode;
+            }
+            $defaultStep = 'database';
+        } else {
+            $defaultStep = 'mode';
         }
-
+        
         // 显示页面
-        self::renderInstallPage();
+        $step = $_GET['step'] ?? $defaultStep;
+        if (!in_array($step, ['mode', 'database', 'overwrite', 'admin'])) {
+            $step = $defaultStep;
+        }
+        self::renderInstallPage($step);
     }
 
     /**
-     * 处理安装提交
+     * 返回上一步
      */
-    private static function handleInstallSubmit()
+    public static function apiBack()
     {
-        try {
-            // 验证 CSRF
-            if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['install_csrf_token']) {
-                throw new Exception("CSRF验证失败，请重新提交表单。");
-            }
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
 
-            // 验证连接信息
-            $db_host = self::validateInput($_POST['db_host']);
-            $db_port = isset($_POST['db_port']) ? (int)$_POST['db_port'] : 3306;
-            $db_user = self::validateInput($_POST['db_user']);
-            $db_pass = self::validateInput($_POST['db_pass'] ?? '');
-            $db_name = self::validateInput($_POST['db_name']);
-            $db_prefix = self::validateInput($_POST['db_prefix']);
+        if (!session_id()) {
+            session_start();
+        }
 
-            if (empty($db_host) || empty($db_user) || empty($db_name)) {
-                throw new Exception("所有数据库连接字段都是必填的。");
-            }
-
-            // 更新配置
-            self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port);
-
-            require_once self::envfile;
-            $appConfigFile = __DIR__ . '/../../../app/useApp.php';
-            $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
-            
-            $envConfig = [
-                'system' => [
-                    'db' => [
-                        'host' => defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost',
-                        'port' => defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306,
-                        'prefix' => defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '',
-                        'user' => defined('ANON_DB_USER') ? ANON_DB_USER : 'root',
-                        'password' => defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '',
-                        'database' => defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '',
-                        'charset' => defined('ANON_DB_CHARSET') ? ANON_DB_CHARSET : 'utf8mb4',
-                    ],
-                    'installed' => defined('ANON_INSTALLED') ? ANON_INSTALLED : false,
-                ],
-            ];
-            $envConfig = array_merge_recursive($envConfig, $appConfig);
-            
-            if (class_exists('Anon_System_Env')) {
-                Anon_System_Env::init($envConfig);
-            }
-
-            // 数据库连接
-            $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-            if ($conn->connect_error) {
-                throw new Exception("数据库连接失败: " . $conn->connect_error);
-            }
-            echo "数据库连接成功！<br>";
-
-            // 执行 SQL
-            self::executeSqlStatements($conn, $db_prefix);
-            echo "数据表创建成功！<br>";
-
-            // 创建管理员
-            if (isset($_POST['username'])) {
-                $username = self::validateInput($_POST['username']);
-                $password = self::validateInput($_POST['password']);
-                $email = self::validateInput($_POST['email']);
-
-                if (empty($username) || empty($password) || empty($email)) {
-                    throw new Exception("所有字段都是必填的。");
-                }
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    throw new Exception("邮箱格式不正确。");
-                }
-
-                if (self::insertUserData($conn, $username, $password, $email, $db_prefix, 'admin')) {
-                    echo "<script>alert('安装成功！'); window.location.href='/';</script>";
-                    exit;
-                } else {
-                    throw new Exception("用户数据插入失败: " . $conn->error);
-                } 
-            }
-
-            $conn->close();
-        } catch (Exception $e) {
-            self::handleError("安装过程中发生错误: " . $e->getMessage());
+        // 根据当前步骤决定返回哪里
+        $currentStep = $_GET['step'] ?? 'mode';
+        if ($currentStep === 'admin') {
+            // 从管理员页面返回，清除数据库配置，回到数据库配置页面
+            unset($_SESSION['install_db_config']);
+            Anon_Http_Response::success([
+                'redirect' => '/anon/install?step=database'
+            ], '已返回上一步');
+        } else {
+            // 从数据库配置页面返回，清除模式选择，回到模式选择页面
+            unset($_SESSION['install_mode']);
+            Anon_Http_Response::success([
+                'redirect' => '/anon/install'
+            ], '已返回上一步');
         }
     }
+
+    /**
+     * 获取 CSRF Token
+     */
+    public static function apiGetToken()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['install_csrf_token'])) {
+            $_SESSION['install_csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        Anon_Http_Response::success([
+            'csrf_token' => $_SESSION['install_csrf_token']
+        ]);
+    }
+
+    /**
+     * 获取当前选择的模式
+     */
+    public static function apiGetMode()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        // 优先从配置中读取
+        $installMode = Anon_System_Env::get('app.install.mode', null);
+        
+        // 如果配置中已设置，则使用配置的值
+        if ($installMode !== null && in_array($installMode, ['api', 'cms'])) {
+            if (!isset($_SESSION['install_mode'])) {
+                $_SESSION['install_mode'] = $installMode;
+            }
+            $mode = $installMode;
+        } else {
+            // 否则从 session 中读取
+            $mode = $_SESSION['install_mode'] ?? null;
+            if (!in_array($mode, ['api', 'cms'])) {
+                $mode = null;
+            }
+        }
+
+        Anon_Http_Response::success([
+            'mode' => $mode
+        ]);
+    }
+
+    /**
+     * 选择模式
+     */
+    public static function apiSelectMode()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        try {
+            $data = Anon_Http_Request::validate([
+                'csrf_token' => 'CSRF Token 不能为空',
+                'app_mode' => '安装模式不能为空'
+            ]);
+
+            if (!isset($_SESSION['install_csrf_token']) || $data['csrf_token'] !== $_SESSION['install_csrf_token']) {
+                Anon_Http_Response::error('CSRF验证失败，请重新提交表单。', 403);
+            }
+
+            $app_mode = $data['app_mode'];
+            if (!in_array($app_mode, ['api', 'cms'])) {
+                $app_mode = 'api';
+            }
+
+            $_SESSION['install_mode'] = $app_mode;
+
+            Anon_Http_Response::success([
+                'mode' => $app_mode,
+                'redirect' => '/anon/install?step=database'
+            ], '模式选择成功');
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 配置数据库
+     */
+    public static function apiDatabaseConfig()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        try {
+            $input = Anon_Http_Request::getInput();
+            
+            if (!isset($input['csrf_token']) || empty($input['csrf_token'])) {
+                Anon_Http_Response::error('CSRF Token 不能为空', null, 400);
+            }
+
+            if (!isset($_SESSION['install_csrf_token']) || $input['csrf_token'] !== $_SESSION['install_csrf_token']) {
+                Anon_Http_Response::error('CSRF验证失败，请重新提交表单。', null, 403);
+            }
+
+            // 获取已选择的模式
+            $app_mode = isset($_SESSION['install_mode']) ? $_SESSION['install_mode'] : 'api';
+            if (!in_array($app_mode, ['api', 'cms'])) {
+                $app_mode = 'api';
+            }
+
+            $db_host = isset($input['db_host']) ? trim($input['db_host']) : '';
+            $db_port = isset($input['db_port']) ? (int)$input['db_port'] : 3306;
+            $db_user = isset($input['db_user']) ? trim($input['db_user']) : '';
+            $db_pass = isset($input['db_pass']) ? trim($input['db_pass']) : '';
+            $db_name = isset($input['db_name']) ? trim($input['db_name']) : '';
+            $db_prefix = isset($input['db_prefix']) ? trim($input['db_prefix']) : '';
+
+            if (empty($db_host)) {
+                Anon_Http_Response::error('数据库主机不能为空', null, 400);
+            }
+            if (empty($db_user)) {
+                Anon_Http_Response::error('数据库用户名不能为空', null, 400);
+            }
+            if (empty($db_pass)) {
+                Anon_Http_Response::error('数据库密码不能为空', null, 400);
+            }
+            if (empty($db_name)) {
+                Anon_Http_Response::error('数据库名称不能为空', null, 400);
+            }
+            if (empty($db_prefix)) {
+                Anon_Http_Response::error('数据表前缀不能为空', null, 400);
+            }
+
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $db_prefix)) {
+                Anon_Http_Response::error('数据表前缀只能包含字母、数字和下划线。', null, 400);
+            }
+
+            // 测试数据库连接
+            $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+            if ($conn->connect_error) {
+                Anon_Http_Response::error('数据库连接失败: ' . $conn->connect_error, null, 500);
+            }
+            
+            // 检测表是否存在
+            $existingTables = self::checkExistingTables($conn, $db_prefix, $app_mode);
+            $conn->close();
+
+            // 保存数据库配置到 session
+            $_SESSION['install_db_config'] = [
+                'db_host' => $db_host,
+                'db_port' => $db_port,
+                'db_user' => $db_user,
+                'db_pass' => $db_pass,
+                'db_name' => $db_name,
+                'db_prefix' => $db_prefix,
+                'app_mode' => $app_mode
+            ];
+
+            if (!empty($existingTables)) {
+                Anon_Http_Response::success([
+                    'mode' => $app_mode,
+                    'tables_exist' => true,
+                    'existing_tables' => $existingTables
+                ], '检测到已存在的表，请选择是否覆盖安装');
+            } else {
+                Anon_Http_Response::success([
+                    'mode' => $app_mode,
+                    'tables_exist' => false
+                ], '数据库配置成功');
+            }
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 配置站点信息
+     */
+    public static function apiSiteConfig()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        try {
+            $data = Anon_Http_Request::validate([
+                'csrf_token' => 'CSRF Token 不能为空',
+                'username' => '用户名不能为空',
+                'email' => '邮箱不能为空',
+                'password' => '密码不能为空',
+                'site_title' => '网站标题不能为空'
+            ]);
+
+            if (!isset($_SESSION['install_csrf_token']) || $data['csrf_token'] !== $_SESSION['install_csrf_token']) {
+                Anon_Http_Response::error('CSRF验证失败，请重新提交表单。', null, 403);
+            }
+
+            // 从 session 获取数据库配置
+            if (!isset($_SESSION['install_db_config'])) {
+                Anon_Http_Response::error('请先配置数据库。', null, 400);
+            }
+
+            $db_config = $_SESSION['install_db_config'];
+            $app_mode = $db_config['app_mode'];
+
+            if ($app_mode !== 'cms') {
+                Anon_Http_Response::error('只有 CMS 模式需要配置站点信息。', null, 400);
+            }
+
+            // 验证密码
+            $password = trim($data['password']);
+            if (strlen($password) < 8) {
+                Anon_Http_Response::error('密码长度至少需要8个字符。', null, 400);
+            }
+
+            // 验证邮箱
+            $email = trim($data['email']);
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                Anon_Http_Response::error('邮箱格式不正确。', null, 400);
+            }
+
+            // 保存站点配置到 session
+            $_SESSION['install_site_config'] = [
+                'username' => trim($data['username']),
+                'email' => $email,
+                'password' => $password,
+                'site_title' => trim($data['site_title']),
+                'site_description' => isset($data['site_description']) ? trim($data['site_description']) : ''
+            ];
+
+            // 执行安装
+            self::executeInstall();
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * API模式执行安装
+     */
+    public static function apiInstall()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        try {
+            $data = Anon_Http_Request::validate([
+                'csrf_token' => 'CSRF Token 不能为空',
+                'username' => '用户名不能为空',
+                'password' => '密码不能为空',
+                'email' => '邮箱不能为空'
+            ]);
+
+            if (!isset($_SESSION['install_csrf_token']) || $data['csrf_token'] !== $_SESSION['install_csrf_token']) {
+                Anon_Http_Response::error('CSRF验证失败，请重新提交表单。', null, 403);
+            }
+
+            // 从 session 获取数据库配置
+            if (!isset($_SESSION['install_db_config'])) {
+                Anon_Http_Response::error('请先配置数据库。', null, 400);
+            }
+
+            // 创建管理员
+            $username = trim($data['username']);
+            $password = trim($data['password']);
+            $email = trim($data['email']);
+
+            if (empty($username) || empty($password) || empty($email)) {
+                Anon_Http_Response::error('所有字段都是必填的。', null, 400);
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                Anon_Http_Response::error('邮箱格式不正确。', null, 400);
+            }
+
+            if (strlen($password) < 8) {
+                Anon_Http_Response::error('密码长度至少需要8个字符。', null, 400);
+            }
+
+            // 保存管理员信息到 session
+            $_SESSION['install_admin_config'] = [
+                'username' => $username,
+                'password' => $password,
+                'email' => $email
+            ];
+
+            // 执行安装
+            self::executeInstall();
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
 
     /**
      * 渲染页面
      */
-    private static function renderInstallPage()
+    private static function renderInstallPage($step = 'mode')
     {
-        // 读取配置
-        $db_host = defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost';
-        $db_port = defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306;
-        $db_user = defined('ANON_DB_USER') ? ANON_DB_USER : 'root';
-        $db_pass = defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '';
-        $db_name = defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '';
-        $db_prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : 'anon_';
+        header('Content-Type: text/html; charset=utf-8');
 
-        $csrf = htmlspecialchars($_SESSION['install_csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
-        $db_host_h = htmlspecialchars($db_host, ENT_QUOTES, 'UTF-8');
-        $db_port_h = htmlspecialchars((string)$db_port, ENT_QUOTES, 'UTF-8');
-        $db_user_h = htmlspecialchars($db_user, ENT_QUOTES, 'UTF-8');
-        $db_pass_h = htmlspecialchars($db_pass, ENT_QUOTES, 'UTF-8');
-        $db_name_h = htmlspecialchars($db_name, ENT_QUOTES, 'UTF-8');
-        $db_prefix_h = htmlspecialchars($db_prefix, ENT_QUOTES, 'UTF-8');
-        $error_msg = isset($_GET['error']) ? htmlspecialchars($_GET['error'], ENT_QUOTES, 'UTF-8') : '';
-
-?>
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系统安装向导</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; background: #f8f9fa; color: #333; }
-        .container { max-width: 720px; margin: 40px auto; padding: 30px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        h1 { text-align: center; margin: 0 0 20px; color: #2c3e50; }
-        h3 { margin: 24px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #eee; color: #3498db; }
-        .form-group { margin-bottom: 16px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
-        input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; transition: border-color .2s, box-shadow .2s; }
-        input:focus { border-color: #3498db; outline: none; box-shadow: 0 0 0 2px rgba(52,152,219,.2); }
-        button { width: 100%; padding: 12px; background: #3498db; color: #fff; border: none; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background .2s; }
-        button:hover { background: #2980b9; }
-        .alert { padding: 12px; background: #f8d7da; color: #721c24; border-radius: 4px; margin-bottom: 16px; }
-        .password-strength { height: 4px; background: #eee; margin-top: 6px; border-radius: 2px; overflow: hidden; }
-        .password-strength-bar { height: 100%; width: 0; background: #e74c3c; transition: width .3s, background .3s; }
-        .requirements { font-size: 12px; color: #666; margin-top: 6px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>系统安装向导</h1>
-<?php
-        if ($error_msg !== '') {
-            echo '<div class="alert">' . $error_msg . '</div>';
+        try {
+            Anon_Common::Components('Install/Index');
+        } catch (RuntimeException $e) {
+            Anon_Http_Response::error('安装页面文件不存在', null, 500);
         }
-?>
-        <form method="post" id="installForm">
-            <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
-
-            <h3>数据库配置</h3>
-            <div class="form-group">
-                <label for="db_host">数据库主机</label>
-                <input type="text" id="db_host" name="db_host" value="<?php echo $db_host_h; ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="db_port">数据库端口</label>
-                <input type="number" id="db_port" name="db_port" min="1" max="65535" value="<?php echo $db_port_h; ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="db_user">数据库用户名</label>
-                <input type="text" id="db_user" name="db_user" value="<?php echo $db_user_h; ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="db_pass">数据库密码</label>
-                <input type="password" id="db_pass" name="db_pass" value="<?php echo $db_pass_h; ?>">
-            </div>
-            <div class="form-group">
-                <label for="db_name">数据库名称</label>
-                <input type="text" id="db_name" name="db_name" value="<?php echo $db_name_h; ?>" required>
-            </div>
-            <div class="form-group">
-                <label for="db_prefix">数据表前缀</label>
-                <input type="text" id="db_prefix" name="db_prefix" pattern="[a-zA-Z0-9_]+" value="<?php echo $db_prefix_h; ?>" required>
-                <div class="requirements">只能包含字母、数字和下划线</div>
-            </div>
-
-            <h3>管理员账号</h3>
-            <div class="form-group">
-                <label for="username">用户名</label>
-                <input type="text" id="username" name="username" value="admin" required>
-            </div>
-            <div class="form-group">
-                <label for="password">密码</label>
-                <input type="password" id="password" name="password" required minlength="8">
-                <div class="password-strength"><div class="password-strength-bar" id="passwordStrengthBar"></div></div>
-                <div class="requirements">至少8个字符，建议包含大小写字母、数字和符号</div>
-            </div>
-            <div class="form-group">
-                <label for="email">邮箱</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            <button type="submit" id="submitBtn">开始安装</button>
-        </form>
-    </div>
-
-    <script>
-        // 检测密码强度
-        document.getElementById("password").addEventListener("input", function(e) {
-            const password = e.target.value;
-            const bar = document.getElementById("passwordStrengthBar");
-            let strength = 0;
-            if (password.length >= 8) strength += 20;
-            if (password.length >= 12) strength += 20;
-            if (/[A-Z]/.test(password)) strength += 20;
-            if (/[0-9]/.test(password)) strength += 20;
-            if (/[^A-Za-z0-9]/.test(password)) strength += 20;
-            bar.style.width = strength + "%";
-            bar.style.backgroundColor = strength < 40 ? "#e74c3c" : (strength < 70 ? "#f39c12" : "#2ecc71");
-        });
-        // 提交前验证
-        document.getElementById("installForm").addEventListener("submit", function(e) {
-            const password = document.getElementById("password").value;
-            const email = document.getElementById("email").value;
-            if (password.length < 8) { alert("密码长度至少需要8个字符"); e.preventDefault(); return; }
-            if (!email.includes("@")) { alert("请输入有效的邮箱地址"); e.preventDefault(); return; }
-            const btn = document.getElementById("submitBtn"); btn.disabled = true; btn.textContent = "安装中...";
-        });
-    </script>
-</body>
-</html>
-<?php
+        exit;
     }
 
     /**
      * 更新配置
      */
-    private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306)
+    private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306, $appMode = 'api')
     {
         $configFile = self::envfile;
         
@@ -355,6 +527,24 @@ class Anon_System_Install
                 $lines[$index] = "define('ANON_INSTALLED', true);" . ($comment ? ' ' . $comment : '');
                 continue;
             }
+
+            if (preg_match("/define\s*\(\s*['\"]ANON_APP_MODE['\"]/", $line)) {
+                $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
+                $lines[$index] = "define('ANON_APP_MODE', " . $escapeValue($appMode) . ");" . ($comment ? ' ' . $comment : '');
+                continue;
+            }
+        }
+
+        $hasAppMode = false;
+        foreach ($lines as $line) {
+            if (preg_match("/define\s*\(\s*['\"]ANON_APP_MODE['\"]/", $line)) {
+                $hasAppMode = true;
+                break;
+            }
+        }
+
+        if (!$hasAppMode) {
+            $lines[] = "define('ANON_APP_MODE', " . $escapeValue($appMode) . ");";
         }
         
         $content = implode("\n", $lines) . "\n";
@@ -364,11 +554,198 @@ class Anon_System_Install
     }
 
     /**
-     * 执行 SQL
+     * 执行安装流程
      */
-    private static function executeSqlStatements($conn, $tablePrefix)
+    private static function executeInstall()
     {
-        $sqlStatements = self::getSqlStatements($tablePrefix);
+        $db_config = $_SESSION['install_db_config'];
+        $db_host = $db_config['db_host'];
+        $db_port = $db_config['db_port'];
+        $db_user = $db_config['db_user'];
+        $db_pass = $db_config['db_pass'];
+        $db_name = $db_config['db_name'];
+        $db_prefix = $db_config['db_prefix'];
+        $app_mode = $db_config['app_mode'];
+
+        // 更新配置
+        self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port, $app_mode);
+
+        require_once self::envfile;
+        $appConfigFile = __DIR__ . '/../../../app/useApp.php';
+        $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
+        
+        $envConfig = [
+            'system' => [
+                'db' => [
+                    'host' => defined('ANON_DB_HOST') ? ANON_DB_HOST : 'localhost',
+                    'port' => defined('ANON_DB_PORT') ? ANON_DB_PORT : 3306,
+                    'prefix' => defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '',
+                    'user' => defined('ANON_DB_USER') ? ANON_DB_USER : 'root',
+                    'password' => defined('ANON_DB_PASSWORD') ? ANON_DB_PASSWORD : '',
+                    'database' => defined('ANON_DB_DATABASE') ? ANON_DB_DATABASE : '',
+                    'charset' => defined('ANON_DB_CHARSET') ? ANON_DB_CHARSET : 'utf8mb4',
+                ],
+                'installed' => defined('ANON_INSTALLED') ? ANON_INSTALLED : false,
+            ],
+        ];
+        $envConfig = array_merge_recursive($envConfig, $appConfig);
+        
+        Anon_System_Env::init($envConfig);
+
+        // 数据库连接
+        $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+        if ($conn->connect_error) {
+            Anon_Http_Response::error('数据库连接失败: ' . $conn->connect_error, null, 500);
+        }
+
+        // 检查是否需要覆盖安装
+        $overwrite = isset($_SESSION['install_overwrite']) && $_SESSION['install_overwrite'] === true;
+        
+        // 执行 SQL
+        self::executeSqlStatements($conn, $db_prefix, $app_mode, $overwrite);
+
+        // 插入默认 options
+        if ($app_mode === 'cms') {
+            if (isset($_SESSION['install_site_config'])) {
+                $site_config = $_SESSION['install_site_config'];
+                $site_title = $site_config['site_title'] ?: 'Anon CMS';
+                $site_description = $site_config['site_description'] ?? '';
+            } else {
+                $site_title = 'Anon CMS';
+                $site_description = '';
+            }
+            self::insertDefaultOptions($conn, $db_prefix, $site_title, $site_description);
+        }
+
+        // 创建管理员
+        if (isset($_SESSION['install_site_config'])) {
+            $admin_config = $_SESSION['install_site_config'];
+            $username = $admin_config['username'];
+            $password = $admin_config['password'];
+            $email = $admin_config['email'];
+        } else if (isset($_SESSION['install_admin_config'])) {
+            $admin_config = $_SESSION['install_admin_config'];
+            $username = $admin_config['username'];
+            $password = $admin_config['password'];
+            $email = $admin_config['email'];
+        } else {
+            $conn->close();
+            Anon_Http_Response::error('管理员信息未配置。', null, 400);
+        }
+
+        $userId = self::insertUserData($conn, $username, $password, $email, $db_prefix, 'admin');
+        if (!$userId) {
+            $conn->close();
+            Anon_Http_Response::error('用户数据插入失败: ' . $conn->error, null, 500);
+        }
+
+        // 插入默认数据
+        if ($app_mode === 'cms') {
+            self::insertDefaultMeta($conn, $db_prefix);
+            self::insertDefaultPost($conn, $db_prefix, $userId);
+        }
+
+        $conn->close();
+        unset($_SESSION['install_mode']);
+        unset($_SESSION['install_db_config']);
+        unset($_SESSION['install_site_config']);
+        unset($_SESSION['install_admin_config']);
+
+        Anon_Http_Response::success([
+            'redirect' => '/'
+        ], '安装成功！');
+    }
+
+    /**
+     * 检测已存在的表
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @param string $mode 安装模式
+     * @return array 已存在的表名数组
+     */
+    private static function checkExistingTables($conn, $tablePrefix, string $mode): array
+    {
+        $sqlStatements = self::getSqlStatements($tablePrefix, $mode);
+        $existingTables = [];
+        
+        foreach ($sqlStatements as $sql) {
+            // 提取表名
+            if (preg_match('/CREATE TABLE (?:IF NOT EXISTS )?`?([^`\s]+)`?/i', $sql, $matches)) {
+                $tableName = $matches[1];
+                $result = $conn->query("SHOW TABLES LIKE '{$tableName}'");
+                if ($result && $result->num_rows > 0) {
+                    $existingTables[] = $tableName;
+                }
+                if ($result) {
+                    $result->free();
+                }
+            }
+        }
+        
+        return $existingTables;
+    }
+
+    /**
+     * 确认覆盖安装
+     */
+    public static function apiConfirmOverwrite()
+    {
+        if (Anon_System_Config::isInstalled()) {
+            Anon_Http_Response::error('系统已安装，无法重复安装。', null, 400);
+        }
+
+        if (!session_id()) {
+            session_start();
+        }
+
+        try {
+            $input = Anon_Http_Request::getInput();
+            
+            if (!isset($input['csrf_token']) || empty($input['csrf_token'])) {
+                Anon_Http_Response::error('CSRF Token 不能为空', null, 400);
+            }
+
+            if (!isset($_SESSION['install_csrf_token']) || $input['csrf_token'] !== $_SESSION['install_csrf_token']) {
+                Anon_Http_Response::error('CSRF验证失败，请重新提交表单。', null, 403);
+            }
+
+            if (!isset($input['confirm']) || $input['confirm'] !== 'yes') {
+                Anon_Http_Response::error('请确认是否覆盖安装', null, 400);
+            }
+
+            // 保存覆盖确认到 session
+            $_SESSION['install_overwrite'] = true;
+
+            Anon_Http_Response::success([], '已确认覆盖安装');
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 执行 SQL
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @param string $mode 安装模式
+     * @param bool $overwrite 是否覆盖已存在的表
+     */
+    private static function executeSqlStatements($conn, $tablePrefix, string $mode = 'api', bool $overwrite = false)
+    {
+        $sqlStatements = self::getSqlStatements($tablePrefix, $mode);
+        
+        if ($overwrite) {
+            // 先删除已存在的表
+            foreach ($sqlStatements as $sql) {
+                if (preg_match('/CREATE TABLE (?:IF NOT EXISTS )?`?([^`\s]+)`?/i', $sql, $matches)) {
+                    $tableName = $matches[1];
+                    $dropSql = "DROP TABLE IF EXISTS `{$tableName}`";
+                    if (!$conn->query($dropSql)) {
+                        $errorMsg = self::sanitizeError($conn->error);
+                        error_log("删除表失败: {$tableName} - " . $errorMsg);
+                    }
+                }
+            }
+        }
         
         foreach ($sqlStatements as $sql) {
             if (!empty($sql) && !$conn->query($sql)) {
@@ -380,20 +757,143 @@ class Anon_System_Install
     }
 
     /**
+     * 插入默认 options
+     */
+    private static function insertDefaultOptions($conn, $tablePrefix, $siteTitle, $siteDescription = '')
+    {
+        $tableName = $tablePrefix . 'options';
+        $defaultOptions = [
+            'charset' => 'UTF-8',
+            'title' => $siteTitle ?: 'Anon CMS',
+            'description' => $siteDescription,
+            'keywords' => '',
+            'theme' => 'Default',
+            'apiPrefix' => '/api',
+            'routes' => json_encode([
+                '/post/{id}' => 'post',
+                '/page/{slug}' => 'page',
+            ], JSON_UNESCAPED_UNICODE),
+        ];
+
+        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        
+        foreach ($defaultOptions as $name => $value) {
+            // 检查选项是否已存在
+            $existing = $queryBuilder->where('name', $name)->first();
+            
+            if ($existing) {
+                // 如果存在则更新
+                $result = $queryBuilder->where('name', $name)->update(['value' => $value]);
+            } else {
+                // 如果不存在则插入
+                $result = $queryBuilder->insert([
+                    'name' => $name,
+                    'value' => $value
+                ]);
+            }
+            
+            if (!$result) {
+                $errorMsg = self::sanitizeError($conn->error);
+                error_log("插入选项失败: " . $errorMsg);
+                throw new RuntimeException("插入选项失败: " . $name);
+            }
+            
+            // 重置查询构建器状态，避免影响下一次查询
+            $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        }
+
+        return true;
+    }
+
+    /**
      * 插入用户数据
+     * @param mysqli $conn 数据库连接
+     * @param string $username 用户名
+     * @param string $password 密码
+     * @param string $email 邮箱
+     * @param string $tablePrefix 表前缀
+     * @param string $group 用户组
+     * @return int|false 返回用户 ID 或 false
      */
     private static function insertUserData($conn, $username, $password, $email, $tablePrefix, $group = 'admin')
     {
         $tableName = $tablePrefix . 'users';
-        $stmt = $conn->prepare("INSERT INTO $tableName (name, password, email, `group`, display_name, avatar, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, NULL, NOW(), NOW())");
-        if (!$stmt) {
-            $errorMsg = self::sanitizeError($conn->error);
-            error_log("SQL 语句错误: " . $errorMsg);
-            throw new RuntimeException("SQL 语句错误");
-        }
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-        $stmt->bind_param("ssss", $username, $hashedPassword, $email, $group);
-        return $stmt->execute();
+        $now = date('Y-m-d H:i:s');
+        
+        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        $userId = $queryBuilder->insert([
+            'name' => $username,
+            'password' => $hashedPassword,
+            'email' => $email,
+            'group' => $group,
+            'display_name' => null,
+            'avatar' => null,
+            'created_at' => $now,
+            'updated_at' => $now
+        ]);
+        
+        return $userId;
+    }
+
+    /**
+     * 插入默认文章
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @param int $authorId 作者 ID
+     * @return bool
+     */
+    /**
+     * 插入默认分类
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @return bool
+     */
+    private static function insertDefaultMeta($conn, $tablePrefix)
+    {
+        $tableName = $tablePrefix . 'metas';
+        $now = date('Y-m-d H:i:s');
+        
+        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        $result = $queryBuilder->insert([
+            'name' => '默认分类',
+            'slug' => 'default',
+            'type' => 'category',
+            'parent_id' => null,
+            'created_at' => $now,
+            'updated_at' => $now
+        ]);
+        
+        return $result !== false;
+    }
+
+    /**
+     * 插入默认文章
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @param int $authorId 作者 ID
+     * @return bool
+     */
+    private static function insertDefaultPost($conn, $tablePrefix, $authorId)
+    {
+        $tableName = $tablePrefix . 'posts';
+        $now = date('Y-m-d H:i:s');
+        
+        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        $result = $queryBuilder->insert([
+            'type' => 'post',
+            'title' => 'Hello World!',
+            'slug' => 'hello-world',
+            'content' => '欢迎使用Anon Framework CMS',
+            'status' => 'publish',
+            'author_id' => $authorId,
+            'views' => 0,
+            'comment_status' => 'open',
+            'created_at' => $now,
+            'updated_at' => $now
+        ]);
+        
+        return $result !== false;
     }
 
     /**
@@ -413,7 +913,7 @@ class Anon_System_Install
     {
         // 检查详细日志
         $logDetailed = false;
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false; // 默认不记录
@@ -438,8 +938,7 @@ class Anon_System_Install
     private static function handleError($message)
     {
         error_log($message);
-        echo "发生错误，请稍后重试。";
-        exit;
+        Anon_Http_Response::error('发生错误，请稍后重试。', null, 500);
     }
 }
 

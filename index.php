@@ -15,5 +15,5 @@ require_once __DIR__ . '/core/Main.php';
 if (php_sapi_name() === 'cli' && isset($argv[1]) && $argv[1] === 'swoole') {
     Anon_Main::runSwoole($argv);
 } else {
-    Anon_Main::run();
+    Anon_Main::runFpm();
 }

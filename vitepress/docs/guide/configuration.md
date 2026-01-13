@@ -2,24 +2,33 @@
 
 一句话：系统配置在env.php，应用配置在useApp.php，SQL配置在useSQL.php，用Anon_Env获取。
 
-## 系统配置 (env.php)
+## 系统配置 (.env.php)
+
+系统配置文件位于 `server/.env.php`，通常通过安装向导自动生成：
 
 ```php
+define('ANON_APP_MODE', 'api');  // 或 'cms'，安装时选择
 define('ANON_DB_HOST', 'localhost');
 define('ANON_DB_PORT', 3306);
 define('ANON_DB_PREFIX', 'anon_');
 define('ANON_DB_USER', 'root');
-define('ANON_DB_PASSWORD', 'root');
-define('ANON_DB_DATABASE', 'anon');
+define('ANON_DB_PASSWORD', 'password');
+define('ANON_DB_DATABASE', 'database_name');
 define('ANON_DB_CHARSET', 'utf8mb4');
 define('ANON_INSTALLED', true);
+define('ANON_APP_KEY', 'base64:随机生成的密钥');
 ```
+
+**注意**：建议使用安装向导进行配置，手动编辑可能导致配置错误。
 
 ## 应用配置 (useApp.php)
 
 ```php
 return [
     'app' => [
+        // 注意：mode 配置已移至 .env.php 中的 ANON_APP_MODE 常量
+        // CMS 相关配置已移至数据库 options 表
+        
         'autoRouter' => true,  // 是否启用自动路由（推荐）
         'debug' => [
             'global' => false,  // 全局调试
@@ -81,6 +90,41 @@ return [
 ];
 ```
 
+### CMS 模式配置说明
+
+CMS 模式的配置存储在数据库 `options` 表中，安装时会自动初始化。可以通过 `Anon_Cms_Options` 类访问：
+
+```php
+// 获取主题名称
+$theme = Anon_Cms_Options::get('theme', 'Default');
+
+// 获取 API 前缀
+$apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+
+// 获取路由配置
+$routes = json_decode(Anon_Cms_Options::get('routes', '[]'), true);
+
+// 设置配置
+Anon_Cms_Options::set('theme', 'MyTheme');
+```
+
+**CMS 配置项：**
+- `theme`: 主题名称，对应 `app/Theme/{themeName}/` 目录
+- `apiPrefix`: API 路由前缀，默认为 `/api`
+- `routes`: CMS 路由配置（JSON 格式）
+- `title`: 网站标题
+- `description`: 网站描述
+- `keywords`: 网站关键词
+
+**路由配置格式：**
+```json
+{
+  "/post/{id}": "post",
+  "/page/{slug}": "page"
+}
+```
+
+更多信息请参考 [CMS 模式文档](/guide/cms-mode) 和 [主题系统文档](/guide/theme-system)。
 
 ## SQL 安装配置 (useSQL.php)
 

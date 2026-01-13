@@ -152,7 +152,7 @@ class Anon_Database_Connection
     private static function sanitizeError(string $error): string
     {
         $logDetailed = false;
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false;

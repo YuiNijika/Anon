@@ -6,7 +6,7 @@
 	},
 	"devDependencies": {
 		"esbuild": "^0.19.12",
-		"sass": "^1.97.1"
+		"sass": "^1.97.2"
 	},
 	"scripts": {
 		"build:debug": "pnpm run build:debug:css && pnpm run build:debug:js",
@@ -14,6 +14,12 @@
 		"build:debug:js": "esbuild tools/typescript/debug.ts --bundle --format=iife --outfile=core/Static/debug.js --minify",
 		"watch:debug": "pnpm run watch:debug:css",
 		"watch:debug:css": "sass --watch tools/scss/debug.scss:core/Static/debug.css --no-source-map",
-		"watch:debug:js": "esbuild tools/typescript/debug.ts --bundle --format=iife --global-name=DebugModules --outfile=core/Static/debug.js --watch"
+		"watch:debug:js": "esbuild tools/typescript/debug.ts --bundle --format=iife --global-name=DebugModules --outfile=core/Static/debug.js --watch",
+		"build:install": "pnpm run build:install:css && pnpm run build:install:js",
+		"build:install:css": "sass tools/scss/install.scss core/Static/install.css --style compressed --no-source-map",
+		"build:install:js": "esbuild tools/typescript/install.ts --bundle --format=iife --outfile=core/Static/install.js --minify",
+		"watch:install": "pnpm run watch:install:css && pnpm run watch:install:js",
+		"watch:install:css": "sass --watch tools/scss/install.scss:core/Static/install.css --no-source-map",
+		"watch:install:js": "esbuild tools/typescript/install.ts --bundle --format=iife --outfile=core/Static/install.js --watch"
 	}
 }

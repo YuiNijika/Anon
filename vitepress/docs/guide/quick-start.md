@@ -1,10 +1,27 @@
 ﻿# 快速开始
 
-一句话：配置数据库，创建路由文件，立即开始。
+一句话：通过安装向导完成安装，创建路由文件，立即开始。
 
-## 1. 配置数据库
+## 1. 系统安装
 
-编辑 `server/env.php`：
+首次使用需要通过安装向导完成系统安装。访问您的域名，系统会自动跳转到安装页面：
+
+```
+http://your-domain.com/anon/install
+```
+
+安装向导会引导您完成：
+
+- 选择安装模式（API 或 CMS）
+- 配置数据库连接
+- 创建管理员账号
+- 初始化系统配置
+
+详细安装步骤请参考 [安装指南](./installation.md)。
+
+## 2. 手动配置（可选）
+
+如果您需要手动配置，可以编辑 `server/.env.php`：
 
 ```php
 define('ANON_DB_HOST', 'localhost');
@@ -15,15 +32,17 @@ define('ANON_DB_PASSWORD', 'root');
 define('ANON_DB_DATABASE', 'anon');
 define('ANON_DB_CHARSET', 'utf8mb4');
 define('ANON_INSTALLED', true);
+define('ANON_APP_MODE', 'api');  // 或 'cms'
 ```
 
-## 2. 应用配置
+## 3. 应用配置
 
 编辑 `server/app/useApp.php`：
 
 ```php
 return [
     'app' => [
+        'mode' => 'api',       // 'api' 或 'cms'，默认为 'api'
         'autoRouter' => true,  // 启用自动路由
         'debug' => [
             'global' => false, // 全局debug
@@ -54,7 +73,7 @@ return [
 ];
 ```
 
-## 3. 创建路由
+## 4. 创建路由
 
 创建 `server/app/Router/Test/Index.php`：
 
@@ -88,3 +107,49 @@ try {
   - 文件路径：`app/Router/User_Profile/Index.php` → 路由路径：`/user-profile/index` 和 `/user-profile`
   - 根目录下的 `Index.php` 会注册 `/` 和 `/index`
 
+## CMS 模式快速开始
+
+### 1. 切换到 CMS 模式
+
+在 `server/app/useApp.php` 中设置：
+
+```php
+return [
+    'app' => [
+        'mode' => 'cms',  // 切换到 CMS 模式
+        'cms' => [
+            'theme' => 'default',
+            'routes' => [
+                '/' => 'index',  // 首页路由
+            ],
+        ],
+    ],
+];
+```
+
+### 2. 创建主题模板
+
+创建 `server/app/Theme/default/index.php`：
+
+```php
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>首页</title>
+</head>
+<body>
+    <h1>欢迎使用 Anon CMS</h1>
+    <p>这是首页内容</p>
+</body>
+</html>
+```
+
+### 3. 访问首页
+
+访问 `http://your-domain/` 即可看到 HTML 页面。
+
+更多信息请参考：
+
+- [CMS 模式文档](/guide/cms-mode)
+- [主题系统文档](/guide/theme-system)

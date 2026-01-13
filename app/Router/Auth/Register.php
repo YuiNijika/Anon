@@ -18,7 +18,7 @@ try {
     $inputData = Anon_Http_Request::getInput();
     
     // 验证码检查
-    if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+    if (Anon_Auth_Captcha::isEnabled()) {
         if (empty($inputData['captcha'] ?? '')) {
             Anon_Http_Response::error('验证码不能为空', [], 400);
         }
@@ -88,7 +88,7 @@ try {
     // 加密密码
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
     
-    // 创建用户，displayName 为空时使用 null（数据库会使用默认值）
+    // 创建用户，displayName 为空时使用 null，数据库会使用默认值
     $success = $db->addUser($username, $email, $hashedPassword, 'user', empty($displayName) ? null : $displayName);
     
     if (!$success) {

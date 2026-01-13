@@ -75,6 +75,10 @@ class Anon_Http_Response {
         
         http_response_code($httpCode);
         
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        
         $response = [
             'code' => 200,
             'message' => $message,
@@ -242,7 +246,7 @@ class Anon_Http_Response {
         
         // 检查详细日志
         $logDetailed = false;
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $logDetailed = Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         

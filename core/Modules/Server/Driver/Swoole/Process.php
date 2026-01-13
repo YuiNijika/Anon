@@ -55,7 +55,7 @@ class Anon_Server_Driver_Swoole_Process implements Anon_Server_Contract_ServerIn
      */
     public function start(array $options = []): void
     {
-        // 示例：启动默认配置的进程（如果有）
+        // 示例：启动默认配置的进程，如果有
         // 在实际应用中，通常通过 add() 方法添加进程，然后调用 start()
         
         foreach ($this->processes as $process) {

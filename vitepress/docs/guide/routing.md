@@ -49,7 +49,7 @@ app/Router/Index.php              → /index 和 /
 ],
 ```
 
-### 配置路由
+### 配置路由（API 模式）
 
 编辑 `server/app/useRouter.php`：
 
@@ -64,6 +64,30 @@ return [
     ],
 ];
 ```
+
+### 配置路由（CMS 模式）
+
+在 `server/app/useApp.php` 的 `app.cms.routes` 中配置：
+
+```php
+'app' => [
+    'mode' => 'cms',
+    'cms' => [
+        'theme' => 'default',
+        'routes' => [
+            '/' => 'index',              // 首页，渲染 Theme/default/index.php
+            '/about' => 'about',         // 关于页，渲染 Theme/default/about.php
+            '/post/{id}' => 'post',      // 文章详情，渲染 Theme/default/post.php
+        ],
+    ],
+],
+```
+
+**CMS 路由说明：**
+- 路由路径映射到主题模板文件（不区分大小写）
+- 支持参数路由，如 `/post/{id}`，参数会传递给模板
+- 模板文件位于 `app/Theme/{themeName}/` 目录
+- 支持 `.php`、`.html`、`.htm` 扩展名
 
 ## 路由元数据配置
 

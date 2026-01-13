@@ -37,7 +37,7 @@ class Anon_Auth_Csrf
             return hash('sha256', ANON_APP_KEY . '_csrf');
         }
 
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $appKey = Anon_System_Env::get('app.key');
             if (!empty($appKey)) {
                 return hash('sha256', $appKey . '_csrf');

@@ -211,7 +211,7 @@ class Anon_Auth_Token
             return ANON_APP_KEY;
         }
 
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $appKey = Anon_System_Env::get('app.key');
             if (!empty($appKey)) {
                 return $appKey;
@@ -231,7 +231,7 @@ class Anon_Auth_Token
      */
     private static function shouldLogDetailedErrors(): bool
     {
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         return false;

@@ -477,7 +477,7 @@ class Anon_Debug
      */
     private static function shouldLogDetailedInfo(): bool
     {
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.debug.logDetailedErrors', false);
         }
         return defined('ANON_DEBUG') && ANON_DEBUG;
@@ -553,29 +553,26 @@ class Anon_Debug
         }
 
         $userId = null;
-        if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
+        if (Anon_Auth_Token::isEnabled()) {
             try {
                 $token = Anon_Auth_Token::getTokenFromRequest();
                 if ($token) {
                     $payload = Anon_Auth_Token::verify($token);
                     if ($payload && isset($payload['data']['user_id'])) {
                         $userId = (int)$payload['data']['user_id'];
-                        if (class_exists('Anon_Check')) {
-                            Anon_Check::startSessionIfNotStarted();
-                            $_SESSION['user_id'] = $userId;
-                            if (isset($payload['data']['username'])) {
-                                $_SESSION['username'] = $payload['data']['username'];
-                            }
+                        
+                        Anon_Check::startSessionIfNotStarted();
+                        $_SESSION['user_id'] = $userId;
+                        if (isset($payload['data']['username'])) {
+                            $_SESSION['username'] = $payload['data']['username'];
                         }
                     }
                 }
             } catch (Exception $e) {}
         }
         
-        if (!$userId && class_exists('Anon_Check') && Anon_Check::isLoggedIn()) {
-            if (class_exists('Anon_Http_Request')) {
-                $userId = Anon_Http_Request::getUserId();
-            }
+        if (!$userId && Anon_Check::isLoggedIn()) {
+            $userId = Anon_Http_Request::getUserId();
         }
         
         if (!$userId) {
@@ -815,12 +812,11 @@ class Anon_Debug
         self::setCacheHeaders();
         header('Content-Type: text/html; charset=utf-8');
         
-        $viewPath = __DIR__ . '/../Components/Debug/Login.php';
-        if (file_exists($viewPath)) {
-            include $viewPath;
-        } else {
+        try {
+            Anon_Common::Components('Debug/Login');
+        } catch (RuntimeException $e) {
             Anon_Common::Header(500);
-            echo '登录页面文件不存在';
+            Anon_Http_Response::error('登录页面文件不存在', null, 500);
         }
         exit;
     }
@@ -849,12 +845,11 @@ class Anon_Debug
         self::setCacheHeaders();
         header('Content-Type: text/html; charset=utf-8');
 
-        $viewPath = __DIR__ . '/../Components/Debug/Console.php';
-        if (file_exists($viewPath)) {
-            include $viewPath;
-        } else {
+        try {
+            Anon_Common::Components('Debug/Console');
+        } catch (RuntimeException $e) {
             Anon_Common::Header(500);
-            echo '控制台页面文件不存在';
+            Anon_Http_Response::error('控制台页面文件不存在', null, 500);
         }
         exit;
     }

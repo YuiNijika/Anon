@@ -564,7 +564,7 @@ class Anon_Database_QueryBuilder
             $duration = (microtime(true) - $startTime) * 1000;
             
             // 记录查询性能
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+            if (Anon_Debug::isEnabled()) {
                 Anon_Debug::query($sql, $this->bindings, $duration);
                 
                 // 慢查询检测和索引建议，超过 100ms 视为慢查询
@@ -588,7 +588,7 @@ class Anon_Database_QueryBuilder
             $duration = (microtime(true) - $startTime) * 1000;
             
             // 记录查询性能
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+            if (Anon_Debug::isEnabled()) {
                 Anon_Debug::query($sql, $this->bindings, $duration);
                 
                 // 慢查询检测，超过 100ms 视为慢查询
@@ -646,7 +646,7 @@ class Anon_Database_QueryBuilder
         if (!empty($suggestedIndexes)) {
             $indexSuggestion = "CREATE INDEX idx_" . implode('_', $suggestedIndexes) . " ON {$table} (" . implode(', ', $suggestedIndexes) . ")";
             
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+            if (Anon_Debug::isEnabled()) {
                 Anon_Debug::warn("慢查询检测", [
                     'sql' => substr($sql, 0, 200),
                     'duration' => round($duration, 2) . 'ms',
@@ -725,8 +725,13 @@ class Anon_Database_QueryBuilder
         $columns = array_keys($data);
         $values = array_values($data);
         $placeholders = str_repeat('?,', count($values) - 1) . '?';
+        
+        // 为字段名添加反引号，避免保留关键字冲突
+        $escapedColumns = array_map(function($col) {
+            return "`{$col}`";
+        }, $columns);
 
-        $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES ({$placeholders})";
+        $sql = "INSERT INTO {$this->table} (" . implode(', ', $escapedColumns) . ") VALUES ({$placeholders})";
 
         // 执行插入
         $stmt = $this->prepareStatement($sql, $values);
@@ -773,8 +778,13 @@ class Anon_Database_QueryBuilder
             }
             $placeholders[] = '(' . str_repeat('?,', count($rowValues) - 1) . '?)';
         }
+        
+        // 为字段名添加反引号，避免保留关键字冲突
+        $escapedColumns = array_map(function($col) {
+            return "`{$col}`";
+        }, $columns);
 
-        $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES " . implode(', ', $placeholders);
+        $sql = "INSERT INTO {$this->table} (" . implode(', ', $escapedColumns) . ") VALUES " . implode(', ', $placeholders);
 
         // 执行批量插入
         $stmt = $this->prepareStatement($sql, $values);

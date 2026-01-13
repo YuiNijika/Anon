@@ -77,7 +77,7 @@ class Anon_Http_Request
         self::$inputRead = true;
         
         $maxSize = 2097152;
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $maxSize = Anon_System_Env::get('app.request.maxBodySize', 2097152);
         }
         
@@ -142,6 +142,28 @@ class Anon_Http_Request
     public static function get(string $key, $default = null)
     {
         return $_GET[$key] ?? $_POST[$key] ?? $default;
+    }
+
+    /**
+     * 获取POST参数
+     * @param string $key 参数名
+     * @param mixed $default 默认值
+     * @return mixed
+     */
+    public static function post(string $key, $default = null)
+    {
+        return $_POST[$key] ?? $default;
+    }
+
+    /**
+     * 获取GET参数
+     * @param string $key 参数名
+     * @param mixed $default 默认值
+     * @return mixed
+     */
+    public static function getParam(string $key, $default = null)
+    {
+        return $_GET[$key] ?? $default;
     }
 
     /**
@@ -225,6 +247,23 @@ class Anon_Http_Request
     public static function isGet(): bool
     {
         return self::method() === 'GET';
+    }
+
+    /**
+     * 检查请求是否期望 JSON 响应
+     * @return bool
+     */
+    public static function wantsJson(): bool
+    {
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        
+        if (empty($accept)) {
+            return false;
+        }
+        
+        // 检查 Accept 头是否包含 application/json
+        return strpos($accept, 'application/json') !== false || 
+               strpos($accept, 'text/json') !== false;
     }
 
     /**

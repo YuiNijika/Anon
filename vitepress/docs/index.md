@@ -32,6 +32,12 @@ features:
   - icon: 🔒
     title: 安全可靠
     details: CSRF 防护、XSS 过滤、SQL 注入防护、接口限流等安全功能
+  - icon: 🎨
+    title: CMS 支持
+    details: 支持 API 和 CMS 双模式，内置主题系统，类似 Typecho 的模板机制
+  - icon: 💀
+    title: 插件支持
+    details: 支持引入自定义插件扩展框架功能
   - icon: 🛠️
     title: 开发友好
     details: 流畅的查询构建器、完善的调试工具、清晰的代码规范

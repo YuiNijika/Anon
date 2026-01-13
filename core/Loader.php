@@ -1,28 +1,39 @@
 <?php
-/**
- * 核心加载器
- *
- * 负责加载框架的所有组件、模块和依赖文件。
- * 通过集中管理文件引入，保持 Main 类的整洁，并便于未来扩展自动加载机制。
- *
- * @package Anon/Core
- */
-
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Loader
 {
+    private static $loadedModules = [];
+
     /**
      * 加载所有核心组件
      * @return void
      */
     public static function loadAll()
     {
-        self::loadWidgets();
         self::loadCoreModules();
-        self::loadOptionalModules();
-        self::loadDebug();
         self::loadExtensions();
+    }
+
+    /**
+     * 加载 CMS 相关模块
+     * @return void
+     */
+    public static function loadCmsModules()
+    {
+        if (isset(self::$loadedModules['cms'])) {
+            return;
+        }
+        
+        require_once Anon_Main::MODULES_DIR . 'Cms/Cms.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Options.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Theme.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/PageMeta.php';
+        
+        self::$loadedModules['cms'] = true;
+        
+        Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputCopyright']);
+        Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputPageLoadTimeScript']);
     }
 
     /**
@@ -31,6 +42,10 @@ class Anon_Loader
      */
     public static function loadWidgets()
     {
+        if (isset(self::$loadedModules['widgets'])) {
+            return;
+        }
+        
         require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Escape.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Sanitize.php';
@@ -39,14 +54,21 @@ class Anon_Loader
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Format.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Array.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Random.php';
+        
+        self::$loadedModules['widgets'] = true;
     }
 
     /**
-     * 加载 Modules
+     * 加载核心模块
      * @return void
      */
     public static function loadCoreModules()
     {
+        if (isset(self::$loadedModules['core'])) {
+            return;
+        }
+        
+        require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::MODULES_DIR . 'System/Exception.php';
         require_once Anon_Main::MODULES_DIR . 'Database.php';
         require_once Anon_Main::MODULES_DIR . 'System/Install.php';
@@ -56,26 +78,48 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Helper.php';
         require_once Anon_Main::MODULES_DIR . 'System/Widget.php';
         require_once Anon_Main::MODULES_DIR . 'System/Container.php';
+        require_once Anon_Main::MODULES_DIR . 'Http/Router.php';
         require_once Anon_Main::MODULES_DIR . 'Http/Middleware.php';
         require_once Anon_Main::MODULES_DIR . 'System/Cache.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryBuilder.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryOptimizer.php';
         require_once Anon_Main::MODULES_DIR . 'Database/Sharding.php';
+        
+        self::$loadedModules['core'] = true;
     }
 
     /**
-     * 加载 Optional Modules
+     * 加载可选模块
+     * @param string|null $module 模块名称
      * @return void
      */
-    public static function loadOptionalModules()
+    public static function loadOptionalModules(?string $module = null)
     {
-        require_once Anon_Main::MODULES_DIR . 'Auth/Token.php';
-        require_once Anon_Main::MODULES_DIR . 'Auth/Captcha.php';
-        require_once Anon_Main::MODULES_DIR . 'Auth/RateLimit.php';
-        require_once Anon_Main::MODULES_DIR . 'Auth/Csrf.php';
-        require_once Anon_Main::MODULES_DIR . 'Security/Security.php';
-        require_once Anon_Main::MODULES_DIR . 'Auth/Capability.php';
-        require_once Anon_Main::MODULES_DIR . 'System/Console.php';
+        $modules = [
+            'token' => Anon_Main::MODULES_DIR . 'Auth/Token.php',
+            'captcha' => Anon_Main::MODULES_DIR . 'Auth/Captcha.php',
+            'ratelimit' => Anon_Main::MODULES_DIR . 'Auth/RateLimit.php',
+            'csrf' => Anon_Main::MODULES_DIR . 'Auth/Csrf.php',
+            'security' => Anon_Main::MODULES_DIR . 'Security/Security.php',
+            'capability' => Anon_Main::MODULES_DIR . 'Auth/Capability.php',
+            'console' => Anon_Main::MODULES_DIR . 'System/Console.php',
+        ];
+        
+        if ($module !== null) {
+            $module = strtolower($module);
+            if (isset($modules[$module]) && !isset(self::$loadedModules['optional_' . $module])) {
+                require_once $modules[$module];
+                self::$loadedModules['optional_' . $module] = true;
+            }
+            return;
+        }
+        
+        foreach ($modules as $key => $path) {
+            if (!isset(self::$loadedModules['optional_' . $key])) {
+                require_once $path;
+                self::$loadedModules['optional_' . $key] = true;
+            }
+        }
     }
 
     /**
@@ -84,7 +128,14 @@ class Anon_Loader
      */
     public static function loadDebug()
     {
-        require_once Anon_Main::MODULES_DIR . 'Debug.php';
+        if (isset(self::$loadedModules['debug'])) {
+            return;
+        }
+        
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            require_once Anon_Main::MODULES_DIR . 'Debug.php';
+            self::$loadedModules['debug'] = true;
+        }
     }
 
     /**
@@ -93,14 +144,15 @@ class Anon_Loader
      */
     public static function loadExtensions()
     {
-        // 加载快捷方法封装类
+        if (isset(self::$loadedModules['extensions'])) {
+            return;
+        }
+        
         require_once Anon_Main::MODULES_DIR . 'Anon.php';
-        
-        // 加载插件系统
         require_once Anon_Main::MODULES_DIR . 'System/Plugin.php';
-        
-        // 加载兼容层
         require_once Anon_Main::MODULES_DIR . '/../Compatibility.php';
+        
+        self::$loadedModules['extensions'] = true;
     }
 }
 

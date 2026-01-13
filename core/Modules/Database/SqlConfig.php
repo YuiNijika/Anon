@@ -120,7 +120,7 @@ class Anon_Database_SqlConfig
      */
     public static function parseCreateTableSql(string $sql, string $prefix = ''): array
     {
-        // 提取字段定义部分（括号内的内容，支持多行）
+        // 提取字段定义部分，括号内的内容，支持多行
         if (!preg_match('/CREATE TABLE[^(]*\(([\s\S]+)\)/i', $sql, $matches)) {
             throw new RuntimeException("无法解析 SQL 字段定义");
         }
@@ -180,13 +180,13 @@ class Anon_Database_SqlConfig
     {
         $columns = [];
         
-        // 按逗号分割字段，但要注意处理括号内的内容（如函数调用）
+        // 按逗号分割字段，但要注意处理括号内的内容，如函数调用
         $parts = self::splitColumnDefinitions($columnSection);
         
         foreach ($parts as $part) {
             $part = trim($part);
             
-            // 跳过索引定义（INDEX, UNIQUE, PRIMARY KEY 等）
+            // 跳过索引定义，INDEX、UNIQUE、PRIMARY KEY 等
             if (preg_match('/^\s*(INDEX|UNIQUE|PRIMARY\s+KEY|FOREIGN\s+KEY|KEY)\s+/i', $part)) {
                 continue;
             }
@@ -196,7 +196,7 @@ class Anon_Database_SqlConfig
                 $fieldName = $matches[1];
                 $fieldDef = trim($matches[2]);
                 
-                // 将字段定义作为字符串直接使用（查询构建器会验证安全性）
+                // 将字段定义作为字符串直接使用，查询构建器会验证安全性
                 $columns[$fieldName] = $fieldDef;
             }
         }

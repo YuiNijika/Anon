@@ -1,56 +1,19 @@
 <?php
-
-/**
- * 路由处理
- */
-
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Http_Router
 {
-    /**
-     * @var array 路由配置
-     */
     private static $routes = [];
-
-    /**
-     * @var array 错误处理器
-     */
     private static $errorHandlers = [];
-
-    /**
-     * @var string 日志路径
-     */
     private static $logFile = __DIR__ . '/../../../logs/router.log';
-
-    /**
-     * @var bool 日志初始化
-     */
     private static $logInitialized = false;
-
-    /**
-     * @var array 匹配缓存
-     */
     private static $routeMatchCache = [];
-
-    /**
-     * @var string|null 路径缓存
-     */
     private static $cachedRequestPath = null;
-
-    /**
-     * @var array 元数据缓存
-     */
     private static $routerMetaCache = [];
-
-    /**
-     * @var bool 持久化缓存
-     */
     private static $usePersistentMetaCache = null;
 
     /**
      * 初始化
-     * @throws RuntimeException
      */
     public static function init(): void
     {
@@ -75,15 +38,35 @@ class Anon_Http_Router
                 Anon_Debug::startPerformance('router_init');
             }
 
-            $autoRouter = Anon_System_Env::get('app.autoRouter', false);
-            if ($autoRouter) {
-                self::autoRegisterRoutes();
+            $mode = Anon_System_Env::get('app.mode', 'api');
+
+            if ($mode === 'cms') {
+                if (!class_exists('Anon_Cms_Theme')) {
+                    Anon_Loader::loadCmsModules();
+                }
+                
+                Anon_Cms_Theme::init();
+                Anon_Cms_Theme::registerAssets();
+                
+                self::registerThemeTemplates();
+                
+                $cmsRoutes = Anon_System_Env::get('app.cms.routes', []);
+                if (is_array($cmsRoutes) && !empty($cmsRoutes)) {
+                    self::registerCmsRouteMappings($cmsRoutes);
+                }
+                
+                self::registerApiRoutesWithPrefix();
             } else {
-                $routerConfig = __DIR__ . '/../../../app/useRouter.php';
-                if (file_exists($routerConfig)) {
-                    self::registerAppRoutes(require $routerConfig);
+                $autoRouter = Anon_System_Env::get('app.autoRouter', false);
+                if ($autoRouter) {
+                    self::autoRegisterRoutes();
                 } else {
-                    throw new RuntimeException("Router config file not found: {$routerConfig}");
+                    $routerConfig = __DIR__ . '/../../../app/useRouter.php';
+                    if (file_exists($routerConfig)) {
+                        self::registerAppRoutes(require $routerConfig);
+                    } else {
+                        throw new RuntimeException("Router config file not found: {$routerConfig}");
+                    }
                 }
             }
 
@@ -106,9 +89,9 @@ class Anon_Http_Router
                     'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString()
                 ]);
+                self::logError("Router ERROR: " . $e->getMessage(), $e->getFile(), $e->getLine());
             }
 
-            self::logError("Router ERROR: " . $e->getMessage(), $e->getFile(), $e->getLine());
             self::handleError(500);
         }
     }
@@ -438,7 +421,20 @@ class Anon_Http_Router
             $code = $meta['code'] ?? 200;
             $response = isset($meta['response']) && $meta['response'] !== null ? $meta['response'] : true;
             $cors = isset($meta['cors']) && $meta['cors'] !== null ? $meta['cors'] : true;
-            Anon_Common::Header($code, $response, $cors);
+            
+            // CMS 模式下，如果不是明确要求 JSON，设置 HTML 响应头
+            $mode = Anon_System_Env::get('app.mode', 'api');
+            if ($mode === 'cms' && !Anon_Http_Request::wantsJson()) {
+                http_response_code($code);
+                if ($cors) {
+                    Anon_Common::setCorsHeaders();
+                }
+                if ($response) {
+                    header('Content-Type: text/html; charset=utf-8');
+                }
+            } else {
+                Anon_Common::Header($code, $response, $cors);
+            }
         }
 
         if (isset($meta['token'])) {
@@ -578,8 +574,14 @@ class Anon_Http_Router
      */
     public static function registerAppRoutes(array $routeTree, string $basePath = ''): void
     {
+        $mode = Anon_System_Env::get('app.mode', 'api');
+        
         foreach ($routeTree as $key => $value) {
             $currentPath = $basePath ? $basePath . '/' . $key : $key;
+            
+            if (strpos($currentPath, '/') !== 0) {
+                $currentPath = '/' . $currentPath;
+            }
 
             if (is_string($value)) {
                 $view = $value;
@@ -592,9 +594,23 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('app_before_register_route', $currentPath, $view, false);
 
-            $handler = function () use ($view, $currentPath) {
-                Anon_Http_Router::View($view);
-            };
+            if ($mode === 'cms') {
+                $handler = function () use ($view, $currentPath) {
+                    $isParamRoute = strpos($currentPath, '{') !== false;
+                    
+                    if ($isParamRoute) {
+                        $requestPath = self::getRequestPath();
+                        $params = self::extractRouteParams($currentPath, $requestPath);
+                        Anon_Cms_Theme::render($view, $params);
+                    } else {
+                        Anon_Cms_Theme::render($view, []);
+                    }
+                };
+            } else {
+                $handler = function () use ($view, $currentPath) {
+                    Anon_Http_Router::View($view);
+                };
+            }
 
             Anon_System_Config::addRoute($currentPath, $handler);
 
@@ -604,6 +620,233 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('app_after_register_route', $currentPath, $view, false);
         }
+    }
+
+    /**
+     * 注册主题根目录下的模板文件
+     * @return void
+     */
+    private static function registerThemeTemplates(): void
+    {
+        if (!class_exists('Anon_Cms_Theme')) {
+            Anon_Loader::loadCmsModules();
+        }
+        
+        $themeDir = Anon_Cms_Theme::getThemeDir();
+        $indexFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'index');
+        
+        if ($indexFile !== null) {
+            Anon_System_Hook::do_action('app_before_register_route', '/', 'index', false);
+            
+            $handler = function () {
+                Anon_Cms_Theme::render('index', []);
+            };
+            
+            Anon_System_Config::addRoute('/', $handler);
+            
+            if (self::isDebugEnabled()) {
+                self::debugLog("Registered theme template route: / -> index");
+            }
+            
+            Anon_System_Hook::do_action('app_after_register_route', '/', 'index', false);
+        }
+    }
+
+
+    /**
+     * 注册带前缀的 API 路由
+     * @return void
+     */
+    private static function registerApiRoutesWithPrefix(): void
+    {
+        $apiPrefix = Anon_System_Env::get('app.cms.apiPrefix', '/api');
+        $apiPrefix = rtrim($apiPrefix, '/');
+        if (empty($apiPrefix) || $apiPrefix === '/') {
+            return;
+        }
+        
+        $autoRouter = Anon_System_Env::get('app.autoRouter', false);
+        if ($autoRouter) {
+            self::autoRegisterRoutesWithPrefix($apiPrefix);
+        } else {
+            $routerConfig = __DIR__ . '/../../../app/useRouter.php';
+            if (file_exists($routerConfig)) {
+                self::registerAppRoutesWithPrefix(require $routerConfig, $apiPrefix);
+            }
+        }
+    }
+
+    /**
+     * 注册应用路由（带前缀）
+     * @param array $routeTree 路由树
+     * @param string $prefix 路由前缀
+     * @param string $basePath 基础路径
+     * @return void
+     */
+    private static function registerAppRoutesWithPrefix(array $routeTree, string $prefix, string $basePath = ''): void
+    {
+        foreach ($routeTree as $key => $value) {
+            $currentPath = $basePath ? $basePath . '/' . $key : $key;
+            
+            if (strpos($currentPath, '/') !== 0) {
+                $currentPath = '/' . $currentPath;
+            }
+            
+            $prefixedPath = $prefix . $currentPath;
+
+            if (is_string($value)) {
+                $view = $value;
+            } elseif (is_array($value) && isset($value['view'])) {
+                $view = $value['view'];
+            } else {
+                self::registerAppRoutesWithPrefix($value, $prefix, $currentPath);
+                continue;
+            }
+
+            Anon_System_Hook::do_action('app_before_register_route', $prefixedPath, $view, false);
+
+            $handler = function () use ($view) {
+                Anon_Http_Router::View($view);
+            };
+
+            Anon_System_Config::addRoute($prefixedPath, $handler);
+
+            if (self::isDebugEnabled()) {
+                self::debugLog("Registered API route with prefix: {$prefixedPath} -> {$view}");
+            }
+
+            Anon_System_Hook::do_action('app_after_register_route', $prefixedPath, $view, false);
+        }
+    }
+
+    /**
+     * 自动注册路由（带前缀）
+     * @param string $prefix 路由前缀
+     * @return void
+     */
+    private static function autoRegisterRoutesWithPrefix(string $prefix): void
+    {
+        $routerDir = __DIR__ . '/../../../app/Router';
+        
+        if (!is_dir($routerDir)) {
+            return;
+        }
+
+        Anon_System_Hook::do_action('router_before_auto_register');
+
+        self::scanDirectoryWithPrefix($routerDir, '', $prefix);
+
+        Anon_System_Hook::do_action('router_after_auto_register');
+    }
+
+    /**
+     * 递归扫描目录（带前缀）
+     * @param string $dir 目录路径
+     * @param string $basePath 基础路径
+     * @param string $prefix 路由前缀
+     * @return void
+     */
+    private static function scanDirectoryWithPrefix(string $dir, string $basePath, string $prefix): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..' || $item[0] === '.') {
+                continue;
+            }
+
+            $itemPath = $dir . DIRECTORY_SEPARATOR . $item;
+            $itemName = pathinfo($item, PATHINFO_FILENAME);
+            $itemNameLower = strtolower($itemName);
+            $itemNameRoute = str_replace('_', '-', $itemNameLower);
+
+            if (empty($basePath)) {
+                $routePath = '/' . $itemNameRoute;
+            } else {
+                $routePath = $basePath . '/' . $itemNameRoute;
+            }
+
+            if (is_dir($itemPath)) {
+                self::scanDirectoryWithPrefix($itemPath, $routePath, $prefix);
+            } elseif (is_file($itemPath) && pathinfo($item, PATHINFO_EXTENSION) === 'php') {
+                $prefixedPath = $prefix . $routePath;
+                self::registerAutoRoute($prefixedPath, $itemPath, $dir);
+            }
+        }
+    }
+
+    /**
+     * 注册 CMS 路由指向关系
+     * @param array $routeMappings 路由映射
+     * @return void
+     */
+    private static function registerCmsRouteMappings(array $routeMappings): void
+    {
+        foreach ($routeMappings as $routePath => $templateName) {
+            if (strpos($routePath, '/') !== 0) {
+                $routePath = '/' . $routePath;
+            }
+            
+            Anon_System_Hook::do_action('app_before_register_route', $routePath, $templateName, false);
+            
+            $handler = function () use ($templateName, $routePath) {
+                $isParamRoute = strpos($routePath, '{') !== false;
+                
+                if ($isParamRoute) {
+                    $requestPath = self::getRequestPath();
+                    $params = self::extractRouteParams($routePath, $requestPath);
+                    Anon_Cms_Theme::render($templateName, $params);
+                } else {
+                    Anon_Cms_Theme::render($templateName, []);
+                }
+            };
+            
+            Anon_System_Config::addRoute($routePath, $handler);
+            
+            if (self::isDebugEnabled()) {
+                self::debugLog("Registered CMS route mapping: {$routePath} -> {$templateName}");
+            }
+            
+            Anon_System_Hook::do_action('app_after_register_route', $routePath, $templateName, false);
+        }
+    }
+
+    /**
+     * 从请求路径中提取路由参数
+     * @param string $routePattern 路由模式（如 /post/{id}）
+     * @param string $requestPath 请求路径（如 /post/123）
+     * @return array
+     */
+    private static function extractRouteParams(string $routePattern, string $requestPath): array
+    {
+        $params = [];
+        
+        // 将路由模式转换为正则表达式
+        $pattern = preg_quote($routePattern, '/');
+        $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
+        $pattern = '/^' . $pattern . '$/';
+        
+        if (preg_match($pattern, $requestPath, $matches)) {
+            // 提取参数名
+            preg_match_all('/\{([^\/]+)\}/', $routePattern, $paramNames);
+            $paramNames = $paramNames[1];
+            
+            // 匹配参数值
+            for ($i = 0; $i < count($paramNames); $i++) {
+                if (isset($matches[$i + 1])) {
+                    $params[$paramNames[$i]] = $matches[$i + 1];
+                }
+            }
+        }
+        
+        return $params;
     }
 
     /**
@@ -1093,7 +1336,56 @@ class Anon_Http_Router
      */
     private static function showDefaultError(int $statusCode): void
     {
+        $mode = Anon_System_Env::get('app.mode', 'api');
+        
+        if ($mode === 'cms' && !Anon_Http_Request::wantsJson()) {
+            // CMS 模式：使用主题错误页面模板
+            try {
+                Anon_Cms_Theme::render('Error', [
+                    'code' => $statusCode,
+                    'message' => null
+                ]);
+            } catch (RuntimeException $e) {
+                // 如果主题模板不存在，使用默认错误页面
+                http_response_code($statusCode);
+                header('Content-Type: text/html; charset=utf-8');
+                
+                $statusText = [
+                    400 => 'Bad Request',
+                    401 => 'Unauthorized',
+                    403 => 'Forbidden',
+                    404 => 'Not Found',
+                    405 => 'Method Not Allowed',
+                    500 => 'Internal Server Error'
+                ];
+                $text = $statusText[$statusCode] ?? 'Error';
+                
+                echo "<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset='UTF-8'>
+                    <title>{$statusCode} {$text}</title>
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; color: #333; }
+                        .container { text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+                        h1 { margin: 0 0 1rem; font-size: 3rem; color: #ff4d4f; }
+                        p { font-size: 1.2rem; color: #666; margin: 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class='container'>
+                        <h1>{$statusCode}</h1>
+                        <p>{$text}</p>
+                    </div>
+                </body>
+                </html>";
+            }
+            return;
+        }
+
+        // API 模式：设置 JSON 响应头
         Anon_Common::Header($statusCode);
+
         $messages = [
             400 => [
                 'code' => 400,

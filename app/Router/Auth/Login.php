@@ -16,7 +16,7 @@ try {
     
     $inputData = Anon_Http_Request::getInput();
     
-    if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+    if (Anon_Auth_Captcha::isEnabled()) {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }

@@ -3,8 +3,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     /**
-     * 用户表
+     * 全局表
      */
+    // 用户表
     'users' => "CREATE TABLE IF NOT EXISTS `{prefix}users` (
         `uid` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '用户 ID',
         `name` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名',
@@ -16,9 +17,8 @@ return [
         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息表'",
-    /**
-     * 登录记录表
-     */
+    
+    // 登录记录表
     'login_logs' => "CREATE TABLE IF NOT EXISTS `{prefix}login_logs` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录 ID',
         `uid` INT UNSIGNED NULL DEFAULT NULL COMMENT '用户 ID',
@@ -35,6 +35,105 @@ return [
         INDEX `idx_domain` (`domain`),
         INDEX `idx_status` (`status`),
         INDEX `idx_created_at` (`created_at`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户登录记录表'"
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户登录记录表'",
+    
+    /**
+     * API 模式专用表
+     */
+    'api' => [
+        // 在这里添加 API 模式专用的数据表
+        // 'api_tokens' => "CREATE TABLE IF NOT EXISTS `{prefix}api_tokens` ...",
+    ],
+    
+    /**
+     * CMS 模式专用表
+     */
+    'cms' => [
+        // 文章表
+        'posts' => "CREATE TABLE IF NOT EXISTS `{prefix}posts` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '内容 ID',
+            `type` VARCHAR(20) NOT NULL DEFAULT 'post' COMMENT '类型：post=文章，page=页面',
+            `title` VARCHAR(255) NOT NULL COMMENT '标题',
+            `slug` VARCHAR(255) NOT NULL COMMENT '别名',
+            `content` LONGTEXT NULL DEFAULT NULL COMMENT '内容',
+            `status` VARCHAR(20) NOT NULL DEFAULT 'draft' COMMENT '状态：draft=草稿，publish=已发布，private=私有',
+            `author_id` INT UNSIGNED NOT NULL COMMENT '作者 ID',
+            `views` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '浏览量',
+            `comment_status` VARCHAR(20) NOT NULL DEFAULT 'open' COMMENT '评论状态：open=开放，closed=关闭',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+            INDEX `idx_type` (`type`),
+            INDEX `idx_status` (`status`),
+            INDEX `idx_author_id` (`author_id`),
+            INDEX `idx_slug` (`slug`),
+            INDEX `idx_created_at` (`created_at`),
+            UNIQUE KEY `uk_slug_type` (`slug`, `type`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容表（文章和页面）'",
+        
+        // 评论表
+        'comments' => "CREATE TABLE IF NOT EXISTS `{prefix}comments` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '评论 ID',
+            `post_id` INT UNSIGNED NOT NULL COMMENT '内容 ID',
+            `parent_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '父评论 ID',
+            `user_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '用户 ID',
+            `name` VARCHAR(255) NULL DEFAULT NULL COMMENT '评论者名称',
+            `email` VARCHAR(255) NULL DEFAULT NULL COMMENT '评论者邮箱',
+            `url` VARCHAR(500) NULL DEFAULT NULL COMMENT '评论者网址',
+            `ip` VARCHAR(45) NOT NULL COMMENT 'IP 地址',
+            `content` TEXT NOT NULL COMMENT '评论内容',
+            `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态：pending=待审核，approved=已通过，spam=垃圾，trash=已删除',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+            INDEX `idx_post_id` (`post_id`),
+            INDEX `idx_parent_id` (`parent_id`),
+            INDEX `idx_user_id` (`user_id`),
+            INDEX `idx_status` (`status`),
+            INDEX `idx_created_at` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评论表'",
+        
+        // 附件表
+        'attachments' => "CREATE TABLE IF NOT EXISTS `{prefix}attachments` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '附件 ID',
+            `post_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '关联内容 ID（可为空）',
+            `user_id` INT UNSIGNED NOT NULL COMMENT '上传用户 ID',
+            `filename` VARCHAR(255) NOT NULL COMMENT '文件名',
+            `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
+            `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME 类型',
+            `file_size` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
+            `file_path` VARCHAR(500) NOT NULL COMMENT '文件路径',
+            `url` VARCHAR(500) NOT NULL COMMENT '访问 URL',
+            `alt` VARCHAR(255) NULL DEFAULT NULL COMMENT '替代文本',
+            `description` TEXT NULL DEFAULT NULL COMMENT '描述',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+            INDEX `idx_post_id` (`post_id`),
+            INDEX `idx_user_id` (`user_id`),
+            INDEX `idx_mime_type` (`mime_type`),
+            INDEX `idx_created_at` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='附件表'",
+        
+        // 选项表
+        'options' => "CREATE TABLE IF NOT EXISTS `{prefix}options` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '选项 ID',
+            `name` VARCHAR(255) NOT NULL UNIQUE COMMENT '选项名称',
+            `value` LONGTEXT NULL DEFAULT NULL COMMENT '选项值',
+            INDEX `idx_name` (`name`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='选项表'",
+        
+        // 元数据表
+        'metas' => "CREATE TABLE IF NOT EXISTS `{prefix}metas` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '元数据 ID',
+            `name` VARCHAR(255) NOT NULL COMMENT '名称',
+            `slug` VARCHAR(255) NOT NULL COMMENT '别名',
+            `type` VARCHAR(20) NOT NULL COMMENT '类型：category=分类，tag=标签',
+            `parent_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '父级 ID',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+            INDEX `idx_type` (`type`),
+            INDEX `idx_parent_id` (`parent_id`),
+            INDEX `idx_slug` (`slug`),
+            UNIQUE KEY `uk_slug_type` (`slug`, `type`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='元数据表（分类和标签）'",
+    ],
 ];
 

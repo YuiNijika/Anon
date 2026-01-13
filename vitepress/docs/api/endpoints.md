@@ -10,6 +10,13 @@
 - `GET /anon/common/config` - 获取配置信息
 - `GET /anon/ciallo` - 恰喽~
 - `GET /anon/install` - 安装页面
+- `GET /anon/install/api/token` - 获取安装 CSRF Token
+- `POST /anon/install/api/mode` - 选择安装模式
+- `GET /anon/install/api/get-mode` - 获取当前选择的模式
+- `POST /anon/install/api/database` - 配置数据库
+- `POST /anon/install/api/site` - 配置站点信息（CMS 模式）
+- `POST /anon/install/api/install` - 创建管理员账号并完成安装（API 模式）
+- `POST /anon/install/api/back` - 返回上一步
 - `GET /anon` - 系统根路径
 
 ## 调试端点

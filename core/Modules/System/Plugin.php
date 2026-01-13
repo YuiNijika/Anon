@@ -62,7 +62,7 @@ class Anon_System_Plugin
      */
     public static function isEnabled(): bool
     {
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.plugins.enabled', true);
         }
         return true;
@@ -346,7 +346,7 @@ class Anon_System_Plugin
      */
     private static function getActivePlugins(): array
     {
-        if (class_exists('Anon_System_Env') && Anon_System_Env::isInitialized()) {
+        if (Anon_System_Env::isInitialized()) {
             $active = Anon_System_Env::get('app.plugins.active', []);
             if (empty($active)) {
                 return [];

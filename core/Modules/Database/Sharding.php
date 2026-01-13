@@ -69,7 +69,7 @@ class Anon_Database_Sharding
                 return (int)$shardKey % $shardCount;
 
             case 'time':
-                // 按时间分片（按月或按年）
+                // 按时间分片，按月或按年
                 if (is_numeric($shardKey)) {
                     $timestamp = $shardKey;
                 } else {

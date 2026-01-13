@@ -22,6 +22,31 @@ class Anon
      */
     public static function error($message = '操作失败', $data = null, $httpCode = 400)
     {
+        $mode = Anon_System_Env::get('app.mode', 'api');
+
+        // 如果是 API 模式，或者请求头要求 JSON，保持现状
+        if ($mode === 'api' || Anon_Http_Request::wantsJson()) {
+            Anon_Http_Response::error($message, $data, $httpCode);
+            return;
+        }
+
+        // 如果是 CMS 模式，且不是 AJAX 请求，则渲染错误页面
+        if ($mode === 'cms') {
+            try {
+                Anon_Cms_Theme::render('Error', [
+                    'code' => $httpCode,
+                    'message' => $message,
+                    'data' => $data
+                ]);
+            } catch (RuntimeException $e) {
+                // 如果主题模板不存在，使用默认错误页面
+                Anon_Common::Header($httpCode);
+                echo "<h1>出错了 ($httpCode)</h1><p>" . htmlspecialchars($message) . "</p>";
+            }
+            exit;
+        }
+        
+        // 默认回退到 API 响应
         Anon_Http_Response::error($message, $data, $httpCode);
     }
 
@@ -38,7 +63,7 @@ class Anon
     }
 
     /**
-     * 未授权（抛出异常）
+     * 未授权
      * @param string $message 消息
      * @param array $data 额外数据
      * @throws Anon_UnauthorizedException
@@ -49,7 +74,7 @@ class Anon
     }
 
     /**
-     * 禁止访问（抛出异常）
+     * 禁止访问
      * @param string $message 消息
      * @param array $data 额外数据
      * @throws Anon_ForbiddenException
@@ -60,7 +85,7 @@ class Anon
     }
 
     /**
-     * 未找到（抛出异常）
+     * 未找到
      * @param string $message 消息
      * @param array $data 额外数据
      * @throws Anon_NotFoundException
