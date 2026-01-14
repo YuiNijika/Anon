@@ -193,6 +193,14 @@ class Anon_System_Config
             Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');
         });
 
+        if (Anon_System_Env::get('app.mode') === 'cms') {
+            self::addRoute('/anon/cms/api-prefix', function() {
+                Anon_Common::Header();
+                $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+                Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API 前缀成功');
+            });
+        }
+
         $staticDir = __DIR__ . '/../../Static/';
         
         $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);

@@ -103,6 +103,12 @@ class Anon_System_Env
                     }
                     return $routes ?? $default;
                 }
+                if ($optionName === 'apiPrefix') {
+                    return Anon_Cms_Options::get('apiPrefix', $default);
+                }
+                if ($optionName === 'theme') {
+                    return Anon_Cms_Options::get('theme', $default);
+                }
                 return Anon_Cms_Options::get($optionName, $default);
             }
         }

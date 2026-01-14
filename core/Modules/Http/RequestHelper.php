@@ -319,7 +319,12 @@ class Anon_Http_Request
      */
     public static function generateUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!Anon_Auth_Token::isEnabled()) {
+        // 确保 Token 模块已加载
+        if (!class_exists('Anon_Auth_Token')) {
+            Anon_Loader::loadOptionalModules('token');
+        }
+        
+        if (!class_exists('Anon_Auth_Token') || !Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
@@ -349,7 +354,12 @@ class Anon_Http_Request
      */
     public static function getUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        if (!Anon_Auth_Token::isEnabled()) {
+        // 确保 Token 模块已加载
+        if (!class_exists('Anon_Auth_Token')) {
+            Anon_Loader::loadOptionalModules('token');
+        }
+        
+        if (!class_exists('Anon_Auth_Token') || !Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
@@ -385,6 +395,16 @@ class Anon_Http_Request
             return true;
         }
         
+        // 确保 Token 模块已加载
+        if (!class_exists('Anon_Auth_Token')) {
+            Anon_Loader::loadOptionalModules('token');
+        }
+        
+        // 如果类仍然不存在，说明 Token 模块未启用，直接返回 true
+        if (!class_exists('Anon_Auth_Token')) {
+            return true;
+        }
+        
         // 检查启用
         if (!Anon_Auth_Token::isEnabled()) {
             return true;
@@ -399,12 +419,30 @@ class Anon_Http_Request
         if (strpos($path, '/apiService') === 0) {
             $path = substr($path, strlen('/apiService'));
         }
+        
+        // 去除 CMS 模式下的 API 前缀
+        $mode = Anon_System_Env::get('app.mode', 'api');
+        if ($mode === 'cms' && class_exists('Anon_Cms_Options')) {
+            $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+            $apiPrefix = rtrim($apiPrefix, '/');
+            if (!empty($apiPrefix) && $apiPrefix !== '/' && strpos($path, $apiPrefix) === 0) {
+                $path = substr($path, strlen($apiPrefix));
+            }
+        }
+        
         if (strpos($path, '/') !== 0) {
             $path = '/' . $path;
         }
 
-        // 检查白名单
+        // 检查白名单（先检查原始路径，再检查去除前缀后的路径）
         if (Anon_Auth_Token::isWhitelisted($path)) {
+            return true;
+        }
+        
+        // 如果原始路径与去除前缀后的路径不同，也检查原始路径
+        $originalPath = parse_url($requestUri, PHP_URL_PATH);
+        $originalPath = strstr($originalPath, '?', true) ?: $originalPath;
+        if ($originalPath !== $path && Anon_Auth_Token::isWhitelisted($originalPath)) {
             return true;
         }
 

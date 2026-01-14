@@ -74,6 +74,17 @@ class Anon_Main
             Anon_Loader::loadCmsModules();
         }
         
+        // 根据配置加载可选模块
+        if (Anon_System_Env::get('app.token.enabled', false)) {
+            Anon_Loader::loadOptionalModules('token');
+        }
+        if (Anon_System_Env::get('app.captcha.enabled', false)) {
+            Anon_Loader::loadOptionalModules('captcha');
+        }
+        if (Anon_System_Env::get('app.security.csrf.enabled', false)) {
+            Anon_Loader::loadOptionalModules('csrf');
+        }
+        
         Anon_Loader::loadDebug();
         if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
             Anon_Debug::init();

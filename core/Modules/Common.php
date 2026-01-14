@@ -166,7 +166,7 @@ LICENSE;
      * 设置 CORS 头
      * 生产环境必须配置允许的来源域名
      */
-    private static function setCorsHeaders(): void
+    public static function setCorsHeaders(): void
     {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
         $allowedOrigins = self::getAllowedCorsOrigins();

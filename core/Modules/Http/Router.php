@@ -442,7 +442,12 @@ class Anon_Http_Router
                 Anon_Http_Request::requireToken(true, false);
             }
         } else {
-            if (Anon_Auth_Token::isEnabled()) {
+            // 确保 Token 模块已加载
+            if (!class_exists('Anon_Auth_Token')) {
+                Anon_Loader::loadOptionalModules('token');
+            }
+            
+            if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
                 Anon_Http_Request::requireToken(true, false);
             }
         }
@@ -659,7 +664,11 @@ class Anon_Http_Router
      */
     private static function registerApiRoutesWithPrefix(): void
     {
-        $apiPrefix = Anon_System_Env::get('app.cms.apiPrefix', '/api');
+        if (!class_exists('Anon_Cms_Options')) {
+            Anon_Loader::loadCmsModules();
+        }
+        
+        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
         $apiPrefix = rtrim($apiPrefix, '/');
         if (empty($apiPrefix) || $apiPrefix === '/') {
             return;

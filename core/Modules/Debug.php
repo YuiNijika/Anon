@@ -553,7 +553,7 @@ class Anon_Debug
         }
 
         $userId = null;
-        if (Anon_Auth_Token::isEnabled()) {
+        if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
             try {
                 $token = Anon_Auth_Token::getTokenFromRequest();
                 if ($token) {
