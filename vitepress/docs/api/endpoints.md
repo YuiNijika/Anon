@@ -44,6 +44,87 @@
 
 - `GET /user/info` - 获取用户信息
 
+## CMS 管理端点
+
+以下端点使用 `/anon/cms/admin` 前缀：
+
+- `GET /anon/cms/admin/auth/token` - 获取 Token（需要登录）
+- `GET /anon/cms/admin/auth/check-login` - 检查登录状态（无需登录）
+- `GET /anon/cms/admin/user/info` - 获取用户信息（需要登录）
+- `GET /anon/cms/admin/config` - 获取配置信息（无需登录）
+- `GET /anon/cms/admin/statistics` - 获取统计数据（需要管理员权限）
+- `GET /anon/cms/admin/settings/basic` - 获取基本设置（需要管理员权限）
+- `POST /anon/cms/admin/settings/basic` - 更新基本设置（需要管理员权限）
+
+### 配置信息接口
+
+`GET /anon/cms/admin/config` 和 `GET /get-config` 返回相同的配置信息：
+
+```json
+{
+  "code": 200,
+  "message": "获取配置信息成功",
+  "data": {
+    "token": true,
+    "captcha": false,
+    "csrfToken": "xxx"
+  }
+}
+```
+
+可通过 `config` 钩子扩展配置字段：
+
+```php
+Anon_System_Hook::add_filter('config', function($config) {
+    $config['customField'] = 'customValue';
+    return $config;
+});
+```
+
+### 基本设置接口
+
+获取基本设置：
+
+```json
+{
+  "code": 200,
+  "message": "获取基本设置成功",
+  "data": {
+    "title": "站点名称",
+    "description": "站点描述",
+    "keywords": "关键词",
+    "allow_register": false,
+    "api_prefix": "/api",
+    "api_enabled": false,
+    "upload_allowed_types": {
+      "image": "gif,jpg,jpeg,png",
+      "media": "mp3,mp4",
+      "document": "pdf,doc",
+      "other": ""
+    }
+  }
+}
+```
+
+更新基本设置：
+
+```json
+{
+  "title": "新站点名称",
+  "description": "新站点描述",
+  "keywords": "新关键词",
+  "allow_register": true,
+  "api_prefix": "/api",
+  "api_enabled": true,
+  "upload_allowed_types": {
+    "image": "gif,jpg,jpeg,png,webp",
+    "media": "mp3,mp4,mov",
+    "document": "pdf,doc,docx",
+    "other": "zip,rar"
+  }
+}
+```
+
 ## 静态文件
 
 - `GET /anon/static/debug/css` - 调试控制台样式文件

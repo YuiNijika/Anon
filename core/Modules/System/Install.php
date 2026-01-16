@@ -757,11 +757,22 @@ class Anon_System_Install
     }
 
     /**
+     * 获取带前缀的表名
+     * @param string $tablePrefix 表前缀
+     * @param string $table 表名
+     * @return string
+     */
+    private static function getTableName(string $tablePrefix, string $table): string
+    {
+        return $tablePrefix . $table;
+    }
+
+    /**
      * 插入默认 options
      */
     private static function insertDefaultOptions($conn, $tablePrefix, $siteTitle, $siteDescription = '')
     {
-        $tableName = $tablePrefix . 'options';
+        $tableName = self::getTableName($tablePrefix, 'options');
         $defaultOptions = [
             'charset' => 'UTF-8',
             'title' => $siteTitle ?: 'Anon CMS',
@@ -769,6 +780,14 @@ class Anon_System_Install
             'keywords' => '',
             'theme' => 'Default',
             'apiPrefix' => '/api',
+            'api_enabled' => '0',
+            'allow_register' => '0',
+            'upload_allowed_types' => json_encode([
+                'image' => 'gif,jpg,jpeg,png,tiff,bmp,webp,avif',
+                'media' => 'mp3,mp4,mov,wmv,wma,rmvb,rm,avi,flv,ogg,oga,ogv',
+                'document' => 'txt,doc,docx,xls,xlsx,ppt,pptx,zip,rar,pdf',
+                'other' => '',
+            ], JSON_UNESCAPED_UNICODE),
             'routes' => json_encode([
                 '/post/{id}' => 'post',
                 '/page/{slug}' => 'page',
@@ -817,7 +836,7 @@ class Anon_System_Install
      */
     private static function insertUserData($conn, $username, $password, $email, $tablePrefix, $group = 'admin')
     {
-        $tableName = $tablePrefix . 'users';
+        $tableName = self::getTableName($tablePrefix, 'users');
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
         $now = date('Y-m-d H:i:s');
         
@@ -851,7 +870,7 @@ class Anon_System_Install
      */
     private static function insertDefaultMeta($conn, $tablePrefix)
     {
-        $tableName = $tablePrefix . 'metas';
+        $tableName = self::getTableName($tablePrefix, 'metas');
         $now = date('Y-m-d H:i:s');
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
@@ -876,7 +895,7 @@ class Anon_System_Install
      */
     private static function insertDefaultPost($conn, $tablePrefix, $authorId)
     {
-        $tableName = $tablePrefix . 'posts';
+        $tableName = self::getTableName($tablePrefix, 'posts');
         $now = date('Y-m-d H:i:s');
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);

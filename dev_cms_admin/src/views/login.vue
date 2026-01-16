@@ -37,10 +37,15 @@ const handleSubmit = async (e: Event) => {
 }
 
 onMounted(() => {
-    captcha.check()
-    if (auth.isAuthenticated) {
-        router.push('/')
-    }
+  captcha.check()
+  
+  if (!auth.initialized) {
+    auth.initialize()
+  }
+  
+  if (auth.isAuthenticated || auth.hasToken) {
+    router.push('/console')
+  }
 })
 </script>
 

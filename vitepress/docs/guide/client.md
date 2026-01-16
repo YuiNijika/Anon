@@ -491,3 +491,10 @@ try {
 ### Q: 如何自定义错误消息？
 
 在 API 封装中修改错误处理逻辑，或使用后端的钩子系统自定义消息。
+
+### Q: useApi 和 useApiAdmin 的区别？
+
+- **useApi**: 使用动态 API 前缀（从 `/anon/cms/api-prefix` 获取），适用于通用 API 调用
+- **useApiAdmin**: 固定使用 `/anon/cms` 前缀，专门用于 CMS 管理后台，不受 API 前缀配置影响
+
+**注意**：CMS 管理后台的详细文档请参考 `server/dev_cms_admin/README.md`。

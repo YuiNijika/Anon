@@ -443,6 +443,82 @@ class Anon_Cms_Theme
     }
 
     /**
+     * 获取所有可用主题列表
+     * @return array
+     */
+    public static function getAllThemes(): array
+    {
+        $themesDir = Anon_Main::APP_DIR . 'Theme/';
+        $themes = [];
+        
+        if (!is_dir($themesDir)) {
+            return $themes;
+        }
+        
+        $items = Anon_Cms::scanDirectory($themesDir);
+        if ($items === null) {
+            return $themes;
+        }
+        
+        foreach ($items as $item) {
+            $themePath = $themesDir . $item;
+            if (!is_dir($themePath)) {
+                continue;
+            }
+            
+            $infoFile = null;
+            $themeItems = Anon_Cms::scanDirectory($themePath);
+            if ($themeItems !== null) {
+                foreach ($themeItems as $themeItem) {
+                    if (strtolower($themeItem) === 'info.json') {
+                        $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
+                        break;
+                    }
+                }
+            }
+            
+            $themeInfo = [];
+            if ($infoFile && file_exists($infoFile)) {
+                $jsonContent = file_get_contents($infoFile);
+                if ($jsonContent !== false) {
+                    $decoded = json_decode($jsonContent, true);
+                    if (is_array($decoded)) {
+                        $themeInfo = $decoded;
+                    }
+                }
+            }
+            
+            $screenshot = '';
+            if (!empty($themeInfo['screenshot'])) {
+                $screenshotFileName = $themeInfo['screenshot'];
+                $screenshotFilePath = $themePath . DIRECTORY_SEPARATOR . $screenshotFileName;
+                
+                if (!file_exists($screenshotFilePath)) {
+                    $screenshotFilePath = Anon_Cms::findFileCaseInsensitive($themePath, pathinfo($screenshotFileName, PATHINFO_FILENAME), ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+                }
+                
+                if ($screenshotFilePath && file_exists($screenshotFilePath)) {
+                    $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+                    $screenshot = "{$scheme}://{$host}/anon/static/cms/theme/{$item}/screenshot";
+                }
+            }
+            
+            $themes[] = [
+                'name' => $item,
+                'displayName' => $themeInfo['name'] ?? $item,
+                'description' => $themeInfo['description'] ?? '',
+                'author' => $themeInfo['author'] ?? '',
+                'version' => $themeInfo['version'] ?? '',
+                'url' => $themeInfo['url'] ?? '',
+                'screenshot' => $screenshot,
+            ];
+        }
+        
+        return $themes;
+    }
+
+    /**
      * 导入组件
      * @param string $componentPath 组件路径
      * @param array $data 数据

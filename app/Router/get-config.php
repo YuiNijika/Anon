@@ -9,11 +9,7 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    $config = [
-        'token' => Anon_Auth_Token::isEnabled(),
-        'captcha' => Anon_Auth_Captcha::isEnabled(),
-        'csrfToken' => Anon_Auth_Csrf::generateToken()
-    ];
+    $config = Anon_System_Config::getConfig();
     Anon_Http_Response::success($config, '获取配置信息成功');
 } catch (Exception $e) {
     Anon_Http_Response::handleException($e);

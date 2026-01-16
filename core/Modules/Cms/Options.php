@@ -18,7 +18,30 @@ class Anon_Cms_Options
             self::loadAll();
         }
 
-        return self::$cache[$name] ?? $default;
+        if (array_key_exists($name, self::$cache)) {
+            return self::$cache[$name];
+        }
+
+        // 缓存中没有时直接从数据库查询
+        $db = Anon_Database::getInstance();
+        $option = $db->db('options')->where('name', $name)->first();
+
+        if ($option) {
+            $value = $option['value'] ?? null;
+
+            // 尝试解析JSON
+            if ($value !== null && $value !== '') {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $value = $decoded;
+                }
+            }
+
+            self::$cache[$name] = $value;
+            return $value;
+        }
+
+        return $default;
     }
 
     /**
@@ -30,17 +53,14 @@ class Anon_Cms_Options
     public static function set(string $name, $value): bool
     {
         $db = Anon_Database::getInstance();
-        $tablePrefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '';
-        $tableName = $tablePrefix . 'options';
-
         $valueStr = is_array($value) || is_object($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string)$value;
 
-        $existing = $db->db($tableName)->where('name', $name)->first();
-        
+        $existing = $db->db('options')->where('name', $name)->first();
+
         if ($existing) {
-            $result = $db->db($tableName)->where('name', $name)->update(['value' => $valueStr]);
+            $result = $db->db('options')->where('name', $name)->update(['value' => $valueStr]);
         } else {
-            $result = $db->db($tableName)->insert(['name' => $name, 'value' => $valueStr]);
+            $result = $db->db('options')->insert(['name' => $name, 'value' => $valueStr]);
         }
 
         if ($result) {
@@ -51,35 +71,30 @@ class Anon_Cms_Options
     }
 
     /**
-     * 加载所有选项
+     * 加载所有选项到缓存
      * @return void
      */
     private static function loadAll(): void
     {
-        if (!class_exists('Anon_Database')) {
-            self::$loaded = true;
-            return;
-        }
+        $db = Anon_Database::getInstance();
+        $options = $db->db('options')->get();
 
-        try {
-            $db = Anon_Database::getInstance();
-            $tablePrefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '';
-            $tableName = $tablePrefix . 'options';
-
-            $options = $db->db($tableName)->get();
-            
-            foreach ($options as $option) {
-                $value = $option['value'];
-                if ($value !== null) {
-                    $decoded = json_decode($value, true);
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        $value = $decoded;
-                    }
-                }
-                self::$cache[$option['name']] = $value;
+        foreach ($options as $option) {
+            if (!isset($option['name'])) {
+                continue;
             }
-        } catch (Exception $e) {
-            // 忽略错误，可能表不存在
+
+            $value = $option['value'] ?? null;
+
+            // 尝试解析JSON
+            if ($value !== null && $value !== '') {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $value = $decoded;
+                }
+            }
+
+            self::$cache[$option['name']] = $value;
         }
 
         self::$loaded = true;
@@ -95,4 +110,3 @@ class Anon_Cms_Options
         self::$loaded = false;
     }
 }
-

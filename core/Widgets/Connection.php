@@ -167,6 +167,17 @@ class Anon_Database_Connection
     }
 
     /**
+     * 获取带前缀的表名
+     * @param string $table 表名
+     * @return string
+     */
+    private function getTableName(string $table): string
+    {
+        $prefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '';
+        return $prefix . $table;
+    }
+
+    /**
      * 创建查询构建器实例
      * @param string $table 表名
      * @return Anon_Database_QueryBuilder 查询构建器实例
@@ -177,6 +188,6 @@ class Anon_Database_Connection
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
             throw new InvalidArgumentException("无效的表名: {$table}");
         }
-        return new Anon_Database_QueryBuilder($this, ANON_DB_PREFIX . $table);
+        return new Anon_Database_QueryBuilder($this, $this->getTableName($table));
     }
 }

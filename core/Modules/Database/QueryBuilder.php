@@ -1400,5 +1400,29 @@ class Anon_Database_QueryBuilder
         
         return true;
     }
+
+    /**
+     * 创建查询构建器实例
+     * @param string $table 表名
+     * @return self 查询构建器实例
+     */
+    public static function table(string $table): self
+    {
+        if (!class_exists('Anon_Database')) {
+            throw new RuntimeException('Anon_Database class not found');
+        }
+        
+        $db = Anon_Database::getInstance();
+        if (!$db) {
+            throw new RuntimeException('Failed to get Anon_Database instance');
+        }
+        
+        $queryBuilder = $db->db($table);
+        if (!($queryBuilder instanceof self)) {
+            throw new RuntimeException('Failed to create QueryBuilder instance');
+        }
+        
+        return $queryBuilder;
+    }
 }
 

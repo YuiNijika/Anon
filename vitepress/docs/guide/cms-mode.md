@@ -291,3 +291,62 @@ Anon Framework 支持在 CMS 模式下同时使用 API 功能：
 - 系统会根据请求路径自动匹配对应的路由
 
 **注意**：当 `ANON_APP_MODE` 设置为 `cms` 时，CMS 路由优先，API 路由需要添加前缀（如 `/api`）。
+
+## 管理后台
+
+CMS 模式提供了完整的管理后台功能，通过 `/anon/cms/admin` 路由前缀访问。
+
+### 管理路由
+
+管理路由通过 `Anon_Cms_Admin` 类注册，支持以下功能：
+
+- **认证相关**：Token 获取、登录状态检查、用户信息获取
+- **配置管理**：获取全局配置信息（支持钩子扩展）
+- **数据统计**：获取 CMS 统计数据（文章、评论、附件等）
+- **设置管理**：基本设置（站点名称、描述、关键词等）的获取和更新
+
+### 路由注册
+
+管理路由在 `Anon_Cms_Admin::initRoutes()` 中注册：
+
+```php
+// 添加管理路由
+Anon_Cms_Admin::addRoute('/statistics', function () {
+    // 处理逻辑
+}, [
+    'requireAdmin' => '需要管理员权限',
+    'method' => 'GET',
+    'token' => true,
+]);
+```
+
+### 路由元数据
+
+管理路由支持以下元数据：
+
+- `requireLogin`: 是否需要登录（布尔值或错误消息字符串）
+- `requireAdmin`: 是否需要管理员权限（布尔值或错误消息字符串）
+- `method`: 允许的 HTTP 方法（字符串或数组）
+- `token`: 是否需要 Token 验证（布尔值）
+
+### 全局配置方法
+
+使用 `Anon_System_Config::getConfig()` 获取全局配置信息：
+
+```php
+$config = Anon_System_Config::getConfig();
+// 返回: ['token' => true, 'captcha' => false, 'csrfToken' => 'xxx']
+```
+
+配置信息可通过 `config` 钩子扩展：
+
+```php
+Anon_System_Hook::add_filter('config', function($config) {
+    $config['customField'] = 'customValue';
+    return $config;
+});
+```
+
+### 前端集成
+
+管理后台前端使用 `useApiAdmin` composable，详见 [前端框架集成文档](./client.md#cms-管理后台-api)。

@@ -1,17 +1,20 @@
 import { defineStore } from 'pinia'
 import { useApi } from '@/composables/useApi'
-import { AuthApi, type LoginDTO, type UserInfo } from '@/services/auth'
-import { UserApi } from '@/services/user'
+import { useApiAdmin, type UserInfo } from '@/composables/useApiAdmin'
+import { AuthApi, type LoginDTO } from '@/services/auth'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as UserInfo | null,
     loading: false,
+    checking: false,
     error: null as string | null,
+    initialized: false,
   }),
 
   getters: {
     isAuthenticated: (state) => !!state.user,
+    hasToken: () => !!localStorage.getItem('token'),
   },
 
   actions: {
@@ -21,12 +24,11 @@ export const useAuthStore = defineStore('auth', {
       try {
         const api = useApi()
         const res = await AuthApi.login(api, data)
-        // 设置 token
         if (res.data?.token) {
           localStorage.setItem('token', res.data.token)
         }
-        // 通过 /user/info 获取完整用户信息
-        const userRes = await UserApi.getInfo(api)
+        const apiAdmin = useApiAdmin()
+        const userRes = await apiAdmin.getUserInfo()
         if (userRes.data) {
           this.user = userRes.data
         }
@@ -45,16 +47,14 @@ export const useAuthStore = defineStore('auth', {
       try {
         const api = useApi()
         const res = await AuthApi.register(api, data)
-        // 设置 token
         if (res.data?.token) {
           localStorage.setItem('token', res.data.token)
         }
-        // 直接使用返回的用户信息
         if (res.data?.user) {
           this.user = res.data.user
         } else {
-          // 如果没有返回用户信息，则通过 /user/info 获取
-          const userRes = await UserApi.getInfo(api)
+          const apiAdmin = useApiAdmin()
+          const userRes = await apiAdmin.getUserInfo()
           if (userRes.data) {
             this.user = userRes.data
           }
@@ -73,79 +73,112 @@ export const useAuthStore = defineStore('auth', {
       try {
         const api = useApi()
         await AuthApi.logout(api)
-        localStorage.removeItem('token')
-        this.user = null
+        this.clearAuth()
       } catch {
-        // 静默失败
+        this.clearAuth()
       } finally {
         this.loading = false
       }
     },
 
-    async checkLogin(): Promise<boolean> {
+    /**
+     * 初始化认证状态
+     * 利用本地 token 和持久化数据，避免刷新时立即请求
+     */
+    initialize() {
+      if (this.initialized) return
+
+      const token = localStorage.getItem('token')
+      if (token || this.user) {
+        this.initialized = true
+        return
+      }
+
+      this.user = null
+      this.initialized = true
+    },
+
+    /**
+     * 检查登录状态
+     * 只在必要时才请求后端
+     */
+    async checkLogin(force = false): Promise<boolean> {
+      if (this.checking && !force) {
+        return this.isAuthenticated
+      }
+
+      if (!this.hasToken && !this.user) {
+        this.user = null
+        this.initialized = true
+        return false
+      }
+
+      this.checking = true
       try {
-        const api = useApi()
-        const res = await AuthApi.checkLogin(api)
+        const apiAdmin = useApiAdmin()
+
+        // 如果已有用户信息且未强制刷新，直接返回
+        if (this.user && !force) {
+          this.initialized = true
+          return true
+        }
+
+        // 先检查登录状态
+        const res = await apiAdmin.checkLogin()
         const loggedIn = res.data?.loggedIn ?? res.data?.logged_in ?? false
 
         if (!loggedIn) {
-          // 后端返回未登录，立即清除状态
-          this.user = null
-          this.error = null
-          localStorage.removeItem('token')
-          // 清除 persist 缓存，防止恢复旧状态
-          try {
-            const persisted = localStorage.getItem('auth-store')
-            if (persisted) {
-              const data = JSON.parse(persisted)
-              if (data && data.user) {
-                data.user = null
-                localStorage.setItem('auth-store', JSON.stringify(data))
-              }
-            }
-          } catch {
-            // 静默失败
-          }
+          this.clearAuth()
           return false
         }
 
-        // 后端返回已登录，获取用户信息
-        try {
-          const configRes = await api.get<{ token?: boolean }>('/get-config')
+        // 如果已有用户信息，不需要再次获取
+        if (this.user) {
+          this.initialized = true
+          return true
+        }
 
-          if (configRes.data?.token) {
-            const tokenRes = await AuthApi.getToken(api)
-            if (tokenRes.data?.token) {
-              localStorage.setItem('token', tokenRes.data.token)
-            }
-          }
-
-          const userRes = await UserApi.getInfo(api)
-          if (userRes.data) {
-            this.user = userRes.data
-            this.error = null
-            return true
-          } else {
-            // 无法获取用户信息，清除状态
-            this.user = null
-            this.error = null
-            localStorage.removeItem('token')
-            return false
-          }
-        } catch {
-          // 获取用户信息失败，清除状态
-          this.user = null
+        // 获取用户信息
+        const userRes = await apiAdmin.getUserInfo()
+        if (userRes.data) {
+          this.user = userRes.data
           this.error = null
-          localStorage.removeItem('token')
+          this.initialized = true
+          return true
+        } else {
+          this.clearAuth()
           return false
         }
       } catch (err) {
         console.error('Check login failed:', err)
-        // 请求失败时，清除状态以确保安全
-        this.user = null
-        this.error = null
-        localStorage.removeItem('token')
-        return false
+        if (!this.hasToken && !this.user) {
+          this.clearAuth()
+        }
+        return this.isAuthenticated
+      } finally {
+        this.checking = false
+        this.initialized = true
+      }
+    },
+
+    /**
+     * 清除认证状态
+     */
+    clearAuth() {
+      this.user = null
+      this.error = null
+      localStorage.removeItem('token')
+      try {
+        const persisted = localStorage.getItem('auth-store')
+        if (persisted) {
+          const data = JSON.parse(persisted)
+          if (data && data.user) {
+            data.user = null
+            localStorage.setItem('auth-store', JSON.stringify(data))
+          }
+        }
+      } catch {
+        // 静默失败
       }
     },
   },

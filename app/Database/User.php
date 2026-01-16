@@ -58,11 +58,10 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function isUserInGroup($uid, $group)
     {
-        return (bool)$this->db('users')
-            ->exists()
+        return $this->db('users')
             ->where('uid', '=', (int)$uid)
             ->where('`group`', '=', $group)
-            ->scalar();
+            ->exists();
     }
 
     /**
@@ -73,11 +72,10 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function isUserAdmin($uid)
     {
-        return (bool)$this->db('users')
-            ->exists()
+        return $this->db('users')
             ->where('uid', '=', (int)$uid)
             ->where('`group`', '=', 'admin')
-            ->scalar();
+            ->exists();
     }
 
     /**
@@ -88,11 +86,10 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function isUserAuthor($uid)
     {
-        return (bool)$this->db('users')
-            ->exists()
+        return $this->db('users')
             ->where('uid', '=', (int)$uid)
             ->where('`group`', '=', 'author')
-            ->scalar();
+            ->exists();
     }
 
     /**
@@ -103,11 +100,10 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function hasContentManagementPermission($uid)
     {
-        return (bool)$this->db('users')
-            ->exists()
+        return $this->db('users')
             ->where('uid', '=', (int)$uid)
             ->whereIn('`group`', ['admin', 'author'])
-            ->scalar();
+            ->exists();
     }
 
     /**
@@ -346,10 +342,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function isEmailExists($email)
     {
-        return (bool)$this->db('users')
-            ->exists()
+        return $this->db('users')
             ->where('email', '=', $email)
-            ->scalar();
+            ->exists();
     }
 
     /**

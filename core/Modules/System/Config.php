@@ -53,7 +53,7 @@ class Anon_System_Config
                 ],
             ];
             
-            $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+            $allowedKeys = ['header', 'requireLogin', 'requireAdmin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
             $meta = array_intersect_key($meta, array_flip($allowedKeys));
             
             if (isset($meta['cache']) && is_array($meta['cache'])) {
@@ -96,12 +96,12 @@ class Anon_System_Config
     /**
      * 注册静态文件路由
      * @param string $route 路由路径
-     * @param string $filePath 文件路径
-     * @param string $mimeType MIME类型
+     * @param string|callable $filePath 文件路径或回调函数
+     * @param string|callable $mimeType MIME类型或回调函数
      * @param int $cacheTime 缓存时间（秒）
      * @param bool $compress 是否启用压缩
      */
-    public static function addStaticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true, array $meta = [])
+    public static function addStaticRoute(string $route, $filePath, $mimeType = 'application/octet-stream', int $cacheTime = 31536000, bool $compress = true, array $meta = [])
     {
         $defaultMeta = [
             'header' => false,
@@ -111,13 +111,16 @@ class Anon_System_Config
         $meta = array_merge($defaultMeta, $meta);
         
         self::addRoute($route, function() use ($filePath, $mimeType, $cacheTime, $compress) {
-            if (!is_file($filePath) || !is_readable($filePath)) {
+            $actualFilePath = is_callable($filePath) ? $filePath() : $filePath;
+            $actualMimeType = is_callable($mimeType) ? $mimeType() : $mimeType;
+            
+            if (!$actualFilePath || !is_file($actualFilePath) || !is_readable($actualFilePath)) {
                 http_response_code(404);
                 exit;
             }
             
-            header('Content-Type: ' . $mimeType);
-            header('Content-Length: ' . filesize($filePath));
+            header('Content-Type: ' . $actualMimeType);
+            header('Content-Length: ' . filesize($actualFilePath));
             
             if ($cacheTime > 0) {
                 header('Cache-Control: public, max-age=' . $cacheTime);
@@ -130,9 +133,9 @@ class Anon_System_Config
             
             if ($compress && extension_loaded('zlib')) {
                 $compressibleTypes = ['text/html', 'text/css', 'text/javascript', 'application/javascript', 'application/json', 'text/xml', 'application/xml'];
-                if (in_array($mimeType, $compressibleTypes)) {
+                if (in_array($actualMimeType, $compressibleTypes)) {
                     $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-                    $fileContent = file_get_contents($filePath);
+                    $fileContent = file_get_contents($actualFilePath);
                     if ($fileContent !== false && strpos($acceptEncoding, 'gzip') !== false) {
                         $compressed = gzencode($fileContent);
                         header('Content-Encoding: gzip');
@@ -143,7 +146,7 @@ class Anon_System_Config
                 }
             }
             
-            readfile($filePath);
+            readfile($actualFilePath);
             exit;
         }, $meta);
     }
@@ -164,6 +167,24 @@ class Anon_System_Config
     public static function isInstalled(): bool
     {
         return defined('ANON_INSTALLED') && ANON_INSTALLED;
+    }
+
+    /**
+     * 获取全局配置信息
+     * 可通过 config 钩子扩展配置字段
+     * @return array
+     */
+    public static function getConfig(): array
+    {
+        $config = [
+            'token' => class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled(),
+            'captcha' => class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled(),
+            'csrfToken' => class_exists('Anon_Auth_Csrf') ? Anon_Auth_Csrf::generateToken() : ''
+        ];
+
+        $config = Anon_System_Hook::apply_filters('config', $config);
+
+        return $config;
     }
 
     /**

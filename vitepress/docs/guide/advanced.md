@@ -197,6 +197,25 @@ $filtered = Anon_System_Hook::apply_filters('content_filter', $content);
 $filtered = Anon_System_Hook::apply_filters('content_filter', $content, $arg1, $arg2);
 ```
 
+### 配置钩子
+
+`config` 钩子用于扩展全局配置信息，在 `Anon_System_Config::getConfig()` 方法中应用：
+
+```php
+// 扩展配置字段
+Anon_System_Hook::add_filter('config', function($config) {
+    $config['apiVersion'] = '1.0.0';
+    $config['customField'] = 'customValue';
+    return $config;
+}, 10, 1);
+```
+
+配置信息通过以下接口返回：
+- `GET /anon/cms/admin/config` - CMS 管理路由
+- `GET /get-config` - API 路由
+
+两个接口返回相同的配置数据，都通过 `config` 钩子进行扩展。
+
 ### 钩子管理
 
 ```php

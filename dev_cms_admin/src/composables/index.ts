@@ -3,6 +3,7 @@
  */
 
 export { useApi } from './useApi'
+export { useApiAdmin } from './useApiAdmin'
 export { useAuth } from './useAuth'
 export { useAuthGuard } from './useAuthGuard'
 export { useCaptcha } from './useCaptcha'

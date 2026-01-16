@@ -221,7 +221,7 @@ class Anon_Http_Router
                 }
                 
                 if (is_array($metaArray)) {
-                    $allowedKeys = ['header', 'requireLogin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+                    $allowedKeys = ['header', 'requireLogin', 'requireAdmin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
                     $metaArray = array_intersect_key($metaArray, array_flip($allowedKeys));
                     
                     if (isset($metaArray['cache']) && is_array($metaArray['cache'])) {
@@ -455,6 +455,24 @@ class Anon_Http_Router
         if (!empty($meta['requireLogin'])) {
             $message = is_string($meta['requireLogin']) ? $meta['requireLogin'] : null;
             Anon_Common::RequireLogin($message);
+        }
+
+        // 检查管理员权限
+        if (!empty($meta['requireAdmin'])) {
+            $userId = Anon_Http_Request::getUserId();
+            if (!$userId) {
+                Anon_Common::Header(401);
+                Anon_Http_Response::unauthorized('请先登录');
+                exit;
+            }
+            
+            $db = Anon_Database::getInstance();
+            if (!$db->isUserAdmin($userId)) {
+                $message = is_string($meta['requireAdmin']) ? $meta['requireAdmin'] : '需要管理员权限';
+                Anon_Common::Header(403);
+                Anon_Http_Response::forbidden($message);
+                exit;
+            }
         }
 
         if (!empty($meta['method'])) {

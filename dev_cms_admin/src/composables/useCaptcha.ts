@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { useApi } from './useApi'
+import { useApiAdmin } from './useApiAdmin'
 
 interface ConfigResponse {
   captcha: boolean
@@ -10,13 +11,14 @@ interface CaptchaResponse {
 }
 
 export const useCaptcha = () => {
-  const { get } = useApi()
+  const api = useApi()
+  const apiAdmin = useApiAdmin()
   const image = ref('')
   const enabled = ref(false)
 
   const check = async () => {
     try {
-      const res = await get<ConfigResponse>('/get-config')
+      const res = await apiAdmin.getConfig()
       enabled.value = res.data?.captcha ?? false
       if (enabled.value) {
         await refresh()
@@ -28,7 +30,7 @@ export const useCaptcha = () => {
 
   const refresh = async () => {
     try {
-      const res = await get<CaptchaResponse>('/auth/captcha')
+      const res = await api.get<CaptchaResponse>('/auth/captcha')
       if (res.data?.image) {
         image.value = res.data.image
       }

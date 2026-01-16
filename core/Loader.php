@@ -29,7 +29,10 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Options.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/PageMeta.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Statistics.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/AdminFunctions.php';
         
+        Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;
         
         Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputCopyright']);
@@ -120,6 +123,17 @@ class Anon_Loader
                 self::$loadedModules['optional_' . $key] = true;
             }
         }
+    }
+
+    /**
+     * 加载配置相关模块
+     * @return void
+     */
+    public static function loadConfigModules(): void
+    {
+        self::loadOptionalModules('token');
+        self::loadOptionalModules('captcha');
+        self::loadOptionalModules('csrf');
     }
 
     /**

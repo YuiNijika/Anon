@@ -4,10 +4,8 @@ import { useThemeSync, useAuthGuard } from '@/composables'
 
 const auth = useAuthStore() as any
 
-// 主题同步
 useThemeSync()
 
-// 认证守卫
 const { mounted } = useAuthGuard()
 </script>
 
@@ -16,9 +14,10 @@ const { mounted } = useAuthGuard()
     <UNotifications />
     <div v-if="mounted">
       <AppHeader v-if="auth.isAuthenticated" />
-      <UMain>
+      <UMain class="container mx-auto p-6">
         <RouterView />
       </UMain>
+      <AppFooter v-if="auth.isAuthenticated" />
     </div>
   </UApp>
 </template>

@@ -156,11 +156,30 @@ class Anon_Database
      */
     public function db($table)
     {
-        if (Anon_Database_Sharding::isSharded($table)) {
-            // 分片逻辑处理
+        // 验证表名
+        if (empty($table) || !is_string($table)) {
+            throw new InvalidArgumentException('表名不能为空且必须是字符串');
         }
 
-        return new Anon_Database_QueryBuilder($this->getConnection(), ANON_DB_PREFIX . $table);
+        // 检查分片配置
+        if (class_exists('Anon_Database_Sharding') && Anon_Database_Sharding::isSharded($table)) {
+            // 分片逻辑处理暂时使用基础表
+        }
+
+        $tablePrefix = defined('ANON_DB_PREFIX') ? ANON_DB_PREFIX : '';
+        $fullTableName = $tablePrefix . $table;
+        
+        $connection = $this->getConnection();
+        if (!$connection) {
+            throw new RuntimeException('无法获取数据库连接');
+        }
+
+        $queryBuilder = new Anon_Database_QueryBuilder($connection, $fullTableName);
+        if (!($queryBuilder instanceof Anon_Database_QueryBuilder)) {
+            throw new RuntimeException('创建 QueryBuilder 实例失败');
+        }
+
+        return $queryBuilder;
     }
 
     /**
