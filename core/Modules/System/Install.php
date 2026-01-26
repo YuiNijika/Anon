@@ -570,6 +570,19 @@ class Anon_System_Install
         // 更新配置
         self::updateConfig($db_host, $db_user, $db_pass, $db_name, $db_prefix, $db_port, $app_mode);
 
+        // 先连接数据库，用于创建表
+        $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+        if ($conn->connect_error) {
+            Anon_Http_Response::error('数据库连接失败: ' . $conn->connect_error, null, 500);
+        }
+
+        // 检查是否需要覆盖安装
+        $overwrite = isset($_SESSION['install_overwrite']) && $_SESSION['install_overwrite'] === true;
+        
+        // 执行 SQL
+        self::executeSqlStatements($conn, $db_prefix, $app_mode, $overwrite);
+
+        // 表创建完成后，再初始化环境配置
         require_once self::envfile;
         $appConfigFile = __DIR__ . '/../../../app/useApp.php';
         $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
@@ -591,18 +604,6 @@ class Anon_System_Install
         $envConfig = array_merge_recursive($envConfig, $appConfig);
         
         Anon_System_Env::init($envConfig);
-
-        // 数据库连接
-        $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-        if ($conn->connect_error) {
-            Anon_Http_Response::error('数据库连接失败: ' . $conn->connect_error, null, 500);
-        }
-
-        // 检查是否需要覆盖安装
-        $overwrite = isset($_SESSION['install_overwrite']) && $_SESSION['install_overwrite'] === true;
-        
-        // 执行 SQL
-        self::executeSqlStatements($conn, $db_prefix, $app_mode, $overwrite);
 
         // 插入默认 options
         if ($app_mode === 'cms') {
@@ -846,7 +847,7 @@ class Anon_System_Install
     {
         $tableName = self::getTableName($tablePrefix, 'users');
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-        $now = time();
+        $now = date('Y-m-d H:i:s');
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $userId = $queryBuilder->insert([
@@ -885,7 +886,7 @@ class Anon_System_Install
     private static function insertDefaultMeta($conn, $tablePrefix)
     {
         $tableName = self::getTableName($tablePrefix, 'metas');
-        $now = time();
+        $now = date('Y-m-d H:i:s');
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $categoryId = $queryBuilder->insert([
@@ -911,7 +912,7 @@ class Anon_System_Install
     private static function insertDefaultPost($conn, $tablePrefix, $authorId, $categoryId = null)
     {
         $tableName = self::getTableName($tablePrefix, 'posts');
-        $now = time();
+        $now = date('Y-m-d H:i:s');
         
         /**
          * 确保内容以 <!--markdown--> 开头
