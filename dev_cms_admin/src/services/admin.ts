@@ -13,8 +13,24 @@ export interface ThemeOptionSchema {
 }
 
 export interface ThemeOptionsData {
+  theme: string
   schema: Record<string, ThemeOptionSchema>
   values: Record<string, any>
+}
+
+export interface ThemeInfo {
+  name: string
+  displayName: string
+  description: string
+  author: string
+  version: string
+  url: string
+  screenshot: string
+}
+
+export interface ThemeSettings {
+  current: string
+  themes: ThemeInfo[]
 }
 
 export interface StatisticsData {
@@ -67,6 +83,14 @@ export const AdminApi = {
 
   getStatistics: (api: ApiClient) => {
     return api.admin.get<StatisticsData>('/statistics')
+  },
+
+  getThemeSettings: (api: ApiClient) => {
+    return api.admin.get<ThemeSettings>('/settings/theme')
+  },
+
+  updateThemeSettings: (api: ApiClient, theme: string) => {
+    return api.admin.post<{ theme: string }>('/settings/theme', { theme })
   },
 }
 

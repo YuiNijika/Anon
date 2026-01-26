@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect, createContext, useContext } from 'react'
+import { type ReactNode, useState, useEffect, useLayoutEffect, createContext, useContext } from 'react'
 import { ConfigProvider, Button, theme, App as AntdApp } from 'antd'
 import { SunOutlined, MoonOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
@@ -38,20 +38,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         return window.matchMedia('(prefers-color-scheme: dark)').matches
     })
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         localStorage.setItem('theme', isDark ? 'dark' : 'light')
 
-        requestAnimationFrame(() => {
-            if (isDark) {
-                document.documentElement.style.backgroundColor = '#141414'
-                document.body.style.backgroundColor = '#141414'
-                document.documentElement.classList.add('dark')
-            } else {
-                document.documentElement.style.backgroundColor = '#f0f2f5'
-                document.body.style.backgroundColor = '#f0f2f5'
-                document.documentElement.classList.remove('dark')
-            }
-        })
+        if (isDark) {
+            document.documentElement.style.backgroundColor = '#141414'
+            document.body.style.backgroundColor = '#141414'
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.style.backgroundColor = '#f0f2f5'
+            document.body.style.backgroundColor = '#f0f2f5'
+            document.documentElement.classList.remove('dark')
+        }
     }, [isDark])
 
     const toggleTheme = () => {

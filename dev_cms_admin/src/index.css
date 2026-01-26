@@ -1,5 +1,30 @@
-* {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+/* 全局同步过渡效果 */
+*,
+*::before,
+*::after {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+}
+
+/* 确保所有 Ant Design 组件同步切换 */
+.ant-layout,
+.ant-layout-sider,
+.ant-layout-header,
+.ant-layout-content,
+.ant-layout-footer,
+.ant-card,
+.ant-menu,
+.ant-menu-item,
+.ant-menu-submenu,
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-form-item,
+.ant-tabs,
+.ant-tabs-tab,
+.ant-table,
+.ant-list,
+.ant-list-item {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
 }
 
 html,
