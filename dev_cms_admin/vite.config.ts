@@ -1,25 +1,19 @@
-import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import ui from '@nuxt/ui/vite'
-import vueDevTools from 'vite-plugin-vue-devtools'
-import Pages from 'vite-plugin-pages'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
-    ui(),
-    vueDevTools(),
-    Pages({
-      dirs: 'src/views',
-      extensions: ['vue']
-    })
+    react({
+      babel: {
+        plugins: [['babel-plugin-react-compiler']],
+      },
+    }),
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {

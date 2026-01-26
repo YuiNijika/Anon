@@ -1,11 +1,13 @@
-import type { useApi } from '@/composables/useApi'
+import type { useApiAdmin } from '@/hooks/useApiAdmin'
 import type { UserInfo } from './auth'
 
-type ApiClient = ReturnType<typeof useApi>
+export type { UserInfo } from './auth'
+
+type ApiAdminClient = ReturnType<typeof useApiAdmin>
 
 export const UserApi = {
-  getInfo: (api: ApiClient) => {
-    return api.get<UserInfo>('/user/info')
+  getInfo: (api: ApiAdminClient) => {
+    return api.admin.get<UserInfo>('/user/info')
   }
 }
 
