@@ -27,10 +27,13 @@ class Anon_Loader
         
         require_once Anon_Main::MODULES_DIR . 'Cms/Cms.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Options.php';
-        require_once Anon_Main::MODULES_DIR . 'Cms/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/PageMeta.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/AccessLog.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Theme/FatalError.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Theme.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Options.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Statistics.php';
-        require_once Anon_Main::MODULES_DIR . 'Cms/AdminFunctions.php';
         
         Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;

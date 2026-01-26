@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react'
-import { useApi, ensureToken } from './useApi'
+import { useApi, ensureToken, isNetworkError } from './useApi'
 
 interface ApiResponse<T = any> {
   code: number
@@ -80,48 +80,58 @@ export function useApiAdmin() {
         (headers as Record<string, string>)['X-API-Token'] = token
       }
 
-      const res = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include',
-      })
-      const data: ApiResponse<T> = await res.json()
+      try {
+        const res = await fetch(url, {
+          ...options,
+          headers,
+          credentials: 'include',
+        })
+        const data: ApiResponse<T> = await res.json()
 
-      const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
+        const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
 
-      if (isAuthError) {
-        localStorage.removeItem('token')
-        const newToken = await ensureToken(true)
-        if (newToken) {
-          const retryHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'X-API-Token': newToken,
-            ...(options.headers as Record<string, string>),
-          }
-          const retryRes = await fetch(url, {
-            ...options,
-            headers: retryHeaders,
-            credentials: 'include',
-          })
-          const retryData: ApiResponse<T> = await retryRes.json()
-          if (retryData.code === 200) {
-            return retryData
+        if (isAuthError) {
+          localStorage.removeItem('token')
+          const newToken = await ensureToken(true)
+          if (newToken) {
+            const retryHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'X-API-Token': newToken,
+              ...(options.headers as Record<string, string>),
+            }
+            const retryRes = await fetch(url, {
+              ...options,
+              headers: retryHeaders,
+              credentials: 'include',
+            })
+            const retryData: ApiResponse<T> = await retryRes.json()
+            if (retryData.code === 200) {
+              return retryData
+            }
           }
         }
-      }
 
-      if (data.code !== 200) {
-        throw new Error(data.message || '请求失败')
-      }
-
-      if (data.data && typeof data.data === 'object' && 'token' in data.data) {
-        const tokenValue = (data.data as { token?: string }).token
-        if (tokenValue) {
-          localStorage.setItem('token', tokenValue)
+        if (data.code !== 200) {
+          throw new Error(data.message || '请求失败')
         }
-      }
 
-      return data
+        if (data.data && typeof data.data === 'object' && 'token' in data.data) {
+          const tokenValue = (data.data as { token?: string }).token
+          if (tokenValue) {
+            localStorage.setItem('token', tokenValue)
+          }
+        }
+
+        return data
+      } catch (error) {
+        // 检测网络连接错误
+        if (isNetworkError(error)) {
+          const networkError = new Error('后端服务不可用，请检查服务是否已启动')
+          ;(networkError as any).isNetworkError = true
+          throw networkError
+        }
+        throw error
+      }
     },
     []
   )
@@ -166,48 +176,58 @@ export function useApiAdmin() {
         (headers as Record<string, string>)['X-API-Token'] = token
       }
 
-      const res = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include',
-      })
-      const data: ApiResponse<T> = await res.json()
+      try {
+        const res = await fetch(url, {
+          ...options,
+          headers,
+          credentials: 'include',
+        })
+        const data: ApiResponse<T> = await res.json()
 
-      const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
+        const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
 
-      if (isAuthError) {
-        localStorage.removeItem('token')
-        const newToken = await ensureToken(true)
-        if (newToken) {
-          const retryHeaders: Record<string, string> = {
-            'Content-Type': 'application/json',
-            'X-API-Token': newToken,
-            ...(options.headers as Record<string, string>),
-          }
-          const retryRes = await fetch(url, {
-            ...options,
-            headers: retryHeaders,
-            credentials: 'include',
-          })
-          const retryData: ApiResponse<T> = await retryRes.json()
-          if (retryData.code === 200) {
-            return retryData
+        if (isAuthError) {
+          localStorage.removeItem('token')
+          const newToken = await ensureToken(true)
+          if (newToken) {
+            const retryHeaders: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'X-API-Token': newToken,
+              ...(options.headers as Record<string, string>),
+            }
+            const retryRes = await fetch(url, {
+              ...options,
+              headers: retryHeaders,
+              credentials: 'include',
+            })
+            const retryData: ApiResponse<T> = await retryRes.json()
+            if (retryData.code === 200) {
+              return retryData
+            }
           }
         }
-      }
 
-      if (data.code !== 200) {
-        throw new Error(data.message || '请求失败')
-      }
-
-      if (data.data && typeof data.data === 'object' && 'token' in data.data) {
-        const tokenValue = (data.data as { token?: string }).token
-        if (tokenValue) {
-          localStorage.setItem('token', tokenValue)
+        if (data.code !== 200) {
+          throw new Error(data.message || '请求失败')
         }
-      }
 
-      return data
+        if (data.data && typeof data.data === 'object' && 'token' in data.data) {
+          const tokenValue = (data.data as { token?: string }).token
+          if (tokenValue) {
+            localStorage.setItem('token', tokenValue)
+          }
+        }
+
+        return data
+      } catch (error) {
+        // 检测网络连接错误
+        if (isNetworkError(error)) {
+          const networkError = new Error('后端服务不可用，请检查服务是否已启动')
+          ;(networkError as any).isNetworkError = true
+          throw networkError
+        }
+        throw error
+      }
     },
     []
   )

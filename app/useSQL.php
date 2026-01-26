@@ -58,6 +58,8 @@ return [
             `content` LONGTEXT NULL DEFAULT NULL COMMENT '内容',
             `status` VARCHAR(20) NOT NULL DEFAULT 'draft' COMMENT '状态：draft=草稿，publish=已发布，private=私有',
             `author_id` INT UNSIGNED NOT NULL COMMENT '作者 ID',
+            `category_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '分类 ID',
+            `tag_ids` TEXT NULL DEFAULT NULL COMMENT '标签 ID 数组（JSON格式）',
             `views` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '浏览量',
             `comment_status` VARCHAR(20) NOT NULL DEFAULT 'open' COMMENT '评论状态：open=开放，closed=关闭',
             `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -65,6 +67,7 @@ return [
             INDEX `idx_type` (`type`),
             INDEX `idx_status` (`status`),
             INDEX `idx_author_id` (`author_id`),
+            INDEX `idx_category_id` (`category_id`),
             INDEX `idx_slug` (`slug`),
             INDEX `idx_created_at` (`created_at`),
             UNIQUE KEY `uk_slug_type` (`slug`, `type`)
@@ -134,6 +137,24 @@ return [
             INDEX `idx_slug` (`slug`),
             UNIQUE KEY `uk_slug_type` (`slug`, `type`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='元数据表（分类和标签）'",
+        
+        // 访问日志表
+        'access_logs' => "CREATE TABLE IF NOT EXISTS `{prefix}access_logs` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '日志 ID',
+            `url` VARCHAR(500) NOT NULL COMMENT '访问 URL',
+            `path` VARCHAR(500) NOT NULL COMMENT '访问路径',
+            `method` VARCHAR(10) NOT NULL DEFAULT 'GET' COMMENT '请求方法',
+            `ip` VARCHAR(45) NOT NULL COMMENT 'IP 地址',
+            `user_agent` TEXT NULL DEFAULT NULL COMMENT 'User-Agent',
+            `referer` VARCHAR(500) NULL DEFAULT NULL COMMENT '来源页面',
+            `status_code` SMALLINT UNSIGNED NOT NULL DEFAULT 200 COMMENT 'HTTP 状态码',
+            `response_time` INT UNSIGNED NULL DEFAULT NULL COMMENT '响应时间（毫秒）',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '访问时间',
+            INDEX `idx_created_at` (`created_at`),
+            INDEX `idx_path_created` (`path`(100), `created_at`),
+            INDEX `idx_ip_created` (`ip`, `created_at`),
+            INDEX `idx_status_created` (`status_code`, `created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='访问日志表'",
     ],
 ];
 

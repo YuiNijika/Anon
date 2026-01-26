@@ -183,5 +183,88 @@ class Anon_Cms
         echo 'console.log("页面加载耗时: ' . $loadTime . 'ms");';
         echo '</script>' . "\n";
     }
+
+    /**
+     * 获取文章数据，如果不存在则返回错误页面
+     * @param int|null $id 文章 ID，如果为 null 则从作用域变量获取
+     * @return array|null 文章数据，如果不存在则返回 null（已渲染错误页面）
+     */
+    public static function getPost(?int $id = null): ?array
+    {
+        if ($id === null) {
+            $id = $GLOBALS['id'] ?? $_GET['id'] ?? null;
+            if ($id && is_numeric($id)) {
+                $id = (int)$id;
+            } else {
+                $id = null;
+            }
+        }
+
+        if (!$id) {
+            self::renderError(404, '文章不存在或已被删除');
+            return null;
+        }
+
+        $db = Anon_Database::getInstance();
+        $post = $db->db('posts')
+            ->where('id', $id)
+            ->where('type', 'post')
+            ->where('status', 'publish')
+            ->first();
+
+        if (!$post) {
+            self::renderError(404, '文章不存在或已被删除');
+            return null;
+        }
+
+        return $post;
+    }
+
+    /**
+     * 获取页面数据，如果不存在则返回错误页面
+     * @param string|null $slug 页面 slug，如果为 null 则从作用域变量获取
+     * @return array|null 页面数据，如果不存在则返回 null（已渲染错误页面）
+     */
+    public static function getPage(?string $slug = null): ?array
+    {
+        if ($slug === null) {
+            $slug = $GLOBALS['slug'] ?? $_GET['slug'] ?? '';
+        }
+
+        if (empty($slug)) {
+            self::renderError(404, '页面不存在或已被删除');
+            return null;
+        }
+
+        $db = Anon_Database::getInstance();
+        $page = $db->db('posts')
+            ->where('slug', $slug)
+            ->where('type', 'page')
+            ->where('status', 'publish')
+            ->first();
+
+        if (!$page) {
+            self::renderError(404, '页面不存在或已被删除');
+            return null;
+        }
+
+        return $page;
+    }
+
+    /**
+     * 渲染错误页面
+     * @param int $code 错误代码
+     * @param string $message 错误消息
+     * @return void
+     */
+    private static function renderError(int $code, string $message): void
+    {
+        $errorTemplate = Anon_Cms_Theme::findTemplate('error');
+        if ($errorTemplate) {
+            extract(['code' => $code, 'message' => $message], EXTR_SKIP);
+            include $errorTemplate;
+        }
+        exit;
+    }
 }
 

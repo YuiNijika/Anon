@@ -55,6 +55,10 @@
 - `GET /anon/cms/admin/statistics` - 获取统计数据（需要管理员权限）
 - `GET /anon/cms/admin/settings/basic` - 获取基本设置（需要管理员权限）
 - `POST /anon/cms/admin/settings/basic` - 更新基本设置（需要管理员权限）
+- `GET /anon/cms/admin/settings/theme` - 获取主题列表（需要管理员权限）
+- `POST /anon/cms/admin/settings/theme` - 切换主题（需要管理员权限）
+- `GET /anon/cms/admin/settings/theme-options` - 获取主题设置项（需要管理员权限）
+- `POST /anon/cms/admin/settings/theme-options` - 更新主题设置项（需要管理员权限）
 
 ### 配置信息接口
 
@@ -125,6 +129,95 @@ Anon_System_Hook::add_filter('config', function($config) {
 }
 ```
 
+### 统计数据接口
+
+`GET /anon/cms/admin/statistics` 返回统计数据：
+
+```json
+{
+  "code": 200,
+  "message": "获取统计数据成功",
+  "data": {
+    "posts": 100,
+    "comments": 50,
+    "attachments": 20,
+    "categories": 10,
+    "tags": 30,
+    "users": 5,
+    "published_posts": 80,
+    "draft_posts": 20,
+    "pending_comments": 5,
+    "approved_comments": 45,
+    "attachments_size": 10485760,
+    "total_views": 10000
+  }
+}
+```
+
+### 主题设置接口
+
+获取主题列表：
+
+```json
+{
+  "code": 200,
+  "message": "获取主题列表成功",
+  "data": {
+    "current": "default",
+    "themes": [
+      {
+        "name": "default",
+        "title": "默认主题",
+        "description": "默认主题描述"
+      }
+    ]
+  }
+}
+```
+
+切换主题：
+
+```json
+{
+  "theme": "default"
+}
+```
+
+### 主题设置项接口
+
+获取主题设置项：
+
+```json
+{
+  "code": 200,
+  "message": "获取主题设置项成功",
+  "data": {
+    "theme": "default",
+    "schema": {
+      "site_name": {
+        "type": "text",
+        "label": "站点名称",
+        "default": "我的网站"
+      }
+    },
+    "values": {
+      "site_name": "我的网站"
+    }
+  }
+}
+```
+
+更新主题设置项：
+
+```json
+{
+  "theme": "default",
+  "values": {
+    "site_name": "新站点名称"
+  }
+}
+```
+
 ## 静态文件
 
 - `GET /anon/static/debug/css` - 调试控制台样式文件
@@ -132,4 +225,3 @@ Anon_System_Hook::add_filter('config', function($config) {
 - `GET /anon/static/vue` - Vue.js 生产版本
 
 **说明：** 静态文件路由通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
-

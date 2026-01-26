@@ -11,6 +11,7 @@ Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支�
 ```
 app/Theme/
 └── default/              # 主题名称（建议小写）
+    ├── functions.php     # 主题自定义代码
     ├── index.php         # 首页模板
     ├── about.php         # 关于页模板
     ├── post.php          # 文章模板
@@ -31,6 +32,148 @@ app/Theme/
     └── info.json         # 主题信息文件（小写）
 ```
 
+## 主题自定义代码
+
+主题目录下的 `functions.php` 会在主题初始化时自动加载。
+
+**文件位置：** `server/app/Theme/{themeName}/functions.php`
+
+**功能：**
+
+- 注册主题设置项（使用 `Anon_Theme_Options::register()`）
+- 注册钩子（使用 `Anon_System_Hook::add_action()` 和 `Anon_System_Hook::add_filter()`）
+- 注册自定义路由（使用 `Anon_System_Config::addRoute()`）
+- 注册错误处理器（使用 `Anon_System_Config::addErrorHandler()`）
+- 定义主题辅助函数和类
+
+**示例文件位置：** `server/app/Theme/Default/functions.php`
+
+**完整示例：**
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+// 注册主题设置项
+Anon_Theme_Options::register('site_title', [
+    'type' => 'text',
+    'label' => '网站标题',
+    'description' => '显示在网站首页的标题',
+    'default' => '我的网站',
+    'sanitize_callback' => function($value) {
+        return trim(strip_tags($value));
+    },
+    'validate_callback' => function($value) {
+        return strlen($value) <= 100;
+    },
+]);
+
+// 注册动作钩子
+Anon_System_Hook::add_action('theme_foot', function () {
+    echo '<script>console.log("Theme loaded");</script>';
+});
+
+// 注册过滤器钩子
+Anon_System_Hook::add_filter('theme_page_title', function ($title) {
+    $siteTitle = Anon_Theme_Options::get('site_title', '');
+    return $siteTitle ? "{$title} - {$siteTitle}" : $title;
+});
+
+// 注册自定义路由
+Anon_System_Config::addRoute('/theme/custom', function () {
+    Anon_Common::Header();
+    $setting = Anon_Theme_Options::get('custom_setting', 'default');
+    Anon_Http_Response::success(['setting' => $setting], '获取主题设置成功');
+});
+```
+
+## 主题设置项
+
+主题设置项用于保存主题的可配置内容，例如站点标题、配色方案、是否显示侧边栏。
+
+### 存储方式
+
+- 设置值存储在 `options` 表
+- 键名为 `theme:主题名`
+- 值为 JSON 对象
+
+### 注册设置项
+
+在主题 `functions.php` 中注册设置项：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+Anon_Theme_Options::register('site_title', [
+    'type' => 'text',
+    'label' => '网站标题',
+    'description' => '显示在页面中的标题',
+    'default' => '我的网站',
+    'sanitize_callback' => function($value) {
+        return trim(strip_tags($value));
+    },
+    'validate_callback' => function($value) {
+        return strlen($value) <= 100;
+    },
+]);
+```
+
+**设置项类型：**
+
+- `text`: 文本输入框
+- `textarea`: 多行文本域
+- `select`: 下拉选择框（需要提供 `options` 数组）
+- `checkbox`: 复选框（布尔值）
+
+**参数说明：**
+
+- `type`: 设置项类型
+- `label`: 显示标签
+- `description`: 描述信息
+- `default`: 默认值
+- `sanitize_callback`: 数据清理回调函数（可选）
+- `validate_callback`: 数据验证回调函数（可选）
+- `options`: 选择项数组（仅 `select` 类型需要）
+
+### 读取设置
+
+```php
+$siteTitle = Anon_Theme_Options::get('site_title', '默认标题');
+```
+
+### 写入设置
+
+```php
+$ok = Anon_Theme_Options::set('site_title', '新标题');
+```
+
+### 批量设置
+
+```php
+$ok = Anon_Theme_Options::setMany([
+    'site_title' => '新标题',
+    'site_description' => '新描述',
+]);
+```
+
+### 获取所有设置
+
+```php
+$allSettings = Anon_Theme_Options::all();
+```
+
+### 获取设置定义
+
+```php
+$schema = Anon_Theme_Options::schema();
+```
+
+**兼容性别名：**
+
+- `Anon_Theme_Options` 可以使用 `Anon_ThemeOptions` 别名
+- `Anon_Cms_Theme` 可以使用 `Anon_Theme` 别名
+
 ## 基本使用
 
 ### 1. 创建主题
@@ -47,24 +190,32 @@ mkdir -p app/Theme/mytheme
 
 ```php
 <!-- app/Theme/mytheme/index.php -->
+<?php
+const Anon_PageMeta = [
+    'title' => '首页',
+    'description' => '这是首页的描述',
+];
+?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title><?php echo $title ?? '首页'; ?></title>
-    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php Anon_Cms_Theme::headMeta(); ?>
+    <?php Anon_Cms_Theme::assets('style.css'); ?>
 </head>
 <body>
-    <?php Anon_Cms_Theme::partial('header'); ?>
+    <?php Anon_Cms_Theme::components('head'); ?>
     
     <main>
-        <h1><?php echo $siteTitle ?? '我的网站'; ?></h1>
+        <h1><?php echo Anon_Theme_Options::get('site_title', '我的网站'); ?></h1>
         <div><?php echo $content ?? ''; ?></div>
     </main>
     
-    <?php Anon_Cms_Theme::partial('footer'); ?>
+    <?php Anon_Cms_Theme::components('foot'); ?>
     
-    <script src="<?php echo Anon_Cms_Theme::assets('script.js'); ?>"></script>
+    <?php Anon_Cms_Theme::assets('script.js'); ?>
+    <?php Anon_Cms_Theme::footMeta(); ?>
 </body>
 </html>
 ```
@@ -176,15 +327,53 @@ Anon_Cms_Theme::partial(string $partialName, array $data = []): void
 
 ### Anon_Cms_Theme::assets()
 
-获取主题资源 URL。系统会自动将文件按类型分类注册路由，并移除文件扩展名：
+获取主题资源 URL 或自动输出 HTML 标签：
 
 ```php
-Anon_Cms_Theme::assets(string $path): string
+Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = []): string
 ```
 
 **参数：**
 
 - `$path`: 资源路径（相对于主题目录的 assets 目录）
+- `$type`: 资源类型（可选，通常自动检测）
+- `$attributes`: 额外属性数组（可选）
+
+**自动输出 HTML：**
+
+对于 CSS 和 JS 文件，如果不提供 `$attributes` 参数，方法会自动输出相应的 HTML 标签：
+
+```php
+<!-- CSS 文件自动输出 <link> 标签 -->
+<?php Anon_Cms_Theme::assets('style.css'); ?>
+<!-- 输出: <link rel="stylesheet" href="/assets/css/style"> -->
+
+<!-- JS 文件自动输出 <script> 标签 -->
+<?php Anon_Cms_Theme::assets('main.js'); ?>
+<!-- 输出: <script src="/assets/js/main"></script> -->
+```
+
+**返回 URL：**
+
+对于其他文件类型（如图片），方法会返回资源 URL：
+
+```php
+<!-- 图片文件返回 URL -->
+<img src="<?php echo Anon_Cms_Theme::assets('logo.png'); ?>" alt="Logo">
+<!-- 返回: /assets/images/logo -->
+```
+
+**自定义属性：**
+
+如果需要自定义属性，可以传入 `$attributes` 参数：
+
+```php
+<?php Anon_Cms_Theme::assets('style.css', null, ['media' => 'print']); ?>
+<!-- 输出: <link rel="stylesheet" href="/assets/css/style" media="print"> -->
+
+<?php Anon_Cms_Theme::assets('main.js', null, ['defer' => 'defer']); ?>
+<!-- 输出: <script src="/assets/js/main" defer></script> -->
+```
 
 **路由规则：**
 
@@ -194,19 +383,6 @@ Anon_Cms_Theme::assets(string $path): string
 - 图片文件（`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.ico`） → `/assets/images/{文件名}`
 - 字体文件（`.woff`, `.woff2`, `.ttf`, `.eot`） → `/assets/fonts/{文件名}`
 - 其他类型 → `/assets/files/{文件名}`
-
-**示例：**
-
-```php
-<!-- style.css 文件会注册为 /assets/css/style -->
-<link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
-
-<!-- main.js 文件会注册为 /assets/js/main -->
-<script src="<?php echo Anon_Cms_Theme::assets('main.js'); ?>">
-
-<!-- logo.png 文件会注册为 /assets/images/logo -->
-<img src="<?php echo Anon_Cms_Theme::assets('logo.png'); ?>" alt="Logo">
-```
 
 **注意：** 静态资源会自动注册路由，无需手动配置。系统会在启动时扫描 `assets/` 目录下的所有文件并自动注册。
 
@@ -297,44 +473,81 @@ $version = Anon_Cms_Theme::info('version'); // 返回 '1.0.0'
 
 ## HTML 辅助方法
 
-### Anon_Cms_Theme::head()
+### Anon_Cms_Theme::headMeta()
 
-输出完整的 HTML head 标签，包括 SEO meta 标签：
+输出页面 head 部分的 meta 标签，包括 title 和 SEO 信息：
 
 ```php
-Anon_Cms_Theme::head(array $options = []): void
+Anon_Cms_Theme::headMeta(array $overrides = []): void
 ```
 
 **参数：**
 
-- `title`: 页面标题
-- `description`: 页面描述
-- `keywords`: 关键词，字符串或数组
-- `author`: 作者
-- `robots`: robots 标签，默认 'index, follow'
-- `canonical`: canonical URL
-- `og`: Open Graph 标签数组
-- `twitter`: Twitter Card 标签数组
-- `charset`: 字符编码，默认 'UTF-8'
-- `viewport`: viewport 设置，默认 'width=device-width, initial-scale=1.0'
-- `lang`: 语言，默认 'zh-CN'
+- `$overrides`: 覆盖 SEO 数据的数组（可选）
+
+**功能：**
+
+- 自动从 `Anon_PageMeta` 常量获取 SEO 信息
+- 输出 `<title>` 标签
+- 输出 description、keywords、author、robots、canonical 等 meta 标签
+- 输出 Open Graph 和 Twitter Card 标签
 
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::head([
+<!-- 在模板文件顶部定义 SEO 信息 -->
+<?php
+const Anon_PageMeta = [
     'title' => '文章标题',
     'description' => '这是文章的描述',
-    'keywords' => ['文章', '博客', 'Anon'],
+    'keywords' => '文章, 博客, Anon',
     'canonical' => '/post/123',
-    'og' => [
-        'title' => '文章标题',
-        'description' => '这是文章的描述',
-        'type' => 'article',
-        'url' => '/post/123',
-        'image' => '/images/post-123.jpg',
-    ],
+];
+?>
+
+<!-- 在 head 组件中输出 -->
+<head>
+    <meta charset="UTF-8">
+    <?php Anon_Cms_Theme::headMeta(); ?>
+</head>
+```
+
+**覆盖 SEO 信息：**
+
+```php
+<?php Anon_Cms_Theme::headMeta([
+    'title' => '覆盖的标题',
+    'description' => '覆盖的描述',
 ]); ?>
+```
+
+### Anon_Cms_Theme::footMeta()
+
+输出页面底部 meta 信息，触发 `theme_foot` 钩子：
+
+```php
+Anon_Cms_Theme::footMeta(): void
+```
+
+**功能：**
+
+- 触发 `theme_foot` 动作钩子
+- 允许注册的回调函数输出自定义脚本或内容
+
+**示例：**
+
+```php
+<!-- 在 foot 组件中 -->
+<?php Anon_Cms_Theme::footMeta(); ?>
+```
+
+**注册 foot 钩子：**
+
+```php
+// 在 functions.php 中
+Anon_System_Hook::add_action('theme_foot', function () {
+    echo '<script>console.log("Theme loaded");</script>';
+});
 ```
 
 ### Anon_Cms_Theme::title()
@@ -888,19 +1101,20 @@ app/Theme/default/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title ?? '页面标题'); ?></title>
-    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+    <?php Anon_Cms_Theme::headMeta(); ?>
+    <?php Anon_Cms_Theme::assets('style.css'); ?>
 </head>
 <body>
-    <?php Anon_Cms_Theme::partial('header'); ?>
+    <?php Anon_Cms_Theme::components('head'); ?>
     
     <main class="container">
         <?php echo $content ?? ''; ?>
     </main>
     
-    <?php Anon_Cms_Theme::partial('footer'); ?>
+    <?php Anon_Cms_Theme::components('foot'); ?>
     
-    <script src="<?php echo Anon_Cms_Theme::assets('main.js'); ?>"></script>
+    <?php Anon_Cms_Theme::assets('main.js'); ?>
+    <?php Anon_Cms_Theme::footMeta(); ?>
 </body>
 </html>
 ```
@@ -910,12 +1124,17 @@ app/Theme/default/
 ```php
 <!-- app/Theme/default/index.php -->
 <?php
-$title = '首页';
+const Anon_PageMeta = [
+    'title' => '首页',
+    'description' => '这是首页的描述',
+];
+
+$siteTitle = Anon_Theme_Options::get('site_title', '我的网站');
 $content = '
     <h1>欢迎访问</h1>
     <p>这是首页内容</p>
 ';
-Anon_Cms_Theme::render('layout', compact('title', 'content'));
+Anon_Cms_Theme::render('layout', compact('content'));
 ?>
 ```
 
@@ -927,20 +1146,17 @@ Anon_Cms_Theme::render('layout', compact('title', 'content'));
 const Anon_PageMeta = [
     'title' => '文章标题',
     'description' => '这是文章的描述',
-    'keywords' => '文章, 博客'
+    'keywords' => '文章, 博客',
+    'canonical' => '/post/' . ($id ?? 0),
 ];
 
 $postId = $id ?? 0;
-// 这里应该从数据库获取文章数据
-$post = [
-    'title' => '文章标题',
-    'content' => '<p>文章内容</p>',
-];
+$post = Anon_Cms::getPost($postId);
 
-$seo = Anon_Cms_PageMeta::getSeo();
-$title = htmlspecialchars($post['title']);
-$content = $post['content'];
-Anon_Cms_Theme::render('layout', compact('title', 'content'));
+if ($post) {
+    $content = $post['content'];
+    Anon_Cms_Theme::render('layout', compact('content'));
+}
 ?>
 ```
 
@@ -965,6 +1181,21 @@ echo "当前主题: " . Anon_Cms_Theme::getCurrentTheme();
 
 ### 模板错误处理
 
+**组件级错误：**
+
+如果组件文件不存在或调用出错，系统会在调用位置直接输出 HTML 错误信息，不会中断页面渲染：
+
+```php
+<?php Anon_Cms_Theme::components('nonexistent'); ?>
+<!-- 如果组件不存在，会在该位置输出错误提示，但页面继续渲染 -->
+```
+
+**系统级错误：**
+
+如果遇到系统级错误（如类不存在、方法未定义等），系统会停止主题加载并直接输出系统级错误页面，类似 WordPress 的严重错误页面。
+
+**模板渲染错误：**
+
 如果模板文件不存在，系统会抛出异常。可以在路由处理中捕获：
 
 ```php
@@ -975,3 +1206,10 @@ try {
     echo "模板未找到: " . $e->getMessage();
 }
 ```
+
+**错误类型判断：**
+
+系统会自动判断错误类型：
+- 组件调用错误：输出 HTML 错误信息，继续渲染
+- 系统级错误（如 `Call to undefined method`、`Class not found`）：停止主题加载，显示系统级错误页面
+- 普通异常：按正常异常处理流程

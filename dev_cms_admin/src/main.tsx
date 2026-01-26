@@ -8,6 +8,7 @@ import './index.css'
 
 async function initApp() {
   try {
+    document.title = '管理后台 - Powered by AnonEcho'
     await ensureToken(true)
   } catch {
     // 静默失败

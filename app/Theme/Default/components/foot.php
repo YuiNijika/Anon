@@ -8,9 +8,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
     <p><?php echo date('Y'); ?> &copy; <?php echo Anon_Cms_Theme::escape($siteTitle ?? Anon_Common::NAME); ?>. All rights reserved.</p>
 </footer>
 
-<?php
-Anon_Cms_Theme::assets('main.js');
-Anon_System_Hook::do_action('theme_foot');
+<?php 
+    Anon_Cms_Theme::assets('main.js');
+    Anon_Cms_Theme::footMeta();
 ?>
 </body>
 </html>

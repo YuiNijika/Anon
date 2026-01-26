@@ -131,10 +131,16 @@ class Anon_Cms_Statistics
     public static function getAttachmentsSize(): int
     {
         return self::safeQuery(function () {
-            $result = Anon_Database_QueryBuilder::table('attachments')
-                ->select('SUM(`file_size`) as total_size')
-                ->first();
-            return (int)($result['total_size'] ?? 0);
+            $attachments = Anon_Database_QueryBuilder::table('attachments')
+                ->select(['file_size'])
+                ->get();
+            
+            $totalSize = 0;
+            foreach ($attachments as $attachment) {
+                $totalSize += (int)($attachment['file_size'] ?? 0);
+            }
+            
+            return $totalSize;
         });
     }
 
@@ -182,10 +188,16 @@ class Anon_Cms_Statistics
     public static function getTotalViews(): int
     {
         return self::safeQuery(function () {
-            $result = Anon_Database_QueryBuilder::table('posts')
-                ->select('SUM(`views`) as total_views')
-                ->first();
-            return (int)($result['total_views'] ?? 0);
+            $posts = Anon_Database_QueryBuilder::table('posts')
+                ->select(['views'])
+                ->get();
+            
+            $totalViews = 0;
+            foreach ($posts as $post) {
+                $totalViews += (int)($post['views'] ?? 0);
+            }
+            
+            return $totalViews;
         });
     }
 }

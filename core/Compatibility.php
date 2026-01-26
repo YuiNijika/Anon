@@ -1,10 +1,6 @@
 <?php
 /**
  * 类别名兼容层
- * 为了向后兼容，将旧类名映射到新类名
- * 
- * 注意：这是临时方案，建议逐步迁移到新类名
- * 未来版本可能会移除此文件
  */
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
@@ -86,4 +82,10 @@ if (class_exists('Anon_Utils_Sanitize')) {
 }
 if (class_exists('Anon_Cms_Theme')) {
     class_alias('Anon_Cms_Theme', 'Anon_View_Theme');
+}
+if (class_exists('Anon_Cms_Theme')) {
+    class_alias('Anon_Cms_Theme', 'Anon_Theme');
+}
+if (class_exists('Anon_Theme_Options')) {
+    class_alias('Anon_Theme_Options', 'Anon_ThemeOptions');
 }

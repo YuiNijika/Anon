@@ -151,6 +151,14 @@ class Anon_Database_QueryBuilder
             $columns = [$columns];
         }
 
+        // 验证所有字段名安全性
+        foreach ($columns as $column) {
+            // 允许 * 和带反引号的字段名
+            if ($column !== '*' && !preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+                throw new InvalidArgumentException("无效的字段名: {$column}");
+            }
+        }
+
         $this->selects = array_merge($this->selects, $columns);
         return $this;
     }
@@ -165,15 +173,24 @@ class Anon_Database_QueryBuilder
      */
     public function where($column, $operator = null, $value = null, string $boolean = 'AND')
     {
-        // 如果第一个参数是闭包，处理嵌套条件
         if ($column instanceof Closure) {
             return $this->whereNested($column, $boolean);
         }
 
-        // 如果只有两个参数，默认使用 =
+        if (is_string($column) && !preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
         if (func_num_args() === 2) {
             $value = $operator;
             $operator = '=';
+        }
+
+        if (is_string($operator)) {
+            $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'];
+            if (!in_array(strtoupper($operator), $allowedOps)) {
+                throw new InvalidArgumentException("无效的操作符: {$operator}");
+            }
         }
 
         $this->wheres[] = [
@@ -209,6 +226,11 @@ class Anon_Database_QueryBuilder
      */
     public function whereIn(string $column, array $values, string $boolean = 'AND')
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
         $this->wheres[] = [
             'type' => 'in',
             'column' => $column,
@@ -228,6 +250,11 @@ class Anon_Database_QueryBuilder
      */
     public function whereNull(string $column, string $boolean = 'AND')
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
         $this->wheres[] = [
             'type' => 'null',
             'column' => $column,
@@ -245,6 +272,11 @@ class Anon_Database_QueryBuilder
      */
     public function whereNotNull(string $column, string $boolean = 'AND')
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+
         $this->wheres[] = [
             'type' => 'not_null',
             'column' => $column,
@@ -675,6 +707,11 @@ class Anon_Database_QueryBuilder
      */
     public function value(string $column)
     {
+        // 验证字段名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的字段名: {$column}");
+        }
+        
         $this->selects = [$column];
         $result = $this->first();
         return $result[$column] ?? null;

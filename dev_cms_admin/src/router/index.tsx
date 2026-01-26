@@ -5,6 +5,11 @@ import Console from '@/pages/Console'
 import SettingsBasic from '@/pages/SettingsBasic'
 import SettingsTheme from '@/pages/SettingsTheme'
 import Statistics from '@/pages/Statistics'
+import Write from '@/pages/Write'
+import ManageCategories from '@/pages/ManageCategories'
+import ManageTags from '@/pages/ManageTags'
+import ManageFiles from '@/pages/ManageFiles'
+import ManagePosts from '@/pages/ManagePosts'
 
 export const routes = [
   {
@@ -26,6 +31,26 @@ export const routes = [
       {
         path: 'statistics',
         element: <Statistics />,
+      },
+      {
+        path: 'write',
+        element: <Write />,
+      },
+      {
+        path: 'manage/categories',
+        element: <ManageCategories />,
+      },
+      {
+        path: 'manage/tags',
+        element: <ManageTags />,
+      },
+      {
+        path: 'manage/files',
+        element: <ManageFiles />,
+      },
+      {
+        path: 'manage/posts',
+        element: <ManagePosts />,
       },
       {
         path: 'settings/basic',

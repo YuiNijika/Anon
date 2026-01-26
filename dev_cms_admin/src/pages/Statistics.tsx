@@ -62,12 +62,6 @@ export default function Statistics() {
 
   return (
     <div>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 600, color: isDark ? '#1890ff' : '#1890ff' }}>
-          统计数据
-        </h1>
-      </div>
-
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>

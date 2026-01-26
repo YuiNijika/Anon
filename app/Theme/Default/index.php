@@ -1,12 +1,6 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_PageMeta = [
-    'title' => '首页',
-    'description' => '欢迎使用 Anon CMS，这是一个功能强大的内容管理系统。',
-    'keywords' => ['Anon', 'CMS', 'PHP', '内容管理'],
-];
-
 Anon_Cms_Theme::components('head'); 
 ?>
 
@@ -22,7 +16,7 @@ Anon_Cms_Theme::components('head');
         echo '<div class="card-title">快速开始</div>';
         echo '<div class="card-content">';
         echo '<p>使用 <code>const Anon_PageMeta</code> 来定义 SEO 信息。</p>';
-        echo '<p>使用 <code>Anon_Cms_Theme::stylesheet()</code> 来加载样式表。</p>';
+        echo '<p>使用 <code>Anon_Cms_Theme::components(\'head\')</code> 和 <code>Anon_Cms_Theme::components(\'foot\')</code> 来加载头部和底部。</p>';
         echo '</div>';
         echo '</div>';
     }

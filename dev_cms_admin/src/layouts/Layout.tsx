@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout as AntLayout,
-  Menu,
   Avatar,
   Dropdown,
   Button,
@@ -20,8 +19,13 @@ import {
   MenuOutlined,
   AppstoreOutlined,
   BgColorsOutlined,
+  EditOutlined,
+  FolderOutlined,
+  TagsOutlined,
+  FileOutlined,
 } from '@ant-design/icons'
 import { useAuth, useTheme } from '@/hooks'
+import { Sidebar } from '@/components/Sidebar'
 
 const { Header, Content, Sider } = AntLayout
 
@@ -35,6 +39,38 @@ const menuItems: MenuProps['items'] = [
     key: '/statistics',
     icon: <BarChartOutlined />,
     label: '统计',
+  },
+  {
+    key: '/write',
+    icon: <EditOutlined />,
+    label: '撰写',
+  },
+  {
+    key: 'manage',
+    icon: <FolderOutlined />,
+    label: '管理',
+    children: [
+      {
+        key: '/manage/categories',
+        icon: <FolderOutlined />,
+        label: '分类',
+      },
+      {
+        key: '/manage/tags',
+        icon: <TagsOutlined />,
+        label: '标签',
+      },
+      {
+        key: '/manage/files',
+        icon: <FileOutlined />,
+        label: '附件',
+      },
+      {
+        key: '/manage/posts',
+        icon: <EditOutlined />,
+        label: '文章',
+      },
+    ],
   },
   {
     key: 'settings',
@@ -54,6 +90,19 @@ const menuItems: MenuProps['items'] = [
     ],
   },
 ]
+
+// 路由标题映射
+const routeTitleMap: Record<string, string> = {
+  '/console': '控制台',
+  '/statistics': '统计',
+  '/write': '撰写',
+  '/manage/categories': '管理分类',
+  '/manage/tags': '管理标签',
+  '/manage/files': '管理附件',
+  '/manage/posts': '管理文章',
+  '/settings/basic': '常规设置',
+  '/settings/theme': '主题设置',
+}
 
 function useResponsive() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -82,12 +131,20 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const [pageTitle, setPageTitle] = useState('控制台')
+
   useEffect(() => {
     const path = location.pathname
     setSelectedKey(path)
 
+    // 根据路径设置页面标题
+    const title = routeTitleMap[path] || '控制台'
+    setPageTitle(title)
+
     if (path.startsWith('/settings')) {
       setOpenKeys(['settings'])
+    } else if (path.startsWith('/manage')) {
+      setOpenKeys(['manage'])
     }
   }, [location.pathname])
 
@@ -123,7 +180,9 @@ export default function Layout() {
   }
 
   const handleOpenChange = (keys: string[]) => {
-    setOpenKeys(keys)
+    // 确保 keys 是数组且去重，避免重复触发
+    const uniqueKeys = Array.isArray(keys) ? [...new Set(keys)] : []
+    setOpenKeys(uniqueKeys)
   }
 
   const handleLogout = async () => {
@@ -137,19 +196,6 @@ export default function Layout() {
   }
 
   const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'user',
-      label: (
-        <div style={{ padding: '4px 0' }}>
-          <div style={{ fontWeight: 500 }}>{auth.user?.name || '用户'}</div>
-          <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.45)' }}>UID: {auth.user?.uid}</div>
-        </div>
-      ),
-      disabled: true,
-    },
-    {
-      type: 'divider',
-    },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
@@ -167,21 +213,7 @@ export default function Layout() {
   const headerBgColor = isDark ? '#1f1f1f' : '#ffffff'
   const headerBorderColor = isDark ? '#303030' : '#e8e8e8'
   const contentBgColor = isDark ? '#1f1f1f' : '#ffffff'
-  const titleColor = isDark ? '#ffffff' : '#ffffff'
   const drawerBgColor = isDark ? '#001529' : '#1890ff'
-
-  const menuContent = (
-    <Menu
-      mode="inline"
-      selectedKeys={[selectedKey]}
-      openKeys={openKeys}
-      onOpenChange={handleOpenChange}
-      items={menuItems}
-      onClick={handleMenuClick}
-      style={{ borderRight: 0, height: '100%', backgroundColor: 'transparent' }}
-      theme={isDark ? 'dark' : 'dark'}
-    />
-  )
 
   return (
     <AntLayout style={{ minHeight: '100vh', backgroundColor: layoutBgColor }}>
@@ -200,22 +232,17 @@ export default function Layout() {
           top: 0,
           bottom: 0,
           zIndex: 100,
-          overflow: 'auto',
+          overflow: 'hidden',
           backgroundColor: siderBgColor,
         }}
       >
-        <div
-          style={{
-            padding: '16px',
-            textAlign: 'center',
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: titleColor }}>
-            CMS 管理后台
-          </h2>
-        </div>
-        {menuContent}
+        <Sidebar
+          selectedKey={selectedKey}
+          openKeys={openKeys}
+          onMenuClick={handleMenuClick}
+          onOpenChange={handleOpenChange}
+          menuItems={menuItems}
+        />
       </Sider>
       <AntLayout
         style={{
@@ -239,15 +266,29 @@ export default function Layout() {
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
           }}
         >
-          <Button
-            type="text"
-            icon={<MenuOutlined />}
-            onClick={() => setMobileMenuOpen(true)}
-            style={{
-              display: collapsed ? 'flex' : 'none',
-              alignItems: 'center',
-            }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <Button
+              type="text"
+              icon={<MenuOutlined />}
+              onClick={() => setMobileMenuOpen(true)}
+              style={{
+                display: collapsed ? 'flex' : 'none',
+                alignItems: 'center',
+                marginRight: collapsed ? 16 : 0,
+              }}
+            />
+            <h1
+              style={{
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: 600,
+                color: isDark ? '#ffffff' : '#000000',
+                lineHeight: '64px',
+              }}
+            >
+              {pageTitle}
+            </h1>
+          </div>
           <Space size="middle">
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button
@@ -279,25 +320,36 @@ export default function Layout() {
         </Content>
       </AntLayout>
       <Drawer
-        title={
-          <div style={{ fontSize: '18px', fontWeight: 600, color: titleColor }}>菜单</div>
-        }
         placement="left"
         onClose={() => setMobileMenuOpen(false)}
         open={mobileMenuOpen}
-        width={200}
+        size={isMobile ? '75%' : 240}
+        closable={false}
+        maskClosable={true}
         styles={{
           body: {
             padding: 0,
             backgroundColor: drawerBgColor,
+            height: '100%',
+            overflow: 'hidden',
           },
           header: {
-            backgroundColor: drawerBgColor,
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            display: 'none',
           },
         }}
+        style={{
+          backgroundColor: drawerBgColor,
+        }}
+        zIndex={1000}
       >
-        {menuContent}
+        <Sidebar
+          selectedKey={selectedKey}
+          openKeys={openKeys}
+          onMenuClick={handleMenuClick}
+          onOpenChange={handleOpenChange}
+          menuItems={menuItems}
+          onClose={() => setMobileMenuOpen(false)}
+        />
       </Drawer>
     </AntLayout>
   )

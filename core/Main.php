@@ -69,9 +69,12 @@ class Anon_Main
         require_once __DIR__ . '/Loader.php';
         Anon_Loader::loadAll();
         
-        $mode = Anon_System_Env::get('app.mode', 'api');
-        if ($mode === 'cms') {
-            Anon_Loader::loadCmsModules();
+        // 只有在系统已安装时才加载 CMS 模块
+        if (Anon_System_Config::isInstalled()) {
+            $mode = Anon_System_Env::get('app.mode', 'api');
+            if ($mode === 'cms') {
+                Anon_Loader::loadCmsModules();
+            }
         }
         
         // 根据配置加载可选模块

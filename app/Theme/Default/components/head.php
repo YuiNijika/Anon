@@ -1,15 +1,13 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
-$seo = Anon_Cms_PageMeta::getSeo();
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <?php
-    Anon_Cms_Theme::head($seo);
+<?php 
+    Anon_Cms_Theme::headMeta();
     Anon_Cms_Theme::assets('style.css');
-    Anon_System_Hook::do_action('theme_head');
-    ?>
+?>
 </head>
 <body>
 

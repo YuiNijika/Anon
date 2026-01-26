@@ -38,10 +38,38 @@ class Anon
                     'message' => $message,
                     'data' => $data
                 ]);
-            } catch (RuntimeException $e) {
-                // 如果主题模板不存在，使用默认错误页面
-                Anon_Common::Header($httpCode);
-                echo "<h1>出错了 ($httpCode)</h1><p>" . htmlspecialchars($message) . "</p>";
+            } catch (Error $e) {
+                // 严重错误：使用系统级错误页面
+                if (class_exists('Anon_Cms_Theme_FatalError')) {
+                    Anon_Cms_Theme_FatalError::render(
+                        $e->getMessage(),
+                        $e->getFile(),
+                        $e->getLine(),
+                        get_class($e)
+                    );
+                } else {
+                    Anon_Common::Header($httpCode);
+                    echo "<h1>出错了 ($httpCode)</h1><p>" . htmlspecialchars($message) . "</p>";
+                }
+            } catch (Throwable $e) {
+                // 检查是否是严重错误
+                $errorMessage = $e->getMessage();
+                $isFatal = strpos($errorMessage, 'Call to undefined') !== false ||
+                          strpos($errorMessage, 'not found') !== false ||
+                          strpos($errorMessage, 'Class') !== false;
+                
+                if ($isFatal && class_exists('Anon_Cms_Theme_FatalError')) {
+                    Anon_Cms_Theme_FatalError::render(
+                        $errorMessage,
+                        $e->getFile(),
+                        $e->getLine(),
+                        get_class($e)
+                    );
+                } else {
+                    // 如果主题模板不存在，使用默认错误页面
+                    Anon_Common::Header($httpCode);
+                    echo "<h1>出错了 ($httpCode)</h1><p>" . htmlspecialchars($message) . "</p>";
+                }
             }
             exit;
         }

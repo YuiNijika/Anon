@@ -8,28 +8,32 @@ import {
   Switch,
   InputNumber,
   ColorPicker,
-  message,
+  App,
   Space,
   Tabs,
   Row,
   Col,
   Tag,
   Spin,
-  Image,
   Divider,
 } from 'antd'
-import { useApiAdmin, useTheme } from '@/hooks'
+import { useApiAdmin } from '@/hooks'
 import { AdminApi, type ThemeOptionSchema, type ThemeInfo } from '@/services/admin'
 import { Typography } from 'antd'
 import { CheckOutlined, SwapOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
-const { Title, Text } = Typography
+const { Text } = Typography
 
 export default function SettingsTheme() {
   const apiAdmin = useApiAdmin()
-  const { isDark } = useTheme()
   const [form] = Form.useForm()
+  const app = App.useApp()
+  const message = app.message
+
+  const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
+  const nullSvgUrl = `${baseUrl}/anon/static/img/null`
+
   const [loading, setLoading] = useState(false)
   const [themeListLoading, setThemeListLoading] = useState(false)
   const [switchingTheme, setSwitchingTheme] = useState<string | null>(null)
@@ -168,11 +172,36 @@ export default function SettingsTheme() {
   })
 
   const getScreenshotUrl = (theme: ThemeInfo) => {
-    if (theme.screenshot) {
-      return theme.screenshot
+    const screenshot = theme.screenshot?.trim()
+    if (!screenshot) return nullSvgUrl
+
+    // JSON 返回的 screenshot 可能是相对路径或绝对 URL
+    if (screenshot.startsWith('http://') || screenshot.startsWith('https://')) return screenshot
+    if (screenshot.startsWith('/')) return `${baseUrl}${screenshot}`
+    return `${baseUrl}/${screenshot}`
+  }
+
+  const getUrlLabel = (url: string): string => {
+    try {
+      const urlObj = new URL(url)
+      const hostname = urlObj.hostname.toLowerCase()
+
+      // 移除 www. 前缀
+      const domain = hostname.replace(/^www\./, '')
+
+      // 判断代码托管平台
+      if (domain.includes('github.com')) return 'GitHub'
+      if (domain.includes('gitee.com')) return 'Gitee'
+      if (domain.includes('gitlab.com')) return 'GitLab'
+      if (domain.includes('bitbucket.org')) return 'Bitbucket'
+      if (domain.includes('coding.net')) return 'Coding'
+
+      // 默认
+      return '访问网站'
+    } catch {
+      // URL 解析失败，返回默认
+      return '访问网站'
     }
-    const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
-    return `${baseUrl}/anon/static/cms/theme/${theme.name}/screenshot`
   }
 
   const tabItems = [
@@ -199,16 +228,18 @@ export default function SettingsTheme() {
                 <Col key={theme.name} xs={24} sm={12} lg={8} xl={6}>
                   <Card
                     hoverable
+                    style={{ width: '100%' }}
                     cover={
-                      <div style={{ height: '180px', overflow: 'hidden', backgroundColor: '#f5f5f5' }}>
-                        <Image
-                          src={getScreenshotUrl(theme)}
-                          alt={theme.displayName}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          preview={false}
-                          fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23ddd' width='200' height='200'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='14' dy='10.5' font-weight='bold' x='50%25' y='50%25' text-anchor='middle'%3E无截图%3C/text%3E%3C/svg%3E"
-                        />
-                      </div>
+                      <img
+                        draggable={false}
+                        alt={theme.displayName}
+                        src={getScreenshotUrl(theme)}
+                        style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.src = nullSvgUrl
+                        }}
+                      />
                     }
                     actions={[
                       <Button
@@ -225,35 +256,24 @@ export default function SettingsTheme() {
                     ]}
                   >
                     <Card.Meta
-                      avatar={
-                        <Image
-                          src={getScreenshotUrl(theme)}
-                          alt={theme.displayName}
-                          width={64}
-                          height={64}
-                          style={{ borderRadius: '4px', objectFit: 'cover' }}
-                          preview={false}
-                          fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect fill='%23ddd' width='64' height='64'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='10' dy='10.5' font-weight='bold' x='50%25' y='50%25' text-anchor='middle'%3E无%3C/text%3E%3C/svg%3E"
-                        />
-                      }
                       title={
                         <Space>
                           <span>{theme.displayName}</span>
                           {theme.name === currentTheme && <Tag color="blue">当前使用</Tag>}
-                          {theme.version && <Tag>{theme.version}</Tag>}
                         </Space>
                       }
                       description={
                         <div>
-                          {theme.description && (
-                            <div style={{ marginBottom: '8px' }}>{theme.description}</div>
-                          )}
+                          {theme.description && <div style={{ marginBottom: '8px' }}>{theme.description}</div>}
                           <Space size="small" split={<Divider type="vertical" />}>
-                            {theme.author && <Text type="secondary">作者: {theme.author}</Text>}
+                            {theme.version && <Tag>{theme.version}</Tag>}
+                            {theme.author && <Text type="secondary">{theme.author}</Text>}
                             {theme.url && (
-                              <a href={theme.url} target="_blank" rel="noopener noreferrer">
-                                访问官网
-                              </a>
+                              <Text type="secondary">
+                                <a href={theme.url} target="_blank" rel="noopener noreferrer">
+                                  {getUrlLabel(theme.url)}
+                                </a>
+                              </Text>
                             )}
                           </Space>
                         </div>
@@ -297,10 +317,6 @@ export default function SettingsTheme() {
 
   return (
     <div>
-      <Title level={2} style={{ marginBottom: '24px', color: isDark ? '#1890ff' : '#1890ff' }}>
-        主题设置
-      </Title>
-
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </div>
   )

@@ -44,6 +44,60 @@ $container->singleton('MyService', function() {
 });
 ```
 
+## 主题自定义代码
+
+主题模式下可以使用主题目录的 `functions.php` 作为主题级自定义代码文件。
+
+文件位置：`server/app/Theme/{themeName}/functions.php`
+
+**说明：**
+
+- 文件会在主题初始化时自动加载
+- 用于注册主题设置项
+- 用于注册主题相关钩子
+- 用于注册主题相关路由
+- 用于注册错误处理器
+- 用于添加自定义函数和类
+
+**示例：**
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+// 注册主题设置项
+Anon_Theme_Options::register('site_title', [
+    'type' => 'text',
+    'label' => '网站标题',
+    'description' => '显示在网站首页的标题',
+    'default' => '我的网站',
+    'sanitize_callback' => function($value) {
+        return trim(strip_tags($value));
+    },
+    'validate_callback' => function($value) {
+        return strlen($value) <= 100;
+    },
+]);
+
+// 注册动作钩子
+Anon_System_Hook::add_action('theme_foot', function () {
+    echo '<script>console.log("Theme loaded");</script>';
+});
+
+// 注册过滤器钩子
+Anon_System_Hook::add_filter('theme_page_title', function ($title) {
+    $siteTitle = Anon_Theme_Options::get('site_title', '');
+    return $siteTitle ? "{$title} - {$siteTitle}" : $title;
+});
+
+// 注册自定义路由
+Anon_System_Config::addRoute('/theme/custom', function () {
+    Anon_Common::Header();
+    $setting = Anon_Theme_Options::get('custom_setting', 'default');
+    Anon_Http_Response::success(['setting' => $setting], '获取主题设置成功');
+});
+```
+
 ## 扩展权限系统
 
 通过 `anon_auth_capabilities` 过滤器可以扩展或修改角色权限配置：

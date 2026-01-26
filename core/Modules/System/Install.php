@@ -641,8 +641,15 @@ class Anon_System_Install
 
         // 插入默认数据
         if ($app_mode === 'cms') {
-            self::insertDefaultMeta($conn, $db_prefix);
-            self::insertDefaultPost($conn, $db_prefix, $userId);
+            /**
+             * 插入默认分类并获取分类ID
+             */
+            $categoryId = self::insertDefaultMeta($conn, $db_prefix);
+            
+            /**
+             * 插入默认文章，关联默认分类
+             */
+            self::insertDefaultPost($conn, $db_prefix, $userId, $categoryId);
         }
 
         $conn->close();
@@ -782,6 +789,7 @@ class Anon_System_Install
             'apiPrefix' => '/api',
             'api_enabled' => '0',
             'allow_register' => '0',
+            'access_log_enabled' => '1',
             'upload_allowed_types' => json_encode([
                 'image' => 'gif,jpg,jpeg,png,tiff,bmp,webp,avif',
                 'media' => 'mp3,mp4,mov,wmv,wma,rmvb,rm,avi,flv,ogg,oga,ogv',
@@ -838,7 +846,7 @@ class Anon_System_Install
     {
         $tableName = self::getTableName($tablePrefix, 'users');
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-        $now = date('Y-m-d H:i:s');
+        $now = time();
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $userId = $queryBuilder->insert([
@@ -866,15 +874,21 @@ class Anon_System_Install
      * 插入默认分类
      * @param mysqli $conn 数据库连接
      * @param string $tablePrefix 表前缀
-     * @return bool
+     * @return int|false 返回分类 ID 或 false
+     */
+    /**
+     * 插入默认分类
+     * @param mysqli $conn 数据库连接
+     * @param string $tablePrefix 表前缀
+     * @return int|false 返回分类 ID 或 false
      */
     private static function insertDefaultMeta($conn, $tablePrefix)
     {
         $tableName = self::getTableName($tablePrefix, 'metas');
-        $now = date('Y-m-d H:i:s');
+        $now = time();
         
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
-        $result = $queryBuilder->insert([
+        $categoryId = $queryBuilder->insert([
             'name' => '默认分类',
             'slug' => 'default',
             'type' => 'category',
@@ -883,7 +897,7 @@ class Anon_System_Install
             'updated_at' => $now
         ]);
         
-        return $result !== false;
+        return $categoryId;
     }
 
     /**
@@ -891,26 +905,36 @@ class Anon_System_Install
      * @param mysqli $conn 数据库连接
      * @param string $tablePrefix 表前缀
      * @param int $authorId 作者 ID
+     * @param int|null $categoryId 分类 ID
      * @return bool
      */
-    private static function insertDefaultPost($conn, $tablePrefix, $authorId)
+    private static function insertDefaultPost($conn, $tablePrefix, $authorId, $categoryId = null)
     {
         $tableName = self::getTableName($tablePrefix, 'posts');
-        $now = date('Y-m-d H:i:s');
+        $now = time();
         
-        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
-        $result = $queryBuilder->insert([
+        /**
+         * 确保内容以 <!--markdown--> 开头
+         */
+        $content = '<!--markdown-->欢迎使用 `AnonEcho`';
+        
+        $insertData = [
             'type' => 'post',
             'title' => 'Hello World!',
             'slug' => 'hello-world',
-            'content' => '欢迎使用Anon Framework CMS',
+            'content' => $content,
             'status' => 'publish',
             'author_id' => $authorId,
+            'category_id' => $categoryId,
+            'tag_ids' => null,
             'views' => 0,
             'comment_status' => 'open',
             'created_at' => $now,
             'updated_at' => $now
-        ]);
+        ];
+        
+        $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
+        $result = $queryBuilder->insert($insertData);
         
         return $result !== false;
     }

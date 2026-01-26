@@ -1372,40 +1372,36 @@ class Anon_Http_Router
                     'code' => $statusCode,
                     'message' => null
                 ]);
-            } catch (RuntimeException $e) {
-                // 如果主题模板不存在，使用默认错误页面
-                http_response_code($statusCode);
-                header('Content-Type: text/html; charset=utf-8');
+            } catch (Error $e) {
+                // 严重错误：使用系统级错误页面
+                if (class_exists('Anon_Cms_Theme_FatalError')) {
+                    Anon_Cms_Theme_FatalError::render(
+                        $e->getMessage(),
+                        $e->getFile(),
+                        $e->getLine(),
+                        get_class($e)
+                    );
+                } else {
+                    self::showSimpleError($statusCode, $e->getMessage());
+                }
+            } catch (Throwable $e) {
+                // 检查是否是严重错误
+                $message = $e->getMessage();
+                $isFatal = strpos($message, 'Call to undefined') !== false ||
+                          strpos($message, 'not found') !== false ||
+                          strpos($message, 'Class') !== false;
                 
-                $statusText = [
-                    400 => 'Bad Request',
-                    401 => 'Unauthorized',
-                    403 => 'Forbidden',
-                    404 => 'Not Found',
-                    405 => 'Method Not Allowed',
-                    500 => 'Internal Server Error'
-                ];
-                $text = $statusText[$statusCode] ?? 'Error';
-                
-                echo "<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset='UTF-8'>
-                    <title>{$statusCode} {$text}</title>
-                    <style>
-                        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; color: #333; }
-                        .container { text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
-                        h1 { margin: 0 0 1rem; font-size: 3rem; color: #ff4d4f; }
-                        p { font-size: 1.2rem; color: #666; margin: 0; }
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <h1>{$statusCode}</h1>
-                        <p>{$text}</p>
-                    </div>
-                </body>
-                </html>";
+                if ($isFatal && class_exists('Anon_Cms_Theme_FatalError')) {
+                    Anon_Cms_Theme_FatalError::render(
+                        $message,
+                        $e->getFile(),
+                        $e->getLine(),
+                        get_class($e)
+                    );
+                } else {
+                    // 如果主题模板不存在，使用默认错误页面
+                    self::showSimpleError($statusCode);
+                }
             }
             return;
         }
@@ -1432,6 +1428,49 @@ class Anon_Http_Router
             'code' => $statusCode,
             'message' => "HTTP {$statusCode}",
         ]);
+    }
+
+    /**
+     * 显示简单错误页面
+     * @param int $statusCode 状态码
+     * @param string|null $message 错误消息
+     * @return void
+     */
+    private static function showSimpleError(int $statusCode, ?string $message = null): void
+    {
+        http_response_code($statusCode);
+        header('Content-Type: text/html; charset=utf-8');
+        
+        $statusText = [
+            400 => 'Bad Request',
+            401 => 'Unauthorized',
+            403 => 'Forbidden',
+            404 => 'Not Found',
+            405 => 'Method Not Allowed',
+            500 => 'Internal Server Error'
+        ];
+        $text = $statusText[$statusCode] ?? 'Error';
+        $errorMessage = $message ? htmlspecialchars($message) : $text;
+        
+        echo "<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <title>{$statusCode} {$text}</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; color: #333; }
+                .container { text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+                h1 { margin: 0 0 1rem; font-size: 3rem; color: #ff4d4f; }
+                p { font-size: 1.2rem; color: #666; margin: 0; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <h1>{$statusCode}</h1>
+                <p>{$errorMessage}</p>
+            </div>
+        </body>
+        </html>";
     }
 }
 

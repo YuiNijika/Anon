@@ -6,6 +6,35 @@ interface ApiResponse<T = any> {
   data?: T
 }
 
+/**
+ * 检测是否是网络连接错误
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    // fetch 失败时通常是 TypeError
+    const message = error.message.toLowerCase()
+    return (
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('network request failed') ||
+      message.includes('econnrefused') ||
+      message.includes('connection refused')
+    )
+  }
+  
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase()
+    return (
+      message.includes('econnrefused') ||
+      message.includes('connection refused') ||
+      message.includes('networkerror') ||
+      message.includes('failed to fetch')
+    )
+  }
+  
+  return false
+}
+
 const API_BASE_URLS = {
   dev: '/anon-dev-server',
   prod: import.meta.env.VITE_API_BASE_URL || 'http://anon.localhost:8080',
@@ -50,8 +79,11 @@ async function getApiPrefix(): Promise<string> {
         }
         return cachedApiPrefix
       }
-    } catch {
-      // 静默失败
+    } catch (error) {
+      // 如果是网络错误，记录但不抛出，使用 fallback
+      if (isNetworkError(error)) {
+        console.warn('无法连接到后端服务，使用默认 API 前缀')
+      }
     }
 
     const fallback = DEFAULT_API_BASE_URL
@@ -94,8 +126,11 @@ async function fetchToken(forceRefresh = false): Promise<string | null> {
       localStorage.setItem('token', data.data.token)
       return data.data.token
     }
-  } catch {
-    // 静默失败
+  } catch (error) {
+    // 如果是网络错误，静默失败（不记录日志，避免控制台噪音）
+    if (!isNetworkError(error)) {
+      console.warn('获取 Token 失败:', error)
+    }
   }
   return null
 }
@@ -208,6 +243,13 @@ export function useApi() {
 
         return data
       } catch (error) {
+        // 检测网络连接错误
+        if (isNetworkError(error)) {
+          const networkError = new Error('后端服务不可用，请检查服务是否已启动')
+          ;(networkError as any).isNetworkError = true
+          throw networkError
+        }
+        
         if (error instanceof Error) {
           const isAuthError = error.message.includes('401') || error.message.includes('403')
           if (isAuthError) {

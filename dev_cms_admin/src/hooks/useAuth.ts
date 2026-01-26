@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useApiAdmin } from './useApiAdmin'
+import { isNetworkError } from './useApi'
 import { AuthApi, type LoginDTO, type UserInfo } from '../services/auth'
 import { UserApi } from '../services/user'
 
@@ -55,7 +56,10 @@ export const useAuth = () => {
         }
         return res
       } catch (err) {
-        if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
+        // 网络错误或认证错误时清除认证状态
+        if (isNetworkError(err) || (err instanceof Error && (err as any).isNetworkError)) {
+          clearAuth()
+        } else if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
           clearAuth()
         }
         const message = err instanceof Error ? err.message : '登录失败'
@@ -89,7 +93,10 @@ export const useAuth = () => {
         }
         return res
       } catch (err) {
-        if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
+        // 网络错误或认证错误时清除认证状态
+        if (isNetworkError(err) || (err instanceof Error && (err as any).isNetworkError)) {
+          clearAuth()
+        } else if (err instanceof Error && (err.message.includes('401') || err.message.includes('403'))) {
           clearAuth()
         }
         const message = err instanceof Error ? err.message : '注册失败'
@@ -181,6 +188,16 @@ export const useAuth = () => {
       }
     } catch (err) {
       console.error('Check login failed:', err)
+      
+      // 如果是网络连接错误，清除认证状态，设置为未登录模式
+      if (isNetworkError(err) || (err instanceof Error && (err as any).isNetworkError)) {
+        clearAuth()
+        checkingRef.current = false
+        initializedRef.current = true
+        return false
+      }
+      
+      // 其他错误：如果没有 token 和用户信息，清除认证状态
       if (!hasToken() && !user) {
         clearAuth()
       }
