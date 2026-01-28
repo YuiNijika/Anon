@@ -3,7 +3,7 @@ import { Card, Table, Button, App, Upload, Modal, Image, Dropdown, Progress, Lis
 import { UploadOutlined, DeleteOutlined, EyeOutlined, MoreOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import type { UploadProps, MenuProps, UploadFile } from 'antd'
 import { useApiAdmin } from '@/hooks'
-import { getApiBaseUrl } from '@/utils/api'
+import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 const { Dragger } = Upload
@@ -19,6 +19,7 @@ export default function ManageFiles() {
   const apiAdmin = useApiAdmin()
   const app = App.useApp()
   const messageApi = app.message
+  const modal = app.modal
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<any[]>([])
   const [uploadModalVisible, setUploadModalVisible] = useState(false)
@@ -45,7 +46,7 @@ export default function ManageFiles() {
   }
 
   const handleDelete = async (id: number) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认删除',
       content: '确定要删除这个附件吗？',
       onOk: async () => {
@@ -222,7 +223,7 @@ export default function ManageFiles() {
   const handleUploadModalClose = () => {
     const hasUploading = uploadFileList.some((item) => item.status === 'uploading')
     if (hasUploading) {
-      Modal.confirm({
+      modal.confirm({
         title: '确认关闭',
         content: '仍有文件正在上传，确定要关闭吗？',
         onOk: () => {
@@ -247,7 +248,7 @@ export default function ManageFiles() {
         if (record.mime_type?.startsWith('image/')) {
           return (
             <Image
-              src={url}
+              src={buildPublicUrl(url)}
               alt={record.original_name}
               width={60}
               height={60}

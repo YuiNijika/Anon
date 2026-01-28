@@ -6,6 +6,7 @@ import MDEditor from '@uiw/react-md-editor'
 import '@uiw/react-md-editor/markdown-editor.css'
 import { useTheme, useApiAdmin } from '@/hooks'
 import MediaLibrary from '@/components/MediaLibrary'
+import { buildPublicUrl } from '@/utils/api'
 
 type ContentType = 'post' | 'page'
 
@@ -156,7 +157,7 @@ export default function Write() {
 
   const handleMediaSelect = (attachment: any) => {
     const currentContent = content || ''
-    const imageMarkdown = `![${attachment.original_name}](${attachment.url})`
+    const imageMarkdown = `![${attachment.original_name}](${buildPublicUrl(attachment.url)})`
     const newContent = currentContent + (currentContent ? '\n\n' : '') + imageMarkdown
     setContent(newContent)
     form.setFieldValue('content', newContent)

@@ -59,6 +59,11 @@ export const useAuth = () => {
       setError(null)
       try {
         const res = await AuthApi.login(apiAdmin, data)
+
+        // 登录后强制刷新登录态缓存，避免沿用“未登录”的旧缓存导致跳转失败
+        clearLoginStatusCache()
+        await checkLoginStatus(true)
+
         const userRes = await UserApi.getInfo(apiAdmin)
         if (userRes.data) {
           setUser(userRes.data)

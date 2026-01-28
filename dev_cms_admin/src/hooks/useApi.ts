@@ -23,7 +23,7 @@ export function isNetworkError(error: unknown): boolean {
       message.includes('connection refused')
     )
   }
-  
+
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
     return (
@@ -33,25 +33,16 @@ export function isNetworkError(error: unknown): boolean {
       message.includes('failed to fetch')
     )
   }
-  
+
   return false
 }
-
-const API_BASE_URLS = {
-  dev: '/anon-dev-server',
-  prod: import.meta.env.VITE_API_BASE_URL || 'http://anon.localhost:8080',
-} as const
-
-const DEFAULT_API_BASE_URL = import.meta.env.DEV ? API_BASE_URLS.dev : API_BASE_URLS.prod
 
 let tokenPromise: Promise<string | null> | null = null
 let tokenRefreshPromise: Promise<string | null> | null = null
 
 async function getApiPrefix(): Promise<string> {
   const prefix = await getApiPrefixFromToken()
-  if (import.meta.env.DEV) {
-    return `${DEFAULT_API_BASE_URL}${prefix === '' ? '/anon' : prefix}`
-  }
+  // 只返回 API 前缀部分
   return prefix === '' ? '/anon' : prefix
 }
 
@@ -69,7 +60,7 @@ async function fetchToken(forceRefresh = false): Promise<string | null> {
     if (!isLoggedIn) {
       return null
     }
-    
+
     const apiPrefix = await getApiPrefixFromToken()
     const prefix = apiPrefix === '' ? '/anon' : apiPrefix
     const baseUrl = getApiBaseUrl()
@@ -147,8 +138,9 @@ export function useApi() {
       options: RequestInit = {},
       retryOnAuth = true
     ): Promise<ApiResponse<T>> => {
-      const baseUrl = await getApiPrefix()
-      const url = `${baseUrl}${endpoint}`
+      const apiPrefix = await getApiPrefix()
+      const baseUrl = getApiBaseUrl()
+      const url = `${baseUrl}${apiPrefix}${endpoint}`
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -220,10 +212,10 @@ export function useApi() {
         // 检测网络连接错误
         if (isNetworkError(error)) {
           const networkError = new Error('后端服务不可用，请检查服务是否已启动')
-          ;(networkError as any).isNetworkError = true
+            ; (networkError as any).isNetworkError = true
           throw networkError
         }
-        
+
         if (error instanceof Error) {
           const isAuthError = error.message.includes('401') || error.message.includes('403')
           if (isAuthError && needsToken) {

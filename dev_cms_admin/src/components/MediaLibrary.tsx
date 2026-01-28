@@ -3,7 +3,7 @@ import { Spin, Modal, Upload, Image, Button, Space, App, Radio, Input, Empty } f
 import { UploadOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import { useApiAdmin } from '@/hooks'
-import { getApiBaseUrl } from '@/utils/api'
+import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 interface MediaLibraryProps {
@@ -256,7 +256,7 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                                     >
                                         {isImage(attachment.mime_type) ? (
                                             <Image
-                                                src={attachment.url}
+                                                src={buildPublicUrl(attachment.url)}
                                                 alt={attachment.original_name}
                                                 style={{ width: '100%', height: '120px', objectFit: 'cover' }}
                                                 preview={false}

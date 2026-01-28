@@ -22,7 +22,7 @@ export default function Login() {
     try {
       await auth.login(values)
       message.success('登录成功')
-      navigate('/console', { replace: true })
+      // 跳转交给 auth.isAuthenticated 的 effect，避免登录态尚未更新时发生竞态
     } catch (err) {
       message.error(err instanceof Error ? err.message : '登录失败')
       if (captcha.enabled) {

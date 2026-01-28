@@ -12,6 +12,7 @@ export default function ManageUsers() {
     const apiAdmin = useApiAdmin()
     const app = App.useApp()
     const messageApi = app.message
+    const modal = app.modal
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<any[]>([])
@@ -70,7 +71,7 @@ export default function ManageUsers() {
     }
 
     const handleDelete = async (uid: number) => {
-        Modal.confirm({
+        modal.confirm({
             title: '确认删除',
             content: '确定要删除这个用户吗？此操作不可恢复。',
             onOk: async () => {

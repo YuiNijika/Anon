@@ -212,7 +212,7 @@ class Anon_Cms_Admin_Attachments
          * @param string $format
          * @return string|null
          */
-        $resolveProcessedImage = function (string $fileType, string $base, string $format) use ($uploadRoot, $resolveOriginalFile) {
+        $resolveProcessedImage = function (string $fileType, string $base, string $format) use ($resolveOriginalFile) {
             $format = strtolower(trim($format));
             if (!in_array($format, ['webp', 'jpg', 'jpeg', 'png'], true)) {
                 return null;
@@ -231,7 +231,7 @@ class Anon_Cms_Admin_Attachments
                 return null;
             }
 
-            $processedDir = $uploadRoot . strtolower(trim($fileType)) . '/processed/';
+            $processedDir = rtrim(dirname($originalPath), '/\\') . '/processed/';
             if (!is_dir($processedDir)) {
                 @mkdir($processedDir, 0755, true);
             }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, App, Space, Modal, Input, Tag, Dropdown } from 'antd'
+import { Card, Table, Button, App, Space, Input, Tag, Dropdown } from 'antd'
 import { EditOutlined, DeleteOutlined, PlusOutlined, MoreOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { useNavigate } from 'react-router-dom'
@@ -12,6 +12,7 @@ export default function ManagePosts() {
     const navigate = useNavigate()
     const app = App.useApp()
     const messageApi = app.message
+    const modal = app.modal
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<any[]>([])
     const [total, setTotal] = useState(0)
@@ -60,7 +61,7 @@ export default function ManagePosts() {
     }
 
     const handleDelete = async (id: number) => {
-        Modal.confirm({
+        modal.confirm({
             title: '确认删除',
             content: '确定要删除这篇文章吗？',
             onOk: async () => {

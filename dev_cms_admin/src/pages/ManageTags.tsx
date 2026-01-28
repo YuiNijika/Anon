@@ -10,6 +10,7 @@ export default function ManageTags() {
   const apiAdmin = useApiAdmin()
   const app = App.useApp()
   const messageApi = app.message
+  const modal = app.modal
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<any[]>([])
@@ -49,7 +50,7 @@ export default function ManageTags() {
   }
 
   const handleDelete = async (id: number) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认删除',
       content: '确定要删除这个标签吗？',
       onOk: async () => {
@@ -68,13 +69,13 @@ export default function ManageTags() {
               headers['X-API-Token'] = token
             }
           }
-          
+
           const response = await fetch(url, {
             method: 'DELETE',
             headers,
             credentials: 'include',
           }).then(res => res.json())
-          
+
           if (response.code === 200) {
             messageApi.success('删除成功')
             loadData()
@@ -99,7 +100,7 @@ export default function ManageTags() {
       } else {
         response = await apiAdmin.admin.post('/metas/tags', values)
       }
-      
+
       if (response.code === 200) {
         messageApi.success(editingRecord ? '更新成功' : '创建成功')
         setModalVisible(false)
