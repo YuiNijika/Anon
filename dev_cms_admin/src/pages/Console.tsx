@@ -4,18 +4,15 @@ import {
   UserOutlined,
   FileTextOutlined,
   EyeOutlined,
-  ClockCircleOutlined,
   CommentOutlined,
   FolderOutlined,
   TagOutlined,
-  FileOutlined,
 } from '@ant-design/icons'
-import { useApiAdmin, useTheme } from '@/hooks'
+import { useApiAdmin } from '@/hooks'
 import { AdminApi, type StatisticsData } from '@/services/admin'
 
 export default function Console() {
   const apiAdmin = useApiAdmin()
-  const { isDark } = useTheme()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<StatisticsData | null>(null)
   const fetchingRef = useRef(false)

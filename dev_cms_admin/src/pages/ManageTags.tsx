@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, App, Space, Modal, Form, Input } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Card, Table, Button, App, Space, Modal, Form, Input, Dropdown } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons'
+import type { MenuProps } from 'antd'
 import { useApiAdmin } from '@/hooks'
+import { getApiBaseUrl } from '@/utils/api'
+import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 export default function ManageTags() {
   const apiAdmin = useApiAdmin()
@@ -51,14 +54,19 @@ export default function ManageTags() {
       content: '确定要删除这个标签吗？',
       onOk: async () => {
         try {
-          const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
-          const url = `${baseUrl}/anon/cms/admin/metas/tags?id=${id}`
-          const token = localStorage.getItem('token')
+          const baseUrl = getApiBaseUrl()
+          const apiPrefix = await getApiPrefix()
+          const prefix = apiPrefix || '/anon'
+          const url = `${baseUrl}${prefix}/cms/admin/metas/tags?id=${id}`
+          const isLoggedIn = await checkLoginStatus()
           const headers: HeadersInit = {
             'Content-Type': 'application/json',
           }
-          if (token) {
-            headers['X-API-Token'] = token
+          if (isLoggedIn) {
+            const token = await getAdminToken()
+            if (token) {
+              headers['X-API-Token'] = token
+            }
           }
           
           const response = await fetch(url, {
@@ -115,40 +123,47 @@ export default function ManageTags() {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
+      ellipsis: true,
     },
     {
       title: '别名',
       dataIndex: 'slug',
       key: 'slug',
+      ellipsis: true,
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
+      ellipsis: true,
     },
     {
       title: '操作',
       key: 'action',
-      width: 150,
-      render: (_: any, record: any) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.id)}
-          >
-            删除
-          </Button>
-        </Space>
-      ),
+      width: 80,
+      fixed: 'right' as const,
+      render: (_: any, record: any) => {
+        const items: MenuProps['items'] = [
+          {
+            key: 'edit',
+            label: '编辑',
+            icon: <EditOutlined />,
+            onClick: () => handleEdit(record),
+          },
+          {
+            key: 'delete',
+            label: '删除',
+            icon: <DeleteOutlined />,
+            danger: true,
+            onClick: () => handleDelete(record.id),
+          },
+        ]
+        return (
+          <Dropdown menu={{ items }} trigger={['click']}>
+            <Button type="text" icon={<MoreOutlined />} />
+          </Dropdown>
+        )
+      },
     },
   ]
 
@@ -167,6 +182,7 @@ export default function ManageTags() {
           dataSource={data}
           loading={loading}
           rowKey="id"
+          scroll={{ x: 600 }}
           pagination={{
             showSizeChanger: true,
             showTotal: (total) => `共 ${total} 条`,
@@ -197,12 +213,12 @@ export default function ManageTags() {
             <Input.TextArea rows={3} placeholder="标签描述（可选）" />
           </Form.Item>
 
-          <Form.Item>
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
             <Space>
+              <Button onClick={() => setModalVisible(false)}>取消</Button>
               <Button type="primary" htmlType="submit">
                 保存
               </Button>
-              <Button onClick={() => setModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>

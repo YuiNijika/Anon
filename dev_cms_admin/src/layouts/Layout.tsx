@@ -155,22 +155,19 @@ export default function Layout() {
   }, [isMobile])
 
   useEffect(() => {
-    if (!auth.isAuthenticated && !auth.hasToken) {
+    // 等待初始化完成
+    if (auth.initializing) {
+      return
+    }
+
+    // 初始化完成后，如果未登录则跳转到登录页
+    if (!auth.isAuthenticated) {
       navigate('/login', { replace: true })
       return
     }
 
-    if (auth.hasToken && !auth.isAuthenticated) {
-      auth.checkLogin().then((isValid) => {
-        if (!isValid) {
-          navigate('/login', { replace: true })
-        } else {
-          setMounted(true)
-        }
-      })
-    } else if (auth.isAuthenticated) {
-      setMounted(true)
-    }
+    // 已登录，显示页面
+    setMounted(true)
   }, [auth, navigate])
 
   const handleMenuClick = ({ key }: { key: string }) => {

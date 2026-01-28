@@ -304,6 +304,10 @@ CMS 模式提供了完整的管理后台功能，通过 `/anon/cms/admin` 路由
 - **配置管理**：获取全局配置信息（支持钩子扩展）
 - **数据统计**：获取 CMS 统计数据（文章、评论、附件等）
 - **设置管理**：基本设置（站点名称、描述、关键词等）的获取和更新
+- **附件管理**：附件上传、查询、删除，支持按类型分类存储和图片格式转换
+- **分类管理**：分类的增删改查
+- **标签管理**：标签的增删改查
+- **文章管理**：文章的增删改查，支持分类和标签关联
 
 ### 路由注册
 
@@ -345,6 +349,45 @@ Anon_System_Hook::add_filter('config', function($config) {
     $config['customField'] = 'customValue';
     return $config;
 });
+```
+
+### 附件管理
+
+附件上传功能支持按文件类型自动分类存储，文件命名采用随机字符串-时间戳格式，避免文件名冲突。
+
+**上传目录结构：**
+
+```
+Upload/
+├── image/          # 图片文件
+├── video/          # 视频文件
+├── audio/          # 音频文件
+├── document/       # 文档文件
+└── other/          # 其他文件
+```
+
+**文件命名规则：**
+
+- 格式：`{随机16位十六进制}-{时间戳}.{扩展名}`
+- 示例：`a1b2c3d4e5f67890-1760000000.jpg`
+
+**附件 URL 规则：**
+
+- 原始文件：`/anon/static/upload/{filetype}/{baseName}`（不包含后缀）
+- 图片转换：`/anon/static/upload/{filetype}/{baseName}/{format}`（支持 webp, jpg, jpeg, png）
+
+**图片格式转换：**
+
+系统支持将图片自动转换为 WebP、PNG、JPG 等格式，转换结果会缓存到 `Upload/{filetype}/processed/` 目录，避免重复处理。
+
+**示例：**
+
+```php
+// 上传后的附件 URL
+$url = '/anon/static/upload/image/a1b2c3d4e5f67890-1760000000';
+
+// 获取 WebP 格式
+$webpUrl = '/anon/static/upload/image/a1b2c3d4e5f67890-1760000000/webp';
 ```
 
 ### 前端集成

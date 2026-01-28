@@ -21,6 +21,7 @@ import { useApiAdmin } from '@/hooks'
 import { AdminApi, type ThemeOptionSchema, type ThemeInfo } from '@/services/admin'
 import { Typography } from 'antd'
 import { CheckOutlined, SwapOutlined } from '@ant-design/icons'
+import { getApiBaseUrl } from '@/utils/api'
 
 const { TextArea } = Input
 const { Text } = Typography
@@ -31,7 +32,7 @@ export default function SettingsTheme() {
   const app = App.useApp()
   const message = app.message
 
-  const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
+  const baseUrl = getApiBaseUrl()
   const nullSvgUrl = `${baseUrl}/anon/static/img/null`
 
   const [loading, setLoading] = useState(false)

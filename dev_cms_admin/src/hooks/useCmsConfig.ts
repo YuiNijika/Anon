@@ -16,7 +16,8 @@ let configPromise: Promise<ConfigData | null> | null = null
  */
 async function loadConfig(apiAdmin: ReturnType<typeof useApiAdmin>): Promise<ConfigData | null> {
     try {
-        const res = await apiAdmin.raw.get<ConfigData>('/anon/cms/admin/config')
+        // 使用普通 API 的 /get-config 接口
+        const res = await apiAdmin.api.get<ConfigData>('/get-config')
         if (res.code === 200 && res.data) {
             globalConfig = res.data
             return globalConfig

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, App, Space, Modal, Input, Tag, message } from 'antd'
-import { EditOutlined, DeleteOutlined, PlusOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Table, Button, App, Space, Modal, Input, Tag, Dropdown } from 'antd'
+import { EditOutlined, DeleteOutlined, PlusOutlined, MoreOutlined } from '@ant-design/icons'
+import type { MenuProps } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { useApiAdmin } from '@/hooks'
+import { getApiBaseUrl } from '@/utils/api'
+import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 export default function ManagePosts() {
     const apiAdmin = useApiAdmin()
@@ -62,14 +65,19 @@ export default function ManagePosts() {
             content: '确定要删除这篇文章吗？',
             onOk: async () => {
                 try {
-                    const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
-                    const url = `${baseUrl}/anon/cms/admin/posts`
-                    const token = localStorage.getItem('token')
+                    const baseUrl = getApiBaseUrl()
+                    const apiPrefix = await getApiPrefix()
+                    const prefix = apiPrefix || '/anon'
+                    const url = `${baseUrl}${prefix}/cms/admin/posts`
+                    const isLoggedIn = await checkLoginStatus()
                     const headers: HeadersInit = {
                         'Content-Type': 'application/json',
                     }
-                    if (token) {
-                        headers['X-API-Token'] = token
+                    if (isLoggedIn) {
+                        const token = await getAdminToken()
+                        if (token) {
+                            headers['X-API-Token'] = token
+                        }
                     }
 
                     const response = await fetch(url, {
@@ -108,6 +116,11 @@ export default function ManagePosts() {
             dataIndex: 'title',
             key: 'title',
             ellipsis: true,
+            render: (text: string) => (
+                <span title={text} style={{ maxWidth: '300px', display: 'inline-block' }}>
+                    {text || '-'}
+                </span>
+            ),
         },
         {
             title: '类型',
@@ -146,30 +159,38 @@ export default function ManagePosts() {
             dataIndex: 'created_at',
             key: 'created_at',
             width: 180,
+            render: (timestamp: number) => {
+                if (!timestamp) return '-'
+                return new Date(timestamp * 1000).toLocaleString('zh-CN')
+            },
         },
         {
             title: '操作',
             key: 'action',
-            width: 150,
-            render: (_: any, record: any) => (
-                <Space>
-                    <Button
-                        type="link"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                    >
-                        编辑
-                    </Button>
-                    <Button
-                        type="link"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDelete(record.id)}
-                    >
-                        删除
-                    </Button>
-                </Space>
-            ),
+            width: 80,
+            fixed: 'right' as const,
+            render: (_: any, record: any) => {
+                const items: MenuProps['items'] = [
+                    {
+                        key: 'edit',
+                        label: '编辑',
+                        icon: <EditOutlined />,
+                        onClick: () => handleEdit(record),
+                    },
+                    {
+                        key: 'delete',
+                        label: '删除',
+                        icon: <DeleteOutlined />,
+                        danger: true,
+                        onClick: () => handleDelete(record.id),
+                    },
+                ]
+                return (
+                    <Dropdown menu={{ items }} trigger={['click']}>
+                        <Button type="text" icon={<MoreOutlined />} />
+                    </Dropdown>
+                )
+            },
         },
     ]
 
@@ -188,11 +209,11 @@ export default function ManagePosts() {
                 }
             >
                 <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    <Space>
+                    <Space wrap style={{ width: '100%' }} size={[8, 8]}>
                         <Input.Search
                             placeholder="搜索标题或别名"
                             allowClear
-                            style={{ width: 300 }}
+                            style={{ width: 300, maxWidth: '100%' }}
                             onSearch={(value) => {
                                 setSearchKeyword(value)
                                 setPage(1)
@@ -263,6 +284,7 @@ export default function ManagePosts() {
                         dataSource={data}
                         loading={loading}
                         rowKey="id"
+                        scroll={{ x: 800 }}
                         pagination={{
                             current: page,
                             pageSize: pageSize,

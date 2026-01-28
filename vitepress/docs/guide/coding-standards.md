@@ -128,8 +128,10 @@ app/
 ### 注释风格
 
 - **注释风格**：使用直观、简洁的中文注释
-- **避免括号**：注释中不要使用括号进行解释，直接说明
+- **避免括号**：注释中不要使用括号进行解释
 - **位置**：注释放在代码上方，与代码对齐
+- **必要性**：只写必要注释，显而易见的代码不要注释
+- **一致性**：同一文件同一风格，避免中英混用
 
 ### 正确示例
 
@@ -155,6 +157,18 @@ if (!filter_var($ip, FILTER_VALIDATE_IP)) {
 // ❌ 错误：清理用户名，防止XSS，限制长度，最大255字符
 // ❌ 错误：获取用户ID，从会话或Cookie
 // ❌ 错误：验证IP地址格式，无效IP设为默认值
+```
+
+### 复杂逻辑注释示例
+
+```php
+// 使用无后缀URL返回附件，避免浏览器按静态资源规则直接404
+$url = '/anon/static/upload/' . $fileType . '/' . $baseName;
+
+// 命中处理后的缓存文件直接返回，避免重复压缩
+if (file_exists($targetPath) && filemtime($targetPath) >= filemtime($originalPath)) {
+    return $targetPath;
+}
 ```
 
 ### 方法注释
@@ -202,6 +216,7 @@ try {
 1. **安全检查**：文件开头必须包含 `if (!defined('ANON_ALLOWED_ACCESS')) exit;`
 2. **路由元数据**：使用 `Anon_RouterMeta` 常量配置路由属性
 3. **异常处理**：使用 `try-catch` 包裹业务逻辑，统一使用 `Anon_Http_Response::handleException()` 处理异常
+4. **避免重复接口**：如果 `app/Router` 已存在公共接口，管理端不要重复实现
 
 ### 完整示例
 
@@ -342,6 +357,44 @@ try {
     throw $e;
 }
 ```
+
+---
+
+## 静态资源与上传规范
+
+### 上传目录与命名
+
+- **按类型分目录**：`Upload/{filetype}/`
+- **filetype**：`image`、`video`、`audio`、`document`、`other`
+- **文件名格式**：`随机字符串-时间戳.后缀`
+- **禁止原名落盘**：只保存 `original_name` 到数据库，落盘文件名必须重命名
+
+### 静态路由与URL
+
+- **附件URL不包含后缀**：避免浏览器或服务器把带后缀路径当作静态资源直接返回 404
+- **原文件URL**：`/anon/static/upload/{filetype}/{file}`
+- **图片转换URL**：`/anon/static/upload/{filetype}/{file}/{format}`
+- **format**：`webp`、`jpg`、`jpeg`、`png`
+- **转换结果必须缓存**：写入 `Upload/{filetype}/processed/`，命中缓存直接返回
+
+---
+
+## 前端开发规范
+
+### TypeScript
+
+- **类型优先**：接口返回、组件 props、hook 返回值必须有类型
+- **禁止 any 泛滥**：仅在无法建模时使用，并尽快收敛到具体类型
+
+### React 与 Hook
+
+- **单一职责**：请求逻辑集中在 hook 或 service，页面只负责展示和交互
+- **避免重复请求**：同一配置类接口如 `api-prefix`、`check-login` 必须共享缓存或去重 Promise
+- **状态来源清晰**：登录态以服务端为准，前端只保存内存态用于渲染
+
+### UI 主题
+
+- **主题色取 token**：页面背景、边框、主色用 `theme.useToken()`，禁止硬编码颜色
 
 ---
 

@@ -1,5 +1,7 @@
 import { useMemo, useCallback } from 'react'
-import { useApi, ensureToken, isNetworkError } from './useApi'
+import { useApi, isNetworkError } from './useApi'
+import { getApiBaseUrl } from '@/utils/api'
+import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 interface ApiResponse<T = any> {
   code: number
@@ -37,7 +39,7 @@ export function useApiAdmin() {
   )
 
   /**
-   * 管理端 API 请求（使用 /anon/cms/admin 前缀）
+   * 管理端 API 请求（使用 {apiPrefix}/cms/admin 前缀，如果 apiPrefix 为空则使用 /anon）
    */
   const adminRequest = useCallback(
     async <T = any>(
@@ -46,8 +48,13 @@ export function useApiAdmin() {
       params?: Record<string, any>
     ) => {
       const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-      const adminPrefix = '/anon/cms/admin'
-      const path = normalizedEndpoint.startsWith(adminPrefix)
+      
+      // 获取 API 前缀，如果为空则使用 /anon
+      const apiPrefix = await getApiPrefix()
+      const prefix = apiPrefix === '' ? '/anon' : apiPrefix
+      const adminPrefix = `${prefix}/cms/admin`
+      
+      const path = normalizedEndpoint.startsWith(adminPrefix) || normalizedEndpoint.startsWith('/cms/admin')
         ? normalizedEndpoint
         : `${adminPrefix}${normalizedEndpoint}`
 
@@ -60,24 +67,20 @@ export function useApiAdmin() {
         ).toString()
         : ''
 
-      const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
+      const baseUrl = getApiBaseUrl()
       const url = `${baseUrl}${path}${query}`
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options.headers,
       }
 
-      let token = localStorage.getItem('token')
-      if (!token) {
-        token = await ensureToken()
-      }
-
-      if (!token) {
-        token = localStorage.getItem('token')
-      }
-
-      if (token) {
-        (headers as Record<string, string>)['X-API-Token'] = token
+      // 先检查登录状态，如果已登录再获取 token
+      const isLoggedIn = await checkLoginStatus()
+      if (isLoggedIn) {
+        const token = await getAdminToken()
+        if (token) {
+          (headers as Record<string, string>)['X-API-Token'] = token
+        }
       }
 
       try {
@@ -91,35 +94,31 @@ export function useApiAdmin() {
         const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
 
         if (isAuthError) {
-          localStorage.removeItem('token')
-          const newToken = await ensureToken(true)
-          if (newToken) {
-            const retryHeaders: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'X-API-Token': newToken,
-              ...(options.headers as Record<string, string>),
-            }
-            const retryRes = await fetch(url, {
-              ...options,
-              headers: retryHeaders,
-              credentials: 'include',
-            })
-            const retryData: ApiResponse<T> = await retryRes.json()
-            if (retryData.code === 200) {
-              return retryData
+          // 重新检查登录状态并获取 token
+          const isLoggedIn = await checkLoginStatus()
+          if (isLoggedIn) {
+            const newToken = await getAdminToken()
+            if (newToken) {
+              const retryHeaders: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'X-API-Token': newToken,
+                ...(options.headers as Record<string, string>),
+              }
+              const retryRes = await fetch(url, {
+                ...options,
+                headers: retryHeaders,
+                credentials: 'include',
+              })
+              const retryData: ApiResponse<T> = await retryRes.json()
+              if (retryData.code === 200) {
+                return retryData
+              }
             }
           }
         }
 
         if (data.code !== 200) {
           throw new Error(data.message || '请求失败')
-        }
-
-        if (data.data && typeof data.data === 'object' && 'token' in data.data) {
-          const tokenValue = (data.data as { token?: string }).token
-          if (tokenValue) {
-            localStorage.setItem('token', tokenValue)
-          }
         }
 
         return data
@@ -156,24 +155,20 @@ export function useApiAdmin() {
         ).toString()
         : ''
 
-      const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
+      const baseUrl = getApiBaseUrl()
       const url = `${baseUrl}${normalizedEndpoint}${query}`
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options.headers,
       }
 
-      let token = localStorage.getItem('token')
-      if (!token) {
-        token = await ensureToken()
-      }
-
-      if (!token) {
-        token = localStorage.getItem('token')
-      }
-
-      if (token) {
-        (headers as Record<string, string>)['X-API-Token'] = token
+      // 先检查登录状态，如果已登录再获取 token
+      const isLoggedIn = await checkLoginStatus()
+      if (isLoggedIn) {
+        const token = await getAdminToken()
+        if (token) {
+          (headers as Record<string, string>)['X-API-Token'] = token
+        }
       }
 
       try {
@@ -187,35 +182,31 @@ export function useApiAdmin() {
         const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
 
         if (isAuthError) {
-          localStorage.removeItem('token')
-          const newToken = await ensureToken(true)
-          if (newToken) {
-            const retryHeaders: Record<string, string> = {
-              'Content-Type': 'application/json',
-              'X-API-Token': newToken,
-              ...(options.headers as Record<string, string>),
-            }
-            const retryRes = await fetch(url, {
-              ...options,
-              headers: retryHeaders,
-              credentials: 'include',
-            })
-            const retryData: ApiResponse<T> = await retryRes.json()
-            if (retryData.code === 200) {
-              return retryData
+          // 重新检查登录状态并获取 token
+          const isLoggedIn = await checkLoginStatus()
+          if (isLoggedIn) {
+            const newToken = await getAdminToken()
+            if (newToken) {
+              const retryHeaders: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'X-API-Token': newToken,
+                ...(options.headers as Record<string, string>),
+              }
+              const retryRes = await fetch(url, {
+                ...options,
+                headers: retryHeaders,
+                credentials: 'include',
+              })
+              const retryData: ApiResponse<T> = await retryRes.json()
+              if (retryData.code === 200) {
+                return retryData
+              }
             }
           }
         }
 
         if (data.code !== 200) {
           throw new Error(data.message || '请求失败')
-        }
-
-        if (data.data && typeof data.data === 'object' && 'token' in data.data) {
-          const tokenValue = (data.data as { token?: string }).token
-          if (tokenValue) {
-            localStorage.setItem('token', tokenValue)
-          }
         }
 
         return data

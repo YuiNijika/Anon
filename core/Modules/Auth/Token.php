@@ -113,14 +113,18 @@ class Anon_Auth_Token
                 return false;
             }
 
-            $timestampDiff = abs(time() - $payload['timestamp']);
-            $maxTimestampDiff = 120; // 2分钟时间窗口
-            
-            if ($timestampDiff > $maxTimestampDiff) {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    error_log("Token timestamp diff too large: {$timestampDiff} seconds, rejected");
+            // 检查仅在启用 refresh 时进行严格检查，防止重放攻击
+            // 未启用 refresh 时，只要 token 未过期即可使用
+            if (self::isRefreshEnabled()) {
+                $timestampDiff = abs(time() - $payload['timestamp']);
+                $maxTimestampDiff = 120; // 2分钟时间窗口
+                
+                if ($timestampDiff > $maxTimestampDiff) {
+                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                        error_log("Token timestamp diff too large: {$timestampDiff} seconds, rejected");
+                    }
+                    return false;
                 }
-                return false;
             }
 
             $remainingTime = $payload['expire'] - time();

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Modal, Upload, Image, Button, Space, App, Radio, Input, message } from 'antd'
+import { Spin, Modal, Upload, Image, Button, Space, App, Radio, Input, Empty } from 'antd'
 import { UploadOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import { useApiAdmin } from '@/hooks'
+import { getApiBaseUrl } from '@/utils/api'
+import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 interface MediaLibraryProps {
     open: boolean
@@ -62,12 +64,17 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
             const formData = new FormData()
             formData.append('file', file as File)
 
-            const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
-            const url = `${baseUrl}/anon/cms/admin/attachments`
-            const token = localStorage.getItem('token')
+            const baseUrl = getApiBaseUrl()
+            const apiPrefix = await getApiPrefix()
+            const prefix = apiPrefix || '/anon'
+            const url = `${baseUrl}${prefix}/cms/admin/attachments`
+            const isLoggedIn = await checkLoginStatus()
             const headers: HeadersInit = {}
-            if (token) {
-                headers['X-API-Token'] = token
+            if (isLoggedIn) {
+                const token = await getAdminToken()
+                if (token) {
+                    headers['X-API-Token'] = token
+                }
             }
 
             const response = await fetch(url, {
@@ -93,14 +100,19 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
 
     const handleDelete = async (id: number) => {
         try {
-            const baseUrl = import.meta.env.DEV ? '/anon-dev-server' : ''
-            const url = `${baseUrl}/anon/cms/admin/attachments?id=${id}`
-            const token = localStorage.getItem('token')
+            const baseUrl = getApiBaseUrl()
+            const apiPrefix = await getApiPrefix()
+            const prefix = apiPrefix || '/anon'
+            const url = `${baseUrl}${prefix}/cms/admin/attachments?id=${id}`
+            const isLoggedIn = await checkLoginStatus()
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
             }
-            if (token) {
-                headers['X-API-Token'] = token
+            if (isLoggedIn) {
+                const token = await getAdminToken()
+                if (token) {
+                    headers['X-API-Token'] = token
+                }
             }
 
             const response = await fetch(url, {
@@ -177,7 +189,7 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                 {/* 工具栏 */}
                 <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                     <Space>
-                        <Upload customRequest={handleUpload} showUploadList={false}>
+                        <Upload customRequest={handleUpload} showUploadList={false} accept={accept}>
                             <Button type="primary" icon={<UploadOutlined />}>
                                 上传文件
                             </Button>
@@ -200,82 +212,99 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                 </Space>
 
                 {/* 文件网格 */}
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                        gap: '16px',
-                        maxHeight: '500px',
-                        overflowY: 'auto',
-                        padding: '16px',
-                        border: '1px solid #f0f0f0',
-                        borderRadius: '4px',
-                    }}
-                >
-                    {filteredAttachments.map((attachment) => {
-                        const selected = selectedIds.includes(attachment.id)
-                        return (
-                            <div
-                                key={attachment.id}
-                                style={{
-                                    position: 'relative',
-                                    border: selected ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                                    borderRadius: '4px',
-                                    padding: '8px',
-                                    cursor: 'pointer',
-                                    backgroundColor: selected ? '#e6f7ff' : '#fff',
-                                }}
-                                onClick={() => handleSelect(attachment)}
-                            >
-                                {isImage(attachment.mime_type) ? (
-                                    <Image
-                                        src={attachment.url}
-                                        alt={attachment.original_name}
-                                        style={{ width: '100%', height: '120px', objectFit: 'cover' }}
-                                        preview={false}
-                                    />
-                                ) : (
+                <Spin spinning={loading}>
+                    {filteredAttachments.length === 0 && !loading ? (
+                        <div
+                            style={{
+                                maxHeight: '500px',
+                                padding: '48px 16px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <Empty description={searchKeyword ? '暂无匹配的媒体文件' : '暂无媒体文件'} />
+                        </div>
+                    ) : (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                gap: '16px',
+                                maxHeight: '500px',
+                                overflowY: 'auto',
+                                padding: '16px',
+                                border: '1px solid #f0f0f0',
+                                borderRadius: '4px',
+                            }}
+                        >
+                            {filteredAttachments.map((attachment) => {
+                                const selected = selectedIds.includes(attachment.id)
+                                return (
                                     <div
+                                        key={attachment.id}
                                         style={{
-                                            width: '100%',
-                                            height: '120px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            backgroundColor: '#f5f5f5',
-                                            fontSize: '48px',
+                                            position: 'relative',
+                                            border: selected ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                            borderRadius: '4px',
+                                            padding: '8px',
+                                            cursor: 'pointer',
+                                            backgroundColor: selected ? '#e6f7ff' : '#fff',
                                         }}
+                                        onClick={() => handleSelect(attachment)}
                                     >
-                                        📄
+                                        {isImage(attachment.mime_type) ? (
+                                            <Image
+                                                src={attachment.url}
+                                                alt={attachment.original_name}
+                                                style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+                                                preview={false}
+                                            />
+                                        ) : (
+                                            <div
+                                                style={{
+                                                    width: '100%',
+                                                    height: '120px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    backgroundColor: '#f5f5f5',
+                                                    fontSize: '48px',
+                                                }}
+                                            >
+                                                📄
+                                            </div>
+                                        )}
+                                        <div
+                                            style={{
+                                                marginTop: '8px',
+                                                fontSize: '12px',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                            title={attachment.original_name}
+                                        >
+                                            {attachment.original_name}
+                                        </div>
+                                        <Button
+                                            type="text"
+                                            danger
+                                            size="small"
+                                            icon={<DeleteOutlined />}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleDelete(attachment.id)
+                                            }}
+                                            style={{ position: 'absolute', top: '4px', right: '4px' }}
+                                        />
                                     </div>
-                                )}
-                                <div
-                                    style={{
-                                        marginTop: '8px',
-                                        fontSize: '12px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                    title={attachment.original_name}
-                                >
-                                    {attachment.original_name}
-                                </div>
-                                <Button
-                                    type="text"
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDelete(attachment.id)
-                                    }}
-                                    style={{ position: 'absolute', top: '4px', right: '4px' }}
-                                />
-                            </div>
-                        )
-                    })}
-                </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </Spin>
 
                 {/* 分页 */}
                 {total > pageSize && (

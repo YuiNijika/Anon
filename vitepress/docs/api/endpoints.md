@@ -60,6 +60,137 @@
 - `GET /anon/cms/admin/settings/theme-options` - 获取主题设置项（需要管理员权限）
 - `POST /anon/cms/admin/settings/theme-options` - 更新主题设置项（需要管理员权限）
 
+### 附件管理接口
+
+- `GET /anon/cms/admin/attachments` - 获取附件列表（需要管理员权限）
+- `POST /anon/cms/admin/attachments` - 上传附件（需要管理员权限）
+- `DELETE /anon/cms/admin/attachments` - 删除附件（需要管理员权限）
+
+获取附件列表支持分页和类型筛选：
+
+```json
+// 请求参数
+{
+  "page": 1,
+  "page_size": 20,
+  "mime_type": "image"  // 可选：image, video, audio, document, other 或完整 MIME 类型
+}
+
+// 响应
+{
+  "code": 200,
+  "message": "获取附件列表成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "user_id": 1,
+        "filename": "a1b2c3d4e5f67890-1760000000.jpg",
+        "original_name": "photo.jpg",
+        "mime_type": "image/jpeg",
+        "file_size": 102400,
+        "file_path": "/path/to/Upload/image/a1b2c3d4e5f67890-1760000000.jpg",
+        "url": "/anon/static/upload/image/a1b2c3d4e5f67890-1760000000",
+        "created_at": 1760000000
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+上传附件：
+
+```json
+// 请求：multipart/form-data
+// file: 文件对象
+
+// 响应
+{
+  "code": 200,
+  "message": "上传成功",
+  "data": {
+    "id": 1,
+    "filename": "a1b2c3d4e5f67890-1760000000.jpg",
+    "original_name": "photo.jpg",
+    "mime_type": "image/jpeg",
+    "file_size": 102400,
+    "url": "/anon/static/upload/image/a1b2c3d4e5f67890-1760000000"
+  }
+}
+```
+
+### 分类管理接口
+
+- `GET /anon/cms/admin/metas/categories` - 获取分类列表（需要管理员权限）
+- `POST /anon/cms/admin/metas/categories` - 创建分类（需要管理员权限）
+- `PUT /anon/cms/admin/metas/categories` - 更新分类（需要管理员权限）
+- `DELETE /anon/cms/admin/metas/categories` - 删除分类（需要管理员权限）
+
+### 标签管理接口
+
+- `GET /anon/cms/admin/metas/tags` - 获取标签列表（需要管理员权限）
+- `POST /anon/cms/admin/metas/tags` - 创建标签（需要管理员权限）
+- `PUT /anon/cms/admin/metas/tags` - 更新标签（需要管理员权限）
+- `DELETE /anon/cms/admin/metas/tags` - 删除标签（需要管理员权限）
+
+### 文章管理接口
+
+- `GET /anon/cms/admin/posts` - 获取文章列表或单篇文章（需要管理员权限）
+- `POST /anon/cms/admin/posts` - 创建文章（需要管理员权限）
+- `PUT /anon/cms/admin/posts` - 更新文章（需要管理员权限）
+- `DELETE /anon/cms/admin/posts` - 删除文章（需要管理员权限）
+
+获取文章列表支持分页、搜索和筛选：
+
+```json
+// 请求参数
+{
+  "page": 1,
+  "page_size": 20,
+  "search": "关键词",      // 可选：搜索标题或别名
+  "status": "publish",     // 可选：draft, publish, private
+  "type": "post"           // 可选：post, page
+}
+
+// 响应
+{
+  "code": 200,
+  "message": "获取文章列表成功",
+  "data": {
+    "list": [...],
+    "total": 100,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+获取单篇文章：
+
+```json
+// 请求：GET /anon/cms/admin/posts?id=1
+
+// 响应
+{
+  "code": 200,
+  "message": "获取文章成功",
+  "data": {
+    "id": 1,
+    "title": "文章标题",
+    "content": "文章内容",
+    "status": "publish",
+    "type": "post",
+    "category_id": 1,
+    "tag_ids": "[1,2,3]",
+    "created_at": 1760000000,
+    "updated_at": 1760000000
+  }
+}
+```
+
 ### 配置信息接口
 
 `GET /anon/cms/admin/config` 和 `GET /get-config` 返回相同的配置信息：
@@ -220,8 +351,45 @@ Anon_System_Hook::add_filter('config', function($config) {
 
 ## 静态文件
 
+### 系统静态文件
+
 - `GET /anon/static/debug/css` - 调试控制台样式文件
 - `GET /anon/static/debug/js` - 调试控制台脚本文件
 - `GET /anon/static/vue` - Vue.js 生产版本
 
-**说明：** 静态文件路由通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
+### 附件静态文件
+
+附件文件通过静态路由提供访问，支持无后缀 URL 和图片格式转换：
+
+- `GET /anon/static/upload/{filetype}/{file}` - 获取原始附件文件
+- `GET /anon/static/upload/{filetype}/{file}/{format}` - 获取转换后的图片（支持 webp, jpg, jpeg, png）
+
+**文件类型分类：**
+
+- `image` - 图片文件（image/*）
+- `video` - 视频文件（video/*）
+- `audio` - 音频文件（audio/*）
+- `document` - 文档文件（application/pdf）
+- `other` - 其他文件
+
+**示例：**
+
+```
+// 获取原始图片
+GET /anon/static/upload/image/a1b2c3d4e5f67890-1760000000
+
+// 获取 WebP 格式（自动转换并缓存）
+GET /anon/static/upload/image/a1b2c3d4e5f67890-1760000000/webp
+
+// 获取 PNG 格式
+GET /anon/static/upload/image/a1b2c3d4e5f67890-1760000000/png
+```
+
+**说明：**
+
+- 附件 URL 不包含文件后缀，避免浏览器按静态资源规则直接返回 404
+- 图片格式转换结果会缓存到 `Upload/{filetype}/processed/` 目录
+- 转换后的文件如果已存在且不旧于原文件，直接返回缓存
+- 支持透明背景（PNG/WebP）
+
+**静态文件路由注册：** 通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。

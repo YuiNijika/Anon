@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Form, Input, Button, Checkbox, message, Space } from 'antd'
+import { Card, Form, Input, Button, Checkbox, message, Space, theme } from 'antd'
 import { UserOutlined, LockOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useAuth, useCaptcha } from '@/hooks'
 
@@ -9,6 +9,7 @@ export default function Login() {
   const captcha = useCaptcha()
   const navigate = useNavigate()
   const [form] = Form.useForm()
+  const { token } = theme.useToken()
 
   useEffect(() => {
     if (auth.isAuthenticated) {
@@ -38,18 +39,18 @@ export default function Login() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '20px',
-        backgroundColor: '#f0f2f5',
+        backgroundColor: token.colorBgLayout,
       }}
     >
       <Card
         style={{
           width: '100%',
           maxWidth: 400,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          boxShadow: token.boxShadowSecondary,
         }}
         title={
-          <div style={{ textAlign: 'center', fontSize: '24px', fontWeight: 600, color: '#1890ff' }}>
-            CMS 管理后台
+          <div style={{ textAlign: 'center', fontSize: '24px', fontWeight: 600, color: token.colorPrimary }}>
+            AnonEcho
           </div>
         }
       >
@@ -90,12 +91,12 @@ export default function Login() {
                     style={{
                       height: '32px',
                       cursor: 'pointer',
-                      border: '1px solid #d9d9d9',
+                      border: `1px solid ${token.colorBorder}`,
                       borderRadius: '6px',
                     }}
                   />
                 ) : (
-                  <div style={{ width: '100px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #d9d9d9', borderRadius: '6px' }}>
+                  <div style={{ width: '100px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${token.colorBorder}`, borderRadius: '6px' }}>
                     加载中...
                   </div>
                 )}

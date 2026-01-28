@@ -7,7 +7,8 @@ type ApiAdminClient = ReturnType<typeof useApiAdmin>
 
 export const UserApi = {
   getInfo: (api: ApiAdminClient) => {
-    return api.admin.get<UserInfo>('/user/info')
+    // 使用普通 API 的 /user/info 接口
+    return api.api.get<UserInfo>('/user/info')
   }
 }
 

@@ -97,22 +97,13 @@ return [
         // 附件表
         'attachments' => "CREATE TABLE IF NOT EXISTS `{prefix}attachments` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '附件 ID',
-            `post_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '关联内容 ID（可为空）',
-            `user_id` INT UNSIGNED NOT NULL COMMENT '上传用户 ID',
+            `uid` INT UNSIGNED NOT NULL COMMENT '上传用户 ID',
             `filename` VARCHAR(255) NOT NULL COMMENT '文件名',
-            `original_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
-            `mime_type` VARCHAR(100) NOT NULL COMMENT 'MIME 类型',
+            `original_name` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '原始文件名',
             `file_size` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '文件大小（字节）',
-            `file_path` VARCHAR(500) NOT NULL COMMENT '文件路径',
-            `url` VARCHAR(500) NOT NULL COMMENT '访问 URL',
-            `alt` VARCHAR(255) NULL DEFAULT NULL COMMENT '替代文本',
-            `description` TEXT NULL DEFAULT NULL COMMENT '描述',
-            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-            INDEX `idx_post_id` (`post_id`),
-            INDEX `idx_user_id` (`user_id`),
-            INDEX `idx_mime_type` (`mime_type`),
-            INDEX `idx_created_at` (`created_at`)
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+            INDEX `idx_uid` (`uid`),
+            INDEX `idx_updated_at` (`updated_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='附件表'",
         
         // 选项表

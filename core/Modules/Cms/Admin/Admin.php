@@ -1,8 +1,6 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-require_once __DIR__ . '/Auth.php';
-require_once __DIR__ . '/Config.php';
 require_once __DIR__ . '/SettingsBasic.php';
 require_once __DIR__ . '/SettingsTheme.php';
 require_once __DIR__ . '/Categories.php';
@@ -13,9 +11,17 @@ require_once __DIR__ . '/Posts.php';
 class Anon_Cms_Admin
 {
     /**
-     * CMS 路由前缀
+     * 获取 CMS 路由前缀
+     * 根据 apiPrefix 配置动态生成，如果 apiPrefix 为空则使用 /anon
+     * @return string
      */
-    const CMS_ROUTE_PREFIX = '/anon/cms/admin';
+    public static function getRoutePrefix(): string
+    {
+        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '');
+        // 如果 apiPrefix 为空，使用 /anon 作为默认值
+        $prefix = empty($apiPrefix) ? '/anon' : ($apiPrefix[0] === '/' ? $apiPrefix : '/' . $apiPrefix);
+        return $prefix . '/cms/admin';
+    }
 
     /**
      * 初始化管理模块
@@ -44,7 +50,7 @@ class Anon_Cms_Admin
             $meta['requireLogin'] = true;
         }
         
-        Anon_System_Config::addRoute(self::CMS_ROUTE_PREFIX . $path, $handler, $meta);
+        Anon_System_Config::addRoute(self::getRoutePrefix() . $path, $handler, $meta);
     }
 
     /**
@@ -78,56 +84,6 @@ class Anon_Cms_Admin
      */
     public static function initRoutes()
     {
-        /**
-         * Token 接口
-         */
-        self::addRoute('/auth/token', function () {
-            Anon_Cms_Admin_Auth::getToken();
-        }, [
-            'requireAdmin' => false,
-            'requireLogin' => '请先登录以获取 Token',
-            'method' => 'GET',
-            'token' => false,
-        ]);
-
-        /**
-         * 检查登录状态接口
-         */
-        self::addRoute('/auth/check-login', function () {
-            Anon_Cms_Admin_Auth::checkLogin();
-        }, [
-            'requireAdmin' => false,
-            'requireLogin' => false,
-            'method' => 'GET',
-            'token' => false,
-        ]);
-
-        /**
-         * 获取用户信息接口
-         */
-        self::addRoute('/user/info', function () {
-            Anon_Cms_Admin_Auth::getUserInfo();
-        }, [
-            'requireLogin' => true,
-            'method' => 'GET',
-            'token' => true,
-        ]);
-
-        /**
-         * 获取配置信息接口
-         */
-        self::addRoute('/config', function () {
-            Anon_Cms_Admin_Config::getConfig();
-        }, [
-            'requireAdmin' => false,
-            'requireLogin' => false,
-            'method' => 'GET',
-            'token' => false,
-        ]);
-
-        /**
-         * 统计接口
-         */
         self::addRoute('/statistics', function () {
             try {
                 $statistics = Anon_Cms_Statistics::getAll();
@@ -143,9 +99,6 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 基本设置接口
-         */
         self::addRoute('/settings/basic', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -160,14 +113,8 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 初始化主题静态路由
-         */
         Anon_Cms_Admin_SettingsTheme::initStaticRoutes();
 
-        /**
-         * 主题设置接口
-         */
         self::addRoute('/settings/theme', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -181,9 +128,6 @@ class Anon_Cms_Admin
             'method' => ['GET', 'POST'],
         ]);
 
-        /**
-         * 主题设置项接口
-         */
         self::addRoute('/settings/theme-options', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -198,9 +142,6 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 分类管理接口
-         */
         self::addRoute('/metas/categories', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -219,9 +160,6 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 标签管理接口
-         */
         self::addRoute('/metas/tags', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -240,14 +178,8 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 初始化附件静态路由
-         */
         Anon_Cms_Admin_Attachments::initStaticRoutes();
 
-        /**
-         * 附件管理接口
-         */
         self::addRoute('/attachments', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
@@ -264,15 +196,9 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        /**
-         * 文章管理接口
-         */
         self::addRoute('/posts', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
-                /**
-                 * GET 请求需要同时从 $_GET 和 getInput() 获取参数
-                 */
                 $data = Anon_Http_Request::getInput();
                 $id = isset($data['id']) ? (int)$data['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
                 if ($id > 0) {

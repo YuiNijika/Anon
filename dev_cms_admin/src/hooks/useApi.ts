@@ -1,4 +1,6 @@
 import { useMemo, useCallback } from 'react'
+import { getApiBaseUrl } from '@/utils/api'
+import { getApiPrefix as getApiPrefixFromToken, checkLoginStatus } from '@/utils/token'
 
 interface ApiResponse<T = any> {
   code: number
@@ -42,56 +44,15 @@ const API_BASE_URLS = {
 
 const DEFAULT_API_BASE_URL = import.meta.env.DEV ? API_BASE_URLS.dev : API_BASE_URLS.prod
 
-let cachedApiPrefix: string | null = null
-let prefixPromise: Promise<string> | null = null
 let tokenPromise: Promise<string | null> | null = null
 let tokenRefreshPromise: Promise<string | null> | null = null
 
 async function getApiPrefix(): Promise<string> {
-  if (cachedApiPrefix) {
-    return cachedApiPrefix
+  const prefix = await getApiPrefixFromToken()
+  if (import.meta.env.DEV) {
+    return `${DEFAULT_API_BASE_URL}${prefix === '' ? '/anon' : prefix}`
   }
-
-  if (prefixPromise) {
-    return prefixPromise
-  }
-
-  prefixPromise = (async (): Promise<string> => {
-    try {
-      const configUrl = import.meta.env.DEV
-        ? `${DEFAULT_API_BASE_URL}/anon/cms/api-prefix`
-        : '/anon/cms/api-prefix'
-      const res = await fetch(configUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      })
-      const data: ApiResponse<{ apiPrefix?: string }> = await res.json()
-
-      if (data.code === 200 && data.data?.apiPrefix) {
-        const serverPrefix = data.data.apiPrefix
-        const normalizedPrefix = serverPrefix.startsWith('/') ? serverPrefix : `/${serverPrefix}`
-
-        if (import.meta.env.DEV) {
-          cachedApiPrefix = `${DEFAULT_API_BASE_URL}${normalizedPrefix}`
-        } else {
-          cachedApiPrefix = normalizedPrefix
-        }
-        return cachedApiPrefix
-      }
-    } catch (error) {
-      // 如果是网络错误，记录但不抛出，使用 fallback
-      if (isNetworkError(error)) {
-        console.warn('无法连接到后端服务，使用默认 API 前缀')
-      }
-    }
-
-    const fallback = DEFAULT_API_BASE_URL
-    cachedApiPrefix = fallback
-    return fallback
-  })()
-
-  return prefixPromise
+  return prefix === '' ? '/anon' : prefix
 }
 
 function buildQueryString(params?: Record<string, any>): string {
@@ -104,8 +65,15 @@ function buildQueryString(params?: Record<string, any>): string {
 
 async function fetchToken(forceRefresh = false): Promise<string | null> {
   try {
-    const baseUrl = await getApiPrefix()
-    const url = `${baseUrl}/auth/token`
+    const isLoggedIn = await checkLoginStatus()
+    if (!isLoggedIn) {
+      return null
+    }
+    
+    const apiPrefix = await getApiPrefixFromToken()
+    const prefix = apiPrefix === '' ? '/anon' : apiPrefix
+    const baseUrl = getApiBaseUrl()
+    const url = `${baseUrl}${prefix}/auth/token`
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     }
@@ -186,17 +154,23 @@ export function useApi() {
         ...options.headers,
       }
 
-      let token = localStorage.getItem('token')
-      if (!token) {
-        token = await ensureToken()
-      }
+      // 某些接口不需要 token，直接请求即可
+      const noTokenEndpoints = ['/auth/check-login', '/auth/login', '/auth/register', '/get-config']
+      const needsToken = !noTokenEndpoints.some(ep => endpoint.startsWith(ep))
 
-      if (!token) {
-        token = localStorage.getItem('token')
-      }
+      if (needsToken) {
+        let token = localStorage.getItem('token')
+        if (!token) {
+          token = await ensureToken()
+        }
 
-      if (token) {
-        (headers as Record<string, string>)['X-API-Token'] = token
+        if (!token) {
+          token = localStorage.getItem('token')
+        }
+
+        if (token) {
+          (headers as Record<string, string>)['X-API-Token'] = token
+        }
       }
 
       try {
@@ -209,7 +183,7 @@ export function useApi() {
 
         const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
 
-        if (isAuthError) {
+        if (isAuthError && needsToken) {
           localStorage.removeItem('token')
           const newToken = await ensureToken(true)
           if (retryOnAuth && newToken) {
@@ -252,7 +226,7 @@ export function useApi() {
         
         if (error instanceof Error) {
           const isAuthError = error.message.includes('401') || error.message.includes('403')
-          if (isAuthError) {
+          if (isAuthError && needsToken) {
             localStorage.removeItem('token')
             const newToken = await ensureToken(true)
             if (retryOnAuth && newToken) {

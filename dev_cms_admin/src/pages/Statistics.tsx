@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Card, Row, Col, Statistic, Spin, message, Divider } from 'antd'
+import { Card, Row, Col, Statistic, Spin, message } from 'antd'
 import {
   FileTextOutlined,
   CommentOutlined,
@@ -11,7 +11,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons'
-import { useApiAdmin, useTheme } from '@/hooks'
+import { useApiAdmin } from '@/hooks'
 import { AdminApi, type StatisticsData } from '@/services/admin'
 
 function formatFileSize(bytes: number): string {
@@ -24,7 +24,6 @@ function formatFileSize(bytes: number): string {
 
 export default function Statistics() {
   const apiAdmin = useApiAdmin()
-  const { isDark } = useTheme()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<StatisticsData | null>(null)
   const fetchingRef = useRef(false)
