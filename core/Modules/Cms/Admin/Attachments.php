@@ -207,59 +207,50 @@ class Anon_Cms_Admin_Attachments
         };
 
         /**
-         * 图片格式转换
+         * 实时处理图片格式转换并输出
+         * @param string $fileType
          * @param string $base
          * @param string $format
-         * @return string|null
+         * @return void
          */
-        $resolveProcessedImage = function (string $fileType, string $base, string $format) use ($resolveOriginalFile) {
+        $processImageFormat = function (string $fileType, string $base, string $format) use ($resolveOriginalFile) {
             $format = strtolower(trim($format));
             if (!in_array($format, ['webp', 'jpg', 'jpeg', 'png'], true)) {
-                return null;
+                http_response_code(404);
+                exit;
             }
 
             $originalPath = $resolveOriginalFile($fileType, $base);
             if (empty($originalPath) || !file_exists($originalPath) || !is_readable($originalPath)) {
-                return null;
+                http_response_code(404);
+                exit;
             }
 
             $info = @getimagesize($originalPath);
             if (!$info || empty($info['mime'])) {
-                return null;
+                http_response_code(404);
+                exit;
             }
             if (strpos($info['mime'], 'image/') !== 0) {
-                return null;
-            }
-
-            $processedDir = rtrim(dirname($originalPath), '/\\') . '/processed/';
-            if (!is_dir($processedDir)) {
-                @mkdir($processedDir, 0755, true);
-            }
-
-            // 生成处理后的缓存文件
-            $base = basename($base);
-            $base = preg_replace('/[^a-zA-Z0-9_-]/', '', $base);
-            if (empty($base)) {
-                return null;
-            }
-            $targetPath = $processedDir . $base . '.' . $format;
-
-            if (file_exists($targetPath) && filemtime($targetPath) >= filemtime($originalPath)) {
-                return $targetPath;
+                http_response_code(404);
+                exit;
             }
 
             if (!function_exists('imagecreatefromstring')) {
-                return null;
+                http_response_code(500);
+                exit;
             }
 
             $raw = @file_get_contents($originalPath);
             if ($raw === false) {
-                return null;
+                http_response_code(500);
+                exit;
             }
 
             $src = @imagecreatefromstring($raw);
             if (!$src) {
-                return null;
+                http_response_code(500);
+                exit;
             }
 
             if (in_array($format, ['png', 'webp'], true)) {
@@ -267,48 +258,67 @@ class Anon_Cms_Admin_Attachments
                 @imagesavealpha($src, true);
             }
 
+            // 设置 MIME 类型
+            $mimeMap = [
+                'webp' => 'image/webp',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+            ];
+            $mimeType = $mimeMap[$format] ?? 'application/octet-stream';
+            header('Content-Type: ' . $mimeType);
+
+            // 默认缓存1天
+            $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
+            $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
+            $cacheTime = 86400; // 1天
+
+            if ($hasNoCacheParam || $hasVerParam) {
+                header('Cache-Control: no-cache, no-store, must-revalidate');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                if ($hasVerParam) {
+                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($originalPath)) . ' GMT');
+                }
+            } else {
+                header('Cache-Control: public, max-age=' . $cacheTime);
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+                header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($originalPath)) . ' GMT');
+            }
+
+            // 直接输出处理后的图片
             $ok = false;
             if ($format === 'webp') {
                 $quality = 80;
-                $ok = function_exists('imagewebp') ? @imagewebp($src, $targetPath, $quality) : false;
+                $ok = function_exists('imagewebp') ? @imagewebp($src, null, $quality) : false;
             } elseif ($format === 'png') {
-                $ok = @imagepng($src, $targetPath, 6);
+                $ok = @imagepng($src, null, 6);
             } else {
-                $ok = @imagejpeg($src, $targetPath, 80);
+                $ok = @imagejpeg($src, null, 80);
             }
 
             @imagedestroy($src);
 
-            if (!$ok || !file_exists($targetPath)) {
-                return null;
+            if (!$ok) {
+                http_response_code(500);
+                exit;
             }
 
-            return $targetPath;
+            exit;
         };
 
-        Anon_System_Config::addStaticRoute(
+        Anon_System_Config::addRoute(
             '/anon/static/upload/{filetype}/{file}/{format}',
-            function () use ($resolveProcessedImage) {
+            function () use ($processImageFormat) {
                 $fileType = $_GET['filetype'] ?? '';
                 $file = $_GET['file'] ?? '';
                 $format = $_GET['format'] ?? '';
                 if (empty($fileType) || empty($file) || empty($format)) {
-                    return null;
+                    http_response_code(404);
+                    exit;
                 }
-                return $resolveProcessedImage($fileType, $file, $format);
+                $processImageFormat($fileType, $file, $format);
             },
-            function () {
-                $format = strtolower(trim($_GET['format'] ?? ''));
-                $mimeMap = [
-                    'webp' => 'image/webp',
-                    'png' => 'image/png',
-                    'jpg' => 'image/jpeg',
-                    'jpeg' => 'image/jpeg',
-                ];
-                return $mimeMap[$format] ?? 'application/octet-stream';
-            },
-            31536000,
-            false,
             [
                 'header' => false,
                 'requireLogin' => false,
@@ -391,13 +401,19 @@ class Anon_Cms_Admin_Attachments
     public static function get()
     {
         try {
-            $data = Anon_Http_Request::getInput();
+            // GET 请求参数在 $_GET 中，需要合并 $_GET 和 getInput()
+            $data = array_merge($_GET, Anon_Http_Request::getInput());
             
             $page = isset($data['page']) ? max(1, (int)$data['page']) : 1;
             $pageSize = isset($data['page_size']) ? max(1, min(100, (int)$data['page_size'])) : 20;
             $mimeType = isset($data['mime_type']) ? trim($data['mime_type']) : null;
+            $sort = isset($data['sort']) ? trim($data['sort']) : 'new';
             
-            $result = self::getAttachmentList($page, $pageSize, $mimeType);
+            if (!in_array($sort, ['new', 'old'], true)) {
+                $sort = 'new';
+            }
+            
+            $result = self::getAttachmentList($page, $pageSize, $mimeType, $sort);
             $attachments = $result['list'];
             
             if (!empty($attachments) && is_array($attachments)) {
@@ -632,30 +648,9 @@ class Anon_Cms_Admin_Attachments
                 }
             }
             
-            // 如果找到文件，删除文件和处理后的缓存
+            // 如果找到文件，删除文件
             if ($filePath && file_exists($filePath)) {
                 @unlink($filePath);
-                
-                // 根据文件扩展名推断文件类型，删除处理后的缓存文件
-                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
-                
-                if ($isImage) {
-                    // 尝试所有可能的图片类型目录
-                    $imageTypes = ['image'];
-                    foreach ($imageTypes as $fileType) {
-                        $processedDir = $uploadRoot . $fileType . '/processed/';
-                        if (is_dir($processedDir)) {
-                            $processedPatterns = ['webp', 'jpg', 'jpeg', 'png'];
-                            foreach ($processedPatterns as $format) {
-                                $processedPath = $processedDir . $base . '.' . $format;
-                                if (file_exists($processedPath)) {
-                                    @unlink($processedPath);
-                                }
-                            }
-                        }
-                    }
-                }
             }
             
             // 删除记录
@@ -676,9 +671,10 @@ class Anon_Cms_Admin_Attachments
      * @param int $page
      * @param int $pageSize
      * @param string|null $mimeType
+     * @param string $sort 排序方式：new=新到老，old=老到新
      * @return array
      */
-    private static function getAttachmentList($page = 1, $pageSize = 20, $mimeType = null)
+    private static function getAttachmentList($page = 1, $pageSize = 20, $mimeType = null, $sort = 'new')
     {
         $db = Anon_Database::getInstance();
         $baseQuery = $db->db('attachments');
@@ -785,8 +781,9 @@ class Anon_Cms_Admin_Attachments
         }
         $total = $countQuery->count();
         
+        $orderDirection = $sort === 'old' ? 'ASC' : 'DESC';
         $attachments = $baseQuery
-            ->orderBy('updated_at', 'DESC')
+            ->orderBy('updated_at', $orderDirection)
             ->offset(($page - 1) * $pageSize)
             ->limit($pageSize)
             ->get();

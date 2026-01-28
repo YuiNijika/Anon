@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, App, Upload, Modal, Image, Dropdown, Progress, List, Typography } from 'antd'
-import { UploadOutlined, DeleteOutlined, EyeOutlined, MoreOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import { Card, Table, Button, App, Upload, Modal, Image, Dropdown, Progress, List, Typography, Select, Space } from 'antd'
+import { UploadOutlined, DeleteOutlined, MoreOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import type { UploadProps, MenuProps, UploadFile } from 'antd'
 import { useApiAdmin } from '@/hooks'
 import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
@@ -8,6 +8,7 @@ import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
 const { Dragger } = Upload
 const { Text } = Typography
+const { Option } = Select
 
 interface UploadFileItem extends UploadFile {
   status?: 'uploading' | 'done' | 'error'
@@ -24,15 +25,16 @@ export default function ManageFiles() {
   const [data, setData] = useState<any[]>([])
   const [uploadModalVisible, setUploadModalVisible] = useState(false)
   const [uploadFileList, setUploadFileList] = useState<UploadFileItem[]>([])
+  const [sort, setSort] = useState<'new' | 'old'>('new')
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [sort])
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const response = await apiAdmin.admin.get('/attachments')
+      const response = await apiAdmin.admin.get('/attachments', { sort })
       if (response.code === 200) {
         setData(response.data.list || [])
       } else {
@@ -253,9 +255,6 @@ export default function ManageFiles() {
               width={60}
               height={60}
               style={{ objectFit: 'cover' }}
-              preview={{
-                mask: <EyeOutlined />,
-              }}
             />
           )
         }
@@ -331,13 +330,23 @@ export default function ManageFiles() {
       <Card
         title="附件管理"
         extra={
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={() => setUploadModalVisible(true)}
-          >
-            上传文件
-          </Button>
+          <Space>
+            <Select
+              value={sort}
+              onChange={(value) => setSort(value)}
+              style={{ width: 120 }}
+            >
+              <Option value="new">新到老</Option>
+              <Option value="old">老到新</Option>
+            </Select>
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadModalVisible(true)}
+            >
+              上传文件
+            </Button>
+          </Space>
         }
       >
         <Table

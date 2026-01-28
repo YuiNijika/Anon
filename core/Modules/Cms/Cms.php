@@ -168,7 +168,7 @@ class Anon_Cms
     {
         $version = Anon_Common::VERSION;
         echo '<script>';
-        echo 'console.log("%c Anon Framework v' . $version . ' %c https://github.com/YuiNijika/Anon", "color: #fff; background: #34495e; padding:5px 0;", "color: #fff; background: #d6293e; padding:5px 0;");';
+        echo 'console.log("%c AnonEcho v' . $version . ' %c https://github.com/YuiNijika/Anon", "color: #fff; background: #34495e; padding:5px 0;", "color: #fff; background: #d6293e; padding:5px 0;");';
         echo '</script>' . "\n";
     }
 

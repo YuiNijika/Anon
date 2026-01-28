@@ -17,7 +17,7 @@ class Anon_Auth_Capability
     private $db = null;
 
     /**
-     * @var array 角色配置
+     * @var array 角色权限配置
      */
     private $capabilities = [
         'admin' => [
@@ -25,34 +25,77 @@ class Anon_Auth_Capability
             'manage_users',
             'manage_plugins',
             'manage_widgets',
+            'post:read',
+            'post:create',
+            'post:edit',
+            'post:delete',
+            'post:publish',
+            'category:read',
+            'category:create',
+            'category:edit',
+            'category:delete',
+            'tag:read',
+            'tag:create',
+            'tag:edit',
+            'tag:delete',
+            'attachment:read',
+            'attachment:upload',
+            'attachment:delete',
+            'user:read',
+            'user:create',
+            'user:edit',
+            'user:delete',
+            'settings:read',
+            'settings:edit',
+            'statistics:read',
             'edit_posts',
             'delete_posts',
             'publish_posts',
         ],
         'editor' => [
+            'post:read',
+            'post:create',
+            'post:edit',
+            'post:delete',
+            'post:publish',
+            'category:read',
+            'category:create',
+            'category:edit',
+            'category:delete',
+            'tag:read',
+            'tag:create',
+            'tag:edit',
+            'tag:delete',
+            'attachment:read',
+            'attachment:upload',
+            'attachment:delete',
+            'statistics:read',
             'edit_posts',
             'delete_posts',
             'publish_posts',
         ],
         'author' => [
+            'post:read',
+            'post:create',
             'edit_own_posts',
             'delete_own_posts',
             'publish_own_posts',
+            'attachment:read',
+            'attachment:upload',
         ],
         'user' => [
             'read',
+            'post:read',
+            'attachment:read',
         ],
     ];
     
-    /**
-     * 构造函数
-     */
     private function __construct()
     {
     }
     
     /**
-     * 获取实例
+     * 获取单例实例
      * @return self
      */
     public static function getInstance(): self
@@ -76,16 +119,14 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 初始化
+     * 初始化权限系统
+     * 通过 Hook 允许修改和移除权限配置
      * @return void
      */
     public function init(): void
     {
-        // 允许通过 Hook 修改角色配置
         $this->capabilities = Anon_System_Hook::apply_filters('anon_auth_capabilities', $this->capabilities);
         
-        // 允许通过 Hook 移除权限
-        // 格式 ['role' => ['capability1', 'capability2']] 或 ['role' => 'capability']
         $removeList = Anon_System_Hook::apply_filters('anon_auth_capabilities_remove', []);
         if (!empty($removeList) && is_array($removeList)) {
             foreach ($removeList as $role => $capabilities) {
@@ -94,10 +135,8 @@ class Anon_Auth_Capability
                 }
                 
                 if (is_string($capabilities)) {
-                    // 单个权限字符串
                     $this->removeCapability($role, $capabilities);
                 } elseif (is_array($capabilities)) {
-                    // 权限数组
                     foreach ($capabilities as $capability) {
                         if (is_string($capability)) {
                             $this->removeCapability($role, $capability);
@@ -111,9 +150,10 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 添加能力
-     * @param string $role 角色
-     * @param string $capability 权限标识
+     * 为角色添加权限
+     * @param string $role 角色名称
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'
+     * @return void
      */
     public function addCapability(string $role, string $capability): void
     {
@@ -127,9 +167,10 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 移除能力
-     * @param string $role 角色
+     * 移除角色权限
+     * @param string $role 角色名称
      * @param string $capability 权限标识
+     * @return void
      */
     public function removeCapability(string $role, string $capability): void
     {
@@ -139,9 +180,9 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 检查用户权限
+     * 检查指定用户是否拥有权限
      * @param int $userId 用户ID
-     * @param string $capability 权限标识
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'
      * @return bool
      */
     public function userCan(int $userId, string $capability): bool
@@ -158,9 +199,10 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 检查角色权限
-     * @param string $role 角色
-     * @param string $capability 权限标识
+     * 检查角色是否拥有权限
+     * 支持资源级权限和通配符匹配，如 'user:read' 可匹配 'user:*'、'*:read' 或 '*:*'
+     * @param string $role 角色名称
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'
      * @return bool
      */
     public function roleCan(string $role, string $capability): bool
@@ -169,20 +211,17 @@ class Anon_Auth_Capability
             return false;
         }
         
-        // 直接匹配
         if (in_array($capability, $this->capabilities[$role])) {
             return true;
         }
         
-        // 支持资源级权限：如果请求 'user:read'，检查是否有 'user:*' 或 '*:read' 或 '*:*'
         if (strpos($capability, ':') !== false) {
             list($resource, $action) = explode(':', $capability, 2);
             
-            // 检查通配符权限
             $wildcardChecks = [
-                "{$resource}:*",  // 资源的所有操作
-                "*:{$action}",    // 所有资源的该操作
-                '*:*'             // 所有权限
+                "{$resource}:*",
+                "*:{$action}",
+                '*:*'
             ];
             
             foreach ($wildcardChecks as $wildcard) {
@@ -196,8 +235,8 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 检查当前用户权限
-     * @param string $capability 权限标识
+     * 检查当前登录用户是否拥有权限
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'
      * @return bool
      */
     public function currentUserCan(string $capability): bool
@@ -215,8 +254,8 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 要求权限
-     * @param string $capability 权限标识
+     * 要求当前用户必须拥有指定权限，否则返回 403 错误
+     * @param string $capability 权限标识，支持格式：'capability' 或 'resource:action'
      * @return void
      */
     public function requireCapability(string $capability): void
@@ -229,8 +268,8 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 获取角色能力
-     * @param string $role 角色
+     * 获取指定角色的所有权限
+     * @param string $role 角色名称
      * @return array
      */
     public function getCaps(string $role): array
@@ -239,7 +278,7 @@ class Anon_Auth_Capability
     }
     
     /**
-     * 获取所有配置
+     * 获取所有角色的权限配置
      * @return array
      */
     public function all(): array

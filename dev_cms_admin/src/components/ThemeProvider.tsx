@@ -60,7 +60,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     return (
         <ThemeContext.Provider value={{ isDark, toggleTheme }}>
-            <ConfigProvider locale={zhCN} theme={currentTheme}>
+            <ConfigProvider
+                locale={zhCN}
+                theme={currentTheme}
+                getPopupContainer={() => document.body}
+            >
                 <AntdApp>
                     {children}
                     <ThemeToggle isDark={isDark} onToggle={toggleTheme} />

@@ -1,6 +1,9 @@
 # env
 .env.php
 
+# upload
+app/Upload/
+
 # 安装锁文件
 core/Modules/Install/installed.lock
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Table, Button, App, Space, Modal, Form, Input, Select, Avatar, Dropdown } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined, UserOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import { useApiAdmin } from '@/hooks'
+import { useApiAdmin, useAuth } from '@/hooks'
 import { getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
@@ -10,6 +10,7 @@ const { Option } = Select
 
 export default function ManageUsers() {
     const apiAdmin = useApiAdmin()
+    const auth = useAuth()
     const app = App.useApp()
     const messageApi = app.message
     const modal = app.modal
@@ -184,11 +185,15 @@ export default function ManageUsers() {
             dataIndex: 'group',
             key: 'group',
             width: 100,
-            render: (group: string) => (
-                <span style={{ color: group === 'admin' ? '#ff4d4f' : '#1890ff' }}>
-                    {group === 'admin' ? '管理员' : '普通用户'}
-                </span>
-            ),
+            render: (group: string) => {
+                const groupMap: Record<string, { label: string; color: string }> = {
+                    admin: { label: '管理员', color: '#ff4d4f' },
+                    editor: { label: '编辑', color: '#fa8c16' },
+                    user: { label: '普通用户', color: '#1890ff' },
+                }
+                const groupInfo = groupMap[group] || { label: group, color: '#666' }
+                return <span style={{ color: groupInfo.color }}>{groupInfo.label}</span>
+            },
         },
         {
             title: '创建时间',
@@ -267,7 +272,8 @@ export default function ManageUsers() {
                             style={{ width: 150 }}
                         >
                             <Option value="admin">管理员</Option>
-                            <Option value="member">普通用户</Option>
+                            <Option value="editor">编辑</Option>
+                            <Option value="user">普通用户</Option>
                         </Select>
                     </Space>
                 </Space>
@@ -338,14 +344,20 @@ export default function ManageUsers() {
                     <Form.Item
                         name="group"
                         label="用户组"
-                        initialValue="member"
+                        initialValue="user"
                         rules={[{ required: true, message: '请选择用户组' }]}
                     >
-                        <Select>
-                            <Option value="member">普通用户</Option>
+                        <Select disabled={editingRecord && editingRecord.uid === auth.user?.uid}>
+                            <Option value="user">普通用户</Option>
+                            <Option value="editor">编辑</Option>
                             <Option value="admin">管理员</Option>
                         </Select>
                     </Form.Item>
+                    {editingRecord && editingRecord.uid === auth.user?.uid && (
+                        <div style={{ marginTop: -16, marginBottom: 16, color: '#999', fontSize: 12 }}>
+                            不能更改自己的用户组
+                        </div>
+                    )}
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                         <Space>

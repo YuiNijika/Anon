@@ -18,7 +18,20 @@ class Anon_Cms_Admin_Users
             $search = isset($data['search']) ? trim($data['search']) : null;
             $group = isset($data['group']) ? trim($data['group']) : null;
             
+            if ($group === 'editor') {
+                $group = 'author';
+            }
+            
             $result = $userRepo->getList($page, $pageSize, $search, $group);
+            
+            if (!empty($result['list']) && is_array($result['list'])) {
+                foreach ($result['list'] as &$user) {
+                    if (isset($user['group']) && $user['group'] === 'author') {
+                        $user['group'] = 'editor';
+                    }
+                }
+                unset($user);
+            }
             
             Anon_Http_Response::success([
                 'list' => $result['list'],
@@ -60,7 +73,7 @@ class Anon_Cms_Admin_Users
             $email = trim($data['email']);
             $password = $data['password'];
             $displayName = isset($data['display_name']) ? trim($data['display_name']) : null;
-            $group = isset($data['group']) ? trim($data['group']) : 'member';
+            $group = isset($data['group']) ? trim($data['group']) : 'user';
             $avatar = isset($data['avatar']) ? trim($data['avatar']) : null;
             
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -73,7 +86,8 @@ class Anon_Cms_Admin_Users
                 return;
             }
             
-            if (!in_array($group, ['admin', 'member'])) {
+            $validGroups = ['admin', 'editor', 'user'];
+            if (!in_array($group, $validGroups)) {
                 Anon_Http_Response::error('用户组无效', 400);
                 return;
             }
@@ -89,8 +103,9 @@ class Anon_Cms_Admin_Users
                 return;
             }
             
+            $dbGroup = $group === 'editor' ? 'author' : $group;
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $uid = $userRepo->addUser($name, $email, $hashedPassword, $group === 'admin' ? 'admin' : 'user', $displayName, $avatar);
+            $uid = $userRepo->addUser($name, $email, $hashedPassword, $dbGroup, $displayName, $avatar);
             
             if ($uid) {
                 $user = $userRepo->getUserInfoForAdmin($uid);
@@ -154,12 +169,21 @@ class Anon_Cms_Admin_Users
             }
             
             if (isset($data['group'])) {
+                $currentUserId = Anon_Http_Request::getUserId();
+                if ($uid === $currentUserId) {
+                    Anon_Http_Response::error('不能更改自己的用户组', 400);
+                    return;
+                }
+                
                 $group = trim($data['group']);
-                if (!in_array($group, ['admin', 'member'])) {
+                $validGroups = ['admin', 'editor', 'user'];
+                if (!in_array($group, $validGroups)) {
                     Anon_Http_Response::error('用户组无效', 400);
                     return;
                 }
-                $updateData['group'] = $group === 'admin' ? 'admin' : 'user';
+                
+                $dbGroup = $group === 'editor' ? 'author' : $group;
+                $updateData['group'] = $dbGroup;
             }
             
             if (isset($data['avatar'])) {
@@ -184,6 +208,9 @@ class Anon_Cms_Admin_Users
             
             if ($result) {
                 $updated = $userRepo->getUserInfoForAdmin($uid);
+                if ($updated && isset($updated['group']) && $updated['group'] === 'author') {
+                    $updated['group'] = 'editor';
+                }
                 Anon_Http_Response::success($updated, '更新用户成功');
             } else {
                 Anon_Http_Response::error('更新用户失败', 500);

@@ -605,7 +605,7 @@ class Anon_Cms_Theme
             $seo = Anon_Cms_PageMeta::getSeo($overrides);
             
             if (!empty($seo['title'])) {
-                self::title($seo['title']);
+                echo '<title>' . htmlspecialchars($seo['title']) . '</title>' . "\n";
             } else {
                 self::title();
             }
