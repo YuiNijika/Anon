@@ -157,7 +157,7 @@ export default function Console() {
       <Alert
         message={`您好 ${userName}, 欢迎使用 AnonEcho !`}
         type="success"
-        className='mb-4'
+        style={{ marginBottom: 16 }}
         showIcon
         action={
           <Button
