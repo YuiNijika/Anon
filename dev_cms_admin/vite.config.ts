@@ -25,4 +25,22 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    outDir: '../core/Static/admin',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: path.resolve(__dirname, 'src/main.tsx'),
+      output: {
+        entryFileNames: 'index.js',
+        chunkFileNames: 'index.js',
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return 'index.css'
+          }
+          return assetInfo.name || 'assets/[name].[ext]'
+        },
+      },
+    },
+    copyPublicDir: false,
+  },
 })

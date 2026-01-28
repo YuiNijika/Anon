@@ -119,6 +119,7 @@ return [
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '元数据 ID',
             `name` VARCHAR(255) NOT NULL COMMENT '名称',
             `slug` VARCHAR(255) NOT NULL COMMENT '别名',
+            `description` TEXT NULL DEFAULT NULL COMMENT '描述',
             `type` VARCHAR(20) NOT NULL COMMENT '类型：category=分类，tag=标签',
             `parent_id` INT UNSIGNED NULL DEFAULT NULL COMMENT '父级 ID',
             `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

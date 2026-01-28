@@ -33,6 +33,7 @@ class Anon_Cms_Admin_Categories
             
             $name = trim($data['name']);
             $slug = isset($data['slug']) && !empty($data['slug']) ? trim($data['slug']) : $name;
+            $description = isset($data['description']) ? trim($data['description']) : null;
             $parentId = isset($data['parent_id']) && $data['parent_id'] > 0 ? (int)$data['parent_id'] : null;
             
             if (self::checkSlugExists($slug)) {
@@ -40,7 +41,7 @@ class Anon_Cms_Admin_Categories
                 return;
             }
             
-            $id = self::createCategory($name, $slug, $parentId);
+            $id = self::createCategory($name, $slug, $description, $parentId);
             
             if ($id) {
                 $category = self::getCategoryById($id);
@@ -81,6 +82,7 @@ class Anon_Cms_Admin_Categories
             
             $name = trim($data['name']);
             $slug = isset($data['slug']) && !empty($data['slug']) ? trim($data['slug']) : $name;
+            $description = isset($data['description']) ? trim($data['description']) : null;
             $parentId = isset($data['parent_id']) && $data['parent_id'] > 0 ? (int)$data['parent_id'] : null;
             
             if (self::checkSlugExists($slug, $id)) {
@@ -91,6 +93,7 @@ class Anon_Cms_Admin_Categories
             $updateData = [
                 'name' => $name,
                 'slug' => $slug,
+                'description' => $description,
             ];
             
             if ($parentId !== null) {
@@ -183,18 +186,23 @@ class Anon_Cms_Admin_Categories
      * 创建分类
      * @param string $name
      * @param string $slug
+     * @param string|null $description
      * @param int|null $parentId
      * @return int|false
      */
-    private static function createCategory($name, $slug, $parentId = null)
+    private static function createCategory($name, $slug, $description = null, $parentId = null)
     {
         $db = Anon_Database::getInstance();
-        return $db->db('metas')->insert([
+        $insertData = [
             'name' => $name,
             'slug' => $slug,
             'type' => 'category',
             'parent_id' => $parentId,
-        ]);
+        ];
+        if ($description !== null) {
+            $insertData['description'] = $description;
+        }
+        return $db->db('metas')->insert($insertData);
     }
 
     /**

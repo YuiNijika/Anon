@@ -409,3 +409,55 @@ Anon_System_Config::addStaticRoute('/assets/logo.png', $customDir . 'logo.png', 
 Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css', 'text/css', 31536000, true);
 ```
 
+### 缓存刷新功能
+
+静态文件路由支持通过 URL 参数控制缓存行为：
+
+#### `ver` 参数 - 强制刷新缓存
+
+在 URL 后添加 `?ver=版本号` 参数可以强制刷新缓存，返回最新文件内容：
+
+```
+/anon/static/admin/js        → 使用缓存（根据 cacheTime 设置）
+/anon/static/admin/js?ver=1  → 强制刷新，返回最新数据
+/anon/static/admin/js?ver=2  → 更新版本号即可强制刷新
+```
+
+**使用场景：**
+- 前端资源更新后，通过更新版本号强制浏览器重新加载
+- 开发调试时快速查看最新文件内容
+
+#### `nocache` 参数 - 禁用缓存
+
+在 URL 后添加 `?nocache=1` 或 `?nocache=true` 参数可以禁用缓存：
+
+```
+/anon/static/admin/css              → 使用缓存（根据 cacheTime 设置）
+/anon/static/admin/css?nocache=1   → 禁用缓存，每次请求最新数据
+```
+
+**使用场景：**
+- 开发环境需要实时查看文件变化
+- 某些特殊文件需要始终获取最新版本
+
+#### 参数优先级
+
+1. **`nocache=1` 或 `ver` 参数存在** → 强制不缓存，返回最新数据
+2. **无参数** → 使用注册时设置的缓存策略（根据 `cacheTime` 参数）
+
+#### 组合使用示例
+
+```html
+<!-- 正常使用缓存 -->
+<link rel="stylesheet" href="/anon/static/admin/css">
+
+<!-- 强制刷新缓存（更新版本号） -->
+<link rel="stylesheet" href="/anon/static/admin/css?ver=2">
+
+<!-- 禁用缓存（开发环境） -->
+<link rel="stylesheet" href="/anon/static/admin/css?nocache=1">
+
+<!-- 组合使用 -->
+<script src="/anon/static/admin/js?ver=1&nocache=1"></script>
+```
+

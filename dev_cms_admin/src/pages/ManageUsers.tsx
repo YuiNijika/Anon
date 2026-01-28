@@ -120,7 +120,6 @@ export default function ManageUsers() {
                     email: values.email,
                     display_name: values.display_name,
                     group: values.group,
-                    avatar: values.avatar,
                 }
                 if (values.password) {
                     updateData.password = values.password
@@ -346,10 +345,6 @@ export default function ManageUsers() {
                             <Option value="member">普通用户</Option>
                             <Option value="admin">管理员</Option>
                         </Select>
-                    </Form.Item>
-
-                    <Form.Item name="avatar" label="头像URL">
-                        <Input placeholder="头像URL（可选）" />
                     </Form.Item>
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>

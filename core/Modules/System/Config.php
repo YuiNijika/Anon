@@ -122,7 +122,22 @@ class Anon_System_Config
             header('Content-Type: ' . $actualMimeType);
             header('Content-Length: ' . filesize($actualFilePath));
             
-            if ($cacheTime > 0) {
+            // 检测是否有 nocache 参数，如果有则不缓存
+            $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
+            
+            // 检测是否有 ver 参数，如果有则强制刷新缓存
+            $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
+            
+            if ($hasNoCacheParam || $hasVerParam) {
+                // 有 nocache 或 ver 参数，强制不缓存
+                header('Cache-Control: no-cache, no-store, must-revalidate');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                if ($hasVerParam) {
+                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($actualFilePath)) . ' GMT');
+                }
+            } elseif ($cacheTime > 0) {
+                // 没有 nocache 和 ver 参数，使用原来的缓存逻辑
                 header('Cache-Control: public, max-age=' . $cacheTime);
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
             } else {
@@ -214,25 +229,38 @@ class Anon_System_Config
             Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');
         });
 
+        $staticDir = __DIR__ . '/../../Static/';
+        
+        $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
+        $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
+        $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
+
         if (Anon_System_Env::get('app.mode') === 'cms') {
             self::addRoute('/anon/cms/api-prefix', function() {
                 Anon_Common::Header();
                 $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
                 Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API 前缀成功');
             });
+            self::addRoute('/admin', function() {
+                Anon_Common::Header(200, false, false);
+                header('Content-Type: text/html; charset=utf-8');
+                try {
+                    Anon_Common::Components('Admin/Console');
+                } catch (RuntimeException $e) {
+                    Anon_Common::Header(500);
+                    Anon_Http_Response::serverError('控制台页面文件不存在: ' . $e->getMessage());
+                }
+                exit;
+            });
+            self::addStaticRoute('/anon/static/admin/css', $staticDir . 'admin/index.css', 'text/css', 31536000, true, ['token' => false]);
+            self::addStaticRoute('/anon/static/admin/js', $staticDir . 'admin/index.js', 'application/javascript', 31536000, true, ['token' => false]);
         }
 
-        $staticDir = __DIR__ . '/../../Static/';
-        
-        $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
-        $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
-        $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
-        
         self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
         self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
-        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 0, true, ['token' => false]);
-        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 0, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 31536000, true, ['token' => false]);
 
         self::addRoute('/anon/install', [Anon_System_Install::class, 'index']);
         self::addRoute('/anon/install/api/token', [Anon_System_Install::class, 'apiGetToken']);
