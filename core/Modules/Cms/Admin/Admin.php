@@ -7,6 +7,7 @@ require_once __DIR__ . '/Categories.php';
 require_once __DIR__ . '/Tags.php';
 require_once __DIR__ . '/Attachments.php';
 require_once __DIR__ . '/Posts.php';
+require_once __DIR__ . '/Users.php';
 
 class Anon_Cms_Admin
 {
@@ -212,6 +213,24 @@ class Anon_Cms_Admin
                 Anon_Cms_Admin_Posts::update();
             } elseif ($requestMethod === 'DELETE') {
                 Anon_Cms_Admin_Posts::delete();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST', 'PUT', 'DELETE'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/users', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_Users::get();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_Users::create();
+            } elseif ($requestMethod === 'PUT') {
+                Anon_Cms_Admin_Users::update();
+            } elseif ($requestMethod === 'DELETE') {
+                Anon_Cms_Admin_Users::delete();
             } else {
                 Anon_Http_Response::error('不支持的请求方法', 405);
             }

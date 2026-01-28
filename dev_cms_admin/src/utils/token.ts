@@ -10,6 +10,7 @@ let cachedApiPrefix: string | null = null
 let prefixPromise: Promise<string> | null = null
 let cachedLoginStatus: boolean | null = null
 let loginStatusPromise: Promise<boolean> | null = null
+let adminTokenPromise: Promise<string | null> | null = null
 
 async function getApiPrefixInternal(): Promise<string> {
   if (cachedApiPrefix !== null) {
@@ -95,32 +96,48 @@ export async function checkLoginStatus(forceRefresh = false): Promise<boolean> {
 }
 
 export async function getAdminToken(): Promise<string | null> {
-  try {
-    const isLoggedIn = await checkLoginStatus()
-    if (!isLoggedIn) {
-      return null
-    }
-
-    const apiPrefix = await getApiPrefixInternal()
-    const prefix = apiPrefix === '' ? '/anon' : apiPrefix
-    const baseUrl = getApiBaseUrl()
-    const url = `${baseUrl}${prefix}/auth/token`
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    })
-    const data: ApiResponse<{ token?: string }> = await res.json()
-
-    if (data.code === 200 && data.data?.token) {
-      return data.data.token
-    }
-  } catch (error) {
-    console.warn('获取 Token 失败:', error)
+  const existing = localStorage.getItem('token')
+  if (existing) {
+    return existing
   }
-  return null
+
+  if (adminTokenPromise) {
+    return adminTokenPromise
+  }
+
+  adminTokenPromise = (async (): Promise<string | null> => {
+    try {
+      const isLoggedIn = await checkLoginStatus()
+      if (!isLoggedIn) {
+        return null
+      }
+
+      const apiPrefix = await getApiPrefixInternal()
+      const prefix = apiPrefix === '' ? '/anon' : apiPrefix
+      const baseUrl = getApiBaseUrl()
+      const url = `${baseUrl}${prefix}/auth/token`
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+      const data: ApiResponse<{ token?: string }> = await res.json()
+
+      if (data.code === 200 && data.data?.token) {
+        localStorage.setItem('token', data.data.token)
+        return data.data.token
+      }
+    } catch (error) {
+      console.warn('获取 Token 失败:', error)
+    }
+    return null
+  })().finally(() => {
+    adminTokenPromise = null
+  })
+
+  return adminTokenPromise
 }
 
 export function clearLoginStatusCache(): void {

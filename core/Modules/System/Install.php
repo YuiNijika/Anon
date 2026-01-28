@@ -784,6 +784,7 @@ class Anon_System_Install
         $defaultOptions = [
             'charset' => 'UTF-8',
             'title' => $siteTitle ?: 'Anon CMS',
+            'subtitle' => 'Powered by AnonEcho',
             'description' => $siteDescription,
             'keywords' => '',
             'theme' => 'Default',

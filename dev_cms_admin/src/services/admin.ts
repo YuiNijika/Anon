@@ -50,6 +50,7 @@ export interface StatisticsData {
 
 export interface BasicSettings {
   title: string
+  subtitle: string
   description: string
   keywords: string
   allow_register: boolean

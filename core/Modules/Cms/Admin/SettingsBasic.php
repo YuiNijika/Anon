@@ -56,6 +56,7 @@ class Anon_Cms_Admin_SettingsBasic
             
             $settings = [
                 'title' => Anon_Cms_Options::get('title', ''),
+                'subtitle' => Anon_Cms_Options::get('subtitle', 'Powered by AnonEcho'),
                 'description' => Anon_Cms_Options::get('description', ''),
                 'keywords' => Anon_Cms_Options::get('keywords', ''),
                 'allow_register' => $toBool(Anon_Cms_Options::get('allow_register', '0')),
@@ -115,6 +116,7 @@ class Anon_Cms_Admin_SettingsBasic
             };
             
             $siteName = isset($data['title']) ? trim($data['title']) : '';
+            $siteSubtitle = isset($data['subtitle']) ? trim($data['subtitle']) : 'Powered by AnonEcho';
             $siteDescription = isset($data['description']) ? trim($data['description']) : '';
             $keywords = isset($data['keywords']) ? trim($data['keywords']) : '';
             
@@ -163,6 +165,7 @@ class Anon_Cms_Admin_SettingsBasic
             }
 
             Anon_Cms_Options::set('title', $siteName);
+            Anon_Cms_Options::set('subtitle', $siteSubtitle);
             Anon_Cms_Options::set('description', $siteDescription);
             Anon_Cms_Options::set('keywords', $keywords);
             Anon_Cms_Options::set('allow_register', $allowRegister);
@@ -178,6 +181,7 @@ class Anon_Cms_Admin_SettingsBasic
             
             Anon_Http_Response::success([
                 'title' => $siteName,
+                'subtitle' => $siteSubtitle,
                 'description' => $siteDescription,
                 'keywords' => $keywords,
                 'allow_register' => $allowRegister === '1',

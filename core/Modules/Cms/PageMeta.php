@@ -171,8 +171,15 @@ class Anon_Cms_PageMeta
     private static function getIndexMeta(): array
     {
         $siteTitle = Anon_Cms_Options::get('title', '');
+        $siteSubtitle = Anon_Cms_Options::get('subtitle', '');
         $siteDescription = Anon_Cms_Options::get('description', '');
         $siteKeywords = Anon_Cms_Options::get('keywords', '');
+        
+        $siteSubtitle = is_string($siteSubtitle) ? trim($siteSubtitle) : '';
+        $fullTitle = $siteTitle ?: null;
+        if ($fullTitle && $siteSubtitle !== '') {
+            $fullTitle = $fullTitle . ' - ' . $siteSubtitle;
+        }
         
         $keywordsArray = [];
         if (!empty($siteKeywords)) {
@@ -184,7 +191,7 @@ class Anon_Cms_PageMeta
         }
         
         return [
-            'title' => $siteTitle ?: null,
+            'title' => $fullTitle,
             'description' => $siteDescription ?: null,
             'keywords' => $keywordsArray ?: null,
         ];

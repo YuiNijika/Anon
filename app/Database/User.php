@@ -1,9 +1,4 @@
 <?php
-
-/**
- * 用户数据库
- */
-
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Database_UserRepository extends Anon_Database_Connection
@@ -15,8 +10,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 获取用户信息
-     * @param int $uid 用户ID
-     * @return array 用户信息
+     * @param int $uid
+     * @return array|null
      */
     public function getUserInfo($uid)
     {
@@ -51,10 +46,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 检查用户是否属于指定用户组
-     * 
-     * @param int $uid 用户ID
-     * @param string $group 用户组名称
-     * @return bool 返回用户是否属于指定用户组
+     * @param int $uid
+     * @param string $group
+     * @return bool
      */
     public function isUserInGroup($uid, $group)
     {
@@ -66,9 +60,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 检查用户是否为管理员
-     * 
-     * @param int $uid 用户ID
-     * @return bool 返回用户是否为管理员
+     * @param int $uid
+     * @return bool
      */
     public function isUserAdmin($uid)
     {
@@ -80,9 +73,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 检查用户是否为作者
-     * 
-     * @param int $uid 用户ID
-     * @return bool 返回用户是否为作者
+     * @param int $uid
+     * @return bool
      */
     public function isUserAuthor($uid)
     {
@@ -93,10 +85,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
-     * 检查用户是否有管理员或作者的内容管理权限
-     * 
-     * @param int $uid 用户ID
-     * @return bool 返回用户是否有内容管理权限
+     * 检查用户是否有内容管理权限
+     * @param int $uid
+     * @return bool
      */
     public function hasContentManagementPermission($uid)
     {
@@ -108,9 +99,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 获取用户权限等级
-     * 
-     * @param int $uid 用户ID
-     * @return int 权限等级：0=普通用户, 1=作者, 2=管理员
+     * @param int $uid
+     * @return int 0=普通用户, 1=作者, 2=管理员
      */
     public function getUserPermissionLevel($uid)
     {
@@ -131,8 +121,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 通过用户名获取用户信息
-     * @param string $name 用户名
-     * @return array|bool 返回用户信息数组或false
+     * @param string $name
+     * @return array|false
      */
     public function getUserInfoByName($name)
     {
@@ -168,8 +158,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 通过邮箱获取用户信息
-     * @param string $email 邮箱地址
-     * @return array|bool 返回用户信息数组或false
+     * @param string $email
+     * @return array|false
      */
     public function getUserInfoByEmail($email)
     {
@@ -204,14 +194,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
-     * 添加支持不同用户组的用户
+     * 添加用户
      * @param string $name
      * @param string $email
      * @param string $password
      * @param string $group
-     * @param string|null $displayName 显示名字，为空时使用用户名
-     * @param string|null $avatar 头像URL，为空时使用邮箱生成
-     * @return bool 添加成功返回true，否则返回false
+     * @param string|null $displayName
+     * @param string|null $avatar
+     * @return int|false
      */
     public function addUser($name, $email, $password, $group = 'user', $displayName = null, $avatar = null)
     {
@@ -248,14 +238,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             }
             
             $id = $this->db('users')->insert($insertData);
-        $success = $id > 0;
-        $this->conn->commit();
-        
-        if ($success) {
-            Anon_System_Hook::do_action('user_after_add', $id, $name, $email, $group);
-        }
-        
-        return $success;
+            $success = $id > 0;
+            $this->conn->commit();
+            
+            if ($success) {
+                Anon_System_Hook::do_action('user_after_add', $id, $name, $email, $group);
+            }
+            
+            return $success ? $id : false;
     } catch (Exception $e) {
         $this->conn->rollback();
         Anon_System_Hook::do_action('user_add_failed', $name, $email, $e);
@@ -269,7 +259,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      * @param string $email
      * @param string $password
      * @param string $group
-     * @return bool 添加成功返回true，否则返回false
+     * @return int|false
      */
     public function addAdminUser($name, $email, $password, $group = 'admin')
     {
@@ -278,9 +268,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 修改用户密码
-     * @param int $uid 用户ID
-     * @param string $newPassword 新密码
-     * @return bool 修改成功返回true，否则返回false
+     * @param int $uid
+     * @param string $newPassword
+     * @return bool
      */
     public function updateUserPassword($uid, $newPassword)
     {
@@ -299,9 +289,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 修改用户组
-     * @param int $uid 用户ID
-     * @param string $group 新的用户组
-     * @return bool 修改成功返回true，否则返回false
+     * @param int $uid
+     * @param string $group
+     * @return bool
      */
     public function updateUserGroup($uid, $group)
     {
@@ -335,10 +325,9 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     }
 
     /**
-     * 检查邮箱是否已被注册
-     * 
-     * @param string $email 邮箱
-     * @return bool 返回邮箱是否已存在
+     * 检查邮箱是否已存在
+     * @param string $email
+     * @return bool
      */
     public function isEmailExists($email)
     {
@@ -349,16 +338,15 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 记录用户登录
-     * @param int|null $uid 用户ID，登录失败时为null
-     * @param string|null $username 用户名
-     * @param bool $status 登录状态：true=成功，false=失败
-     * @param string|null $message 登录信息
-     * @return bool 记录成功返回true，否则返回false
+     * @param int|null $uid
+     * @param string|null $username
+     * @param bool $status
+     * @param string|null $message
+     * @return bool
      */
     public function logLogin($uid = null, $username = null, $status = true, $message = null)
     {
         try {
-            // 如果 uid 为 null 且提供了用户名，尝试通过用户名查找 uid
             if ($uid === null && $username !== null && $username !== '') {
                 $userInfo = $this->getUserInfoByName($username);
                 if ($userInfo && isset($userInfo['uid'])) {
@@ -366,30 +354,25 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 }
             }
             
-            // 验证IP地址格式，无效IP设为默认值
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
             if (!filter_var($ip, FILTER_VALIDATE_IP)) {
                 $ip = '0.0.0.0';
             }
             
-            // 获取并清理域名，优先使用HTTP_HOST，其次使用SERVER_NAME
             $domain = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
             if ($domain !== null) {
                 $domain = mb_substr(trim($domain), 0, 255, 'UTF-8');
             }
             
-            // 清理并限制User-Agent长度最大500字符
             $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             if ($userAgent !== null) {
                 $userAgent = mb_substr(trim($userAgent), 0, 500, 'UTF-8');
             }
             
-            // 防止XSS清理用户名并限制长度最大255字符
             if ($username !== null) {
                 $username = mb_substr(trim($username), 0, 255, 'UTF-8');
             }
             
-            // 防止XSS清理消息并限制长度最大255字符
             if ($message !== null) {
                 $message = mb_substr(trim($message), 0, 255, 'UTF-8');
             }
@@ -406,7 +389,6 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             
             return $id > 0;
         } catch (Exception $e) {
-            // 记录失败不影响登录流程，仅记录错误日志
             if (Anon_Debug::isEnabled()) {
                 Anon_Debug::error("Failed to log login: " . $e->getMessage());
             }
@@ -416,8 +398,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 清理数组中的null值
-     * @param array $data 原始数据
-     * @return array 清理后的数据
+     * @param array $data
+     * @return array
      */
     private function cleanNullInArray(array $data): array
     {
@@ -436,14 +418,13 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
     /**
      * 获取用户登录记录
-     * @param int $uid 用户ID
-     * @param int $limit 限制数量（最大100）
-     * @param int $offset 偏移量
-     * @return array 登录记录数组
+     * @param int $uid
+     * @param int $limit
+     * @param int $offset
+     * @return array
      */
     public function getLoginLogs($uid, $limit = 20, $offset = 0)
     {
-        // 参数验证和限制，limit范围1-100，offset不能为负数
         $uid = (int)$uid;
         $limit = max(1, min(100, (int)$limit));
         $offset = max(0, (int)$offset);
@@ -456,25 +437,22 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->offset($offset)
             ->get();
         
-        // 清理null值
         return array_map([$this, 'cleanNullInArray'], $logs);
     }
 
     /**
      * 获取IP登录记录
-     * @param string $ip IP地址
-     * @param int $limit 限制数量（最大100）
-     * @param int $offset 偏移量
-     * @return array 登录记录数组
+     * @param string $ip
+     * @param int $limit
+     * @param int $offset
+     * @return array
      */
     public function getLoginLogsByIp($ip, $limit = 20, $offset = 0)
     {
-        // 验证IP地址格式，无效IP返回空数组
         if (!filter_var($ip, FILTER_VALIDATE_IP)) {
             return [];
         }
         
-        // 参数验证和限制，limit范围1-100，offset不能为负数
         $limit = max(1, min(100, (int)$limit));
         $offset = max(0, (int)$offset);
         
@@ -486,14 +464,13 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->offset($offset)
             ->get();
         
-        // 清理null值
         return array_map([$this, 'cleanNullInArray'], $logs);
     }
 
     /**
      * 清理过期的登录记录
-     * @param int $days 保留天数，默认90天
-     * @return int 删除的记录数
+     * @param int $days
+     * @return int
      */
     public function cleanExpiredLoginLogs($days = 90)
     {
@@ -507,12 +484,154 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             
             return $affected;
         } catch (Exception $e) {
-            // 清理失败不影响主流程，仅记录错误日志
             if (Anon_Debug::isEnabled()) {
                 Anon_Debug::error("Failed to clean expired login logs: " . $e->getMessage());
             }
             return 0;
         }
+    }
+
+    /**
+     * 获取用户列表
+     * @param int $page
+     * @param int $pageSize
+     * @param string|null $search
+     * @param string|null $group
+     * @return array
+     */
+    public function getList($page = 1, $pageSize = 20, $search = null, $group = null)
+    {
+        $baseQuery = $this->db('users');
+        
+        if ($search) {
+            $baseQuery->where(function($query) use ($search) {
+                $query->where('name', 'LIKE', '%' . $search . '%')
+                      ->orWhere('email', 'LIKE', '%' . $search . '%')
+                      ->orWhere('display_name', 'LIKE', '%' . $search . '%');
+            });
+        }
+        
+        if ($group) {
+            $baseQuery->where('group', $group);
+        }
+        
+        $countQuery = $this->db('users');
+        if ($search) {
+            $countQuery->where(function($query) use ($search) {
+                $query->where('name', 'LIKE', '%' . $search . '%')
+                      ->orWhere('email', 'LIKE', '%' . $search . '%')
+                      ->orWhere('display_name', 'LIKE', '%' . $search . '%');
+            });
+        }
+        if ($group) {
+            $countQuery->where('group', $group);
+        }
+        $total = $countQuery->count();
+        
+        $users = $baseQuery
+            ->orderBy('created_at', 'DESC')
+            ->limit($pageSize)
+            ->offset(($page - 1) * $pageSize)
+            ->get();
+        
+        foreach ($users as &$user) {
+            unset($user['password']);
+            if (isset($user['email']) && (!isset($user['avatar']) || $user['avatar'] === null || $user['avatar'] === '')) {
+                $user['avatar'] = $this->buildAvatar($user['email']);
+            }
+            if (isset($user['created_at']) && is_string($user['created_at'])) {
+                $user['created_at'] = strtotime($user['created_at']);
+            }
+            if (isset($user['updated_at']) && is_string($user['updated_at'])) {
+                $user['updated_at'] = strtotime($user['updated_at']);
+            }
+        }
+        
+        return [
+            'list' => $users,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * 检查用户名是否已存在
+     * @param string $name
+     * @param int $excludeUid
+     * @return array|null
+     */
+    public function checkNameExists($name, $excludeUid = 0)
+    {
+        $query = $this->db('users')->where('name', $name);
+        if ($excludeUid > 0) {
+            $query->where('uid', '!=', $excludeUid);
+        }
+        return $query->first();
+    }
+
+    /**
+     * 检查邮箱是否已存在
+     * @param string $email
+     * @param int $excludeUid
+     * @return array|null
+     */
+    public function checkEmailExistsExclude($email, $excludeUid = 0)
+    {
+        $query = $this->db('users')->where('email', $email);
+        if ($excludeUid > 0) {
+            $query->where('uid', '!=', $excludeUid);
+        }
+        return $query->first();
+    }
+
+    /**
+     * 更新用户信息
+     * @param int $uid
+     * @param array $data
+     * @return bool
+     */
+    public function updateUser($uid, $data)
+    {
+        if (isset($data['password'])) {
+            $data['password'] = password_hash($data['password'], PASSWORD_BCRYPT);
+        }
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        
+        return $this->db('users')
+            ->where('uid', $uid)
+            ->update($data) !== false;
+    }
+
+    /**
+     * 删除用户
+     * @param int $uid
+     * @return bool
+     */
+    public function deleteUser($uid)
+    {
+        return $this->db('users')->where('uid', $uid)->delete();
+    }
+
+    /**
+     * 获取用户信息（管理端）
+     * @param int $uid
+     * @return array|null
+     */
+    public function getUserInfoForAdmin($uid)
+    {
+        $user = $this->db('users')->where('uid', $uid)->first();
+        if ($user) {
+            unset($user['password']);
+            if (isset($user['email']) && (!isset($user['avatar']) || $user['avatar'] === null || $user['avatar'] === '')) {
+                $user['avatar'] = $this->buildAvatar($user['email']);
+            }
+            if (isset($user['created_at']) && is_string($user['created_at'])) {
+                $user['created_at'] = strtotime($user['created_at']);
+            }
+            if (isset($user['updated_at']) && is_string($user['updated_at'])) {
+                $user['updated_at'] = strtotime($user['updated_at']);
+            }
+        }
+        return $user;
     }
 
     private function buildAvatar($email = null, $size = 640)

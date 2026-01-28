@@ -10,6 +10,7 @@ import ManageCategories from '@/pages/ManageCategories'
 import ManageTags from '@/pages/ManageTags'
 import ManageFiles from '@/pages/ManageFiles'
 import ManagePosts from '@/pages/ManagePosts'
+import ManageUsers from '@/pages/ManageUsers'
 
 export const routes = [
   {
@@ -51,6 +52,10 @@ export const routes = [
       {
         path: 'manage/posts',
         element: <ManagePosts />,
+      },
+      {
+        path: 'manage/users',
+        element: <ManageUsers />,
       },
       {
         path: 'settings/basic',

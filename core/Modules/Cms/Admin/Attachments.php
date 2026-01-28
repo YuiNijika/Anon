@@ -1,10 +1,6 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-/**
- * 附件管理类
- * 处理附件的上传、查询和删除功能
- */
 class Anon_Cms_Admin_Attachments
 {
     /**
@@ -24,7 +20,7 @@ class Anon_Cms_Admin_Attachments
 
     /**
      * 获取允许的文件后缀列表
-     * @param string $fileType 文件类型：image, video, audio, document, other
+     * @param string $fileType
      * @return array
      */
     private static function getAllowedExtensions(string $fileType): array
@@ -63,8 +59,8 @@ class Anon_Cms_Admin_Attachments
 
     /**
      * 通过文件头检测真实的 MIME 类型
-     * @param string $filePath 文件路径
-     * @return string|null MIME 类型，失败返回 null
+     * @param string $filePath
+     * @return string|null
      */
     private static function detectMimeTypeFromFile(string $filePath): ?string
     {
@@ -72,7 +68,6 @@ class Anon_Cms_Admin_Attachments
             return null;
         }
         
-        // 优先使用 finfo
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             if ($finfo) {
@@ -84,7 +79,6 @@ class Anon_Cms_Admin_Attachments
             }
         }
         
-        // 回退到 mime_content_type
         if (function_exists('mime_content_type')) {
             $mimeType = mime_content_type($filePath);
             if ($mimeType && $mimeType !== 'application/octet-stream') {
@@ -92,7 +86,6 @@ class Anon_Cms_Admin_Attachments
             }
         }
         
-        // 图片文件使用 getimagesize
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo && isset($imageInfo['mime'])) {
             return $imageInfo['mime'];
@@ -103,8 +96,8 @@ class Anon_Cms_Admin_Attachments
 
     /**
      * 验证文件后缀是否允许
-     * @param string $ext 文件后缀
-     * @param string $fileType 文件类型
+     * @param string $ext
+     * @param string $fileType
      * @return bool
      */
     private static function isExtensionAllowed(string $ext, string $fileType): bool
@@ -168,7 +161,7 @@ class Anon_Cms_Admin_Attachments
     /**
      * 生成上传文件名
      * @param string $ext
-     * @return array{base:string, filename:string}
+     * @return array
      */
     private static function buildRandomFilename(string $ext): array
     {
@@ -188,12 +181,6 @@ class Anon_Cms_Admin_Attachments
     {
         $uploadRoot = Anon_Main::APP_DIR . 'Upload/';
 
-        /**
-         * 获取原始文件路径
-         * @param string $fileType
-         * @param string $base
-         * @return string|null
-         */
         $resolveOriginalFile = function (string $fileType, string $base) use ($uploadRoot) {
             $fileType = strtolower(trim($fileType));
             $fileType = preg_replace('/[^a-z0-9_-]/', '', $fileType);
@@ -257,12 +244,10 @@ class Anon_Cms_Admin_Attachments
             }
             $targetPath = $processedDir . $base . '.' . $format;
 
-            // 命中缓存直接返回
             if (file_exists($targetPath) && filemtime($targetPath) >= filemtime($originalPath)) {
                 return $targetPath;
             }
 
-            // GD 不可用时返回失败
             if (!function_exists('imagecreatefromstring')) {
                 return null;
             }
@@ -277,7 +262,6 @@ class Anon_Cms_Admin_Attachments
                 return null;
             }
 
-            // PNG 与 WebP 保持透明背景
             if (in_array($format, ['png', 'webp'], true)) {
                 @imagealphablending($src, true);
                 @imagesavealpha($src, true);
@@ -288,10 +272,8 @@ class Anon_Cms_Admin_Attachments
                 $quality = 80;
                 $ok = function_exists('imagewebp') ? @imagewebp($src, $targetPath, $quality) : false;
             } elseif ($format === 'png') {
-                // PNG 压缩等级 0 到 9
                 $ok = @imagepng($src, $targetPath, 6);
             } else {
-                // JPG 质量 0 到 100
                 $ok = @imagejpeg($src, $targetPath, 80);
             }
 
@@ -410,90 +392,20 @@ class Anon_Cms_Admin_Attachments
     {
         try {
             $data = Anon_Http_Request::getInput();
-            $db = Anon_Database::getInstance();
+            
             $page = isset($data['page']) ? max(1, (int)$data['page']) : 1;
             $pageSize = isset($data['page_size']) ? max(1, min(100, (int)$data['page_size'])) : 20;
             $mimeType = isset($data['mime_type']) ? trim($data['mime_type']) : null;
             
-            /**
-             * 构建查询条件
-             */
-            $baseQuery = $db->db('attachments');
+            $result = self::getAttachmentList($page, $pageSize, $mimeType);
+            $attachments = $result['list'];
             
-            // 根据文件名推断 MIME 类型进行筛选
-            if ($mimeType) {
-                $extensions = [];
-                if ($mimeType === 'image') {
-                    $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
-                } elseif ($mimeType === 'video') {
-                    $extensions = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
-                } elseif ($mimeType === 'audio') {
-                    $extensions = ['mp3', 'wav', 'ogg', 'm4a'];
-                } elseif ($mimeType === 'document') {
-                    $extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
-                }
-                
-                if (!empty($extensions)) {
-                    $baseQuery->where(function ($query) use ($extensions) {
-                        $first = true;
-                        foreach ($extensions as $ext) {
-                            if ($first) {
-                                $query->where('filename', 'LIKE', '%.' . $ext);
-                                $first = false;
-                            } else {
-                                $query->orWhere('filename', 'LIKE', '%.' . $ext);
-                            }
-                        }
-                    });
-                } elseif (strpos($mimeType, '/') !== false) {
-                    // 精确 MIME 类型匹配，通过文件扩展名推断
-                    $mimeExtMap = [
-                        'image/jpeg' => ['jpg', 'jpeg'],
-                        'image/png' => ['png'],
-                        'image/gif' => ['gif'],
-                        'image/webp' => ['webp'],
-                        'video/mp4' => ['mp4'],
-                        'audio/mpeg' => ['mp3'],
-                        'application/pdf' => ['pdf'],
-                    ];
-                    if (isset($mimeExtMap[$mimeType])) {
-                        $baseQuery->where(function ($query) use ($mimeExtMap, $mimeType) {
-                            $first = true;
-                            foreach ($mimeExtMap[$mimeType] as $ext) {
-                                if ($first) {
-                                    $query->where('filename', 'LIKE', '%.' . $ext);
-                                    $first = false;
-                                } else {
-                                    $query->orWhere('filename', 'LIKE', '%.' . $ext);
-                                }
-                            }
-                        });
-                    }
-                }
-            }
-            
-            /**
-             * 获取总数
-             */
-            $countQuery = clone $baseQuery;
-            $total = $countQuery->count();
-            
-            /**
-             * 获取列表数据
-             */
-            $attachments = $baseQuery
-                ->orderBy('updated_at', 'DESC')
-                ->offset(($page - 1) * $pageSize)
-                ->limit($pageSize)
-                ->get();
-
             if (!empty($attachments) && is_array($attachments)) {
                 foreach ($attachments as &$a) {
                     if (!empty($a['filename']) && is_string($a['filename'])) {
                         $base = pathinfo($a['filename'], PATHINFO_FILENAME);
                         $ext = strtolower(pathinfo($a['filename'], PATHINFO_EXTENSION));
                         
-                        // 根据扩展名推断文件类型
                         $mimeType = '';
                         if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true)) {
                             $mimeType = 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
@@ -510,12 +422,10 @@ class Anon_Cms_Admin_Attachments
                         $a['mime_type'] = $mimeType;
                     }
                     
-                    // 添加前端需要的字段
                     if (!isset($a['original_name'])) {
                         $a['original_name'] = '';
                     }
                     if (isset($a['updated_at'])) {
-                        // MySQL TIMESTAMP 返回字符串格式，转换为 Unix 时间戳
                         if (is_string($a['updated_at'])) {
                             $a['created_at'] = strtotime($a['updated_at']);
                         } elseif (is_numeric($a['updated_at'])) {
@@ -532,7 +442,7 @@ class Anon_Cms_Admin_Attachments
             
             Anon_Http_Response::success([
                 'list' => $attachments ?: [],
-                'total' => $total,
+                'total' => $result['total'],
                 'page' => $page,
                 'page_size' => $pageSize,
             ], '获取附件列表成功');
@@ -636,18 +546,17 @@ class Anon_Cms_Admin_Attachments
                 return;
             }
             
-            $db = Anon_Database::getInstance();
             $userId = Anon_Http_Request::getUserId();
             
-            $result = $db->db('attachments')->insert([
+            $id = self::createAttachment([
                 'uid' => $userId,
                 'filename' => $filename,
                 'original_name' => $originalName,
                 'file_size' => $fileSize,
             ]);
             
-            if ($result) {
-                $attachment = $db->db('attachments')->where('id', $result)->first();
+            if ($id) {
+                $attachment = self::getAttachmentById($id);
                 if (is_array($attachment) && !empty($attachment['filename'])) {
                     $base = pathinfo($attachment['filename'], PATHINFO_FILENAME);
                     $attachmentType = self::getFileTypeByMime($mimeType);
@@ -693,8 +602,7 @@ class Anon_Cms_Admin_Attachments
                 return;
             }
             
-            $db = Anon_Database::getInstance();
-            $attachment = $db->db('attachments')->where('id', $id)->first();
+            $attachment = self::getAttachmentById($id);
             if (!$attachment) {
                 Anon_Http_Response::error('附件不存在', 404);
                 return;
@@ -703,7 +611,7 @@ class Anon_Cms_Admin_Attachments
             // 根据文件名推断文件路径
             $filename = $attachment['filename'] ?? '';
             if (empty($filename)) {
-                $db->db('attachments')->where('id', $id)->delete();
+                self::deleteAttachment($id);
                 Anon_Http_Response::success(null, '删除成功');
                 return;
             }
@@ -751,7 +659,7 @@ class Anon_Cms_Admin_Attachments
             }
             
             // 删除记录
-            $result = $db->db('attachments')->where('id', $id)->delete();
+            $result = self::deleteAttachment($id);
             
             if ($result) {
                 Anon_Http_Response::success(null, '删除成功');
@@ -761,6 +669,170 @@ class Anon_Cms_Admin_Attachments
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
         }
+    }
+
+    /**
+     * 获取附件列表
+     * @param int $page
+     * @param int $pageSize
+     * @param string|null $mimeType
+     * @return array
+     */
+    private static function getAttachmentList($page = 1, $pageSize = 20, $mimeType = null)
+    {
+        $db = Anon_Database::getInstance();
+        $baseQuery = $db->db('attachments');
+        
+        if ($mimeType) {
+            $extensions = [];
+            if ($mimeType === 'image') {
+                $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+            } elseif ($mimeType === 'video') {
+                $extensions = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
+            } elseif ($mimeType === 'audio') {
+                $extensions = ['mp3', 'wav', 'ogg', 'm4a'];
+            } elseif ($mimeType === 'document') {
+                $extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+            }
+            
+            if (!empty($extensions)) {
+                $baseQuery->where(function ($query) use ($extensions) {
+                    $first = true;
+                    foreach ($extensions as $ext) {
+                        if ($first) {
+                            $query->where('filename', 'LIKE', '%.' . $ext);
+                            $first = false;
+                        } else {
+                            $query->orWhere('filename', 'LIKE', '%.' . $ext);
+                        }
+                    }
+                });
+            } elseif (strpos($mimeType, '/') !== false) {
+                $mimeExtMap = [
+                    'image/jpeg' => ['jpg', 'jpeg'],
+                    'image/png' => ['png'],
+                    'image/gif' => ['gif'],
+                    'image/webp' => ['webp'],
+                    'video/mp4' => ['mp4'],
+                    'audio/mpeg' => ['mp3'],
+                    'application/pdf' => ['pdf'],
+                ];
+                if (isset($mimeExtMap[$mimeType])) {
+                    $baseQuery->where(function ($query) use ($mimeExtMap, $mimeType) {
+                        $first = true;
+                        foreach ($mimeExtMap[$mimeType] as $ext) {
+                            if ($first) {
+                                $query->where('filename', 'LIKE', '%.' . $ext);
+                                $first = false;
+                            } else {
+                                $query->orWhere('filename', 'LIKE', '%.' . $ext);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        
+        $countQuery = $db->db('attachments');
+        if ($mimeType) {
+            $extensions = [];
+            if ($mimeType === 'image') {
+                $extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+            } elseif ($mimeType === 'video') {
+                $extensions = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
+            } elseif ($mimeType === 'audio') {
+                $extensions = ['mp3', 'wav', 'ogg', 'm4a'];
+            } elseif ($mimeType === 'document') {
+                $extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+            }
+            
+            if (!empty($extensions)) {
+                $countQuery->where(function ($query) use ($extensions) {
+                    $first = true;
+                    foreach ($extensions as $ext) {
+                        if ($first) {
+                            $query->where('filename', 'LIKE', '%.' . $ext);
+                            $first = false;
+                        } else {
+                            $query->orWhere('filename', 'LIKE', '%.' . $ext);
+                        }
+                    }
+                });
+            } elseif (strpos($mimeType, '/') !== false) {
+                $mimeExtMap = [
+                    'image/jpeg' => ['jpg', 'jpeg'],
+                    'image/png' => ['png'],
+                    'image/gif' => ['gif'],
+                    'image/webp' => ['webp'],
+                    'video/mp4' => ['mp4'],
+                    'audio/mpeg' => ['mp3'],
+                    'application/pdf' => ['pdf'],
+                ];
+                if (isset($mimeExtMap[$mimeType])) {
+                    $countQuery->where(function ($query) use ($mimeExtMap, $mimeType) {
+                        $first = true;
+                        foreach ($mimeExtMap[$mimeType] as $ext) {
+                            if ($first) {
+                                $query->where('filename', 'LIKE', '%.' . $ext);
+                                $first = false;
+                            } else {
+                                $query->orWhere('filename', 'LIKE', '%.' . $ext);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        $total = $countQuery->count();
+        
+        $attachments = $baseQuery
+            ->orderBy('updated_at', 'DESC')
+            ->offset(($page - 1) * $pageSize)
+            ->limit($pageSize)
+            ->get();
+        
+        return [
+            'list' => $attachments ?: [],
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * 创建附件记录
+     * @param array $data
+     * @return int|false
+     */
+    private static function createAttachment($data)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('attachments')->insert([
+            'uid' => $data['uid'],
+            'filename' => $data['filename'],
+            'original_name' => $data['original_name'],
+            'file_size' => $data['file_size'],
+        ]);
+    }
+
+    /**
+     * 获取附件信息
+     * @param int $id
+     * @return array|null
+     */
+    private static function getAttachmentById($id)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('attachments')->where('id', $id)->first();
+    }
+
+    /**
+     * 删除附件
+     * @param int $id
+     * @return bool
+     */
+    private static function deleteAttachment($id)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('attachments')->where('id', $id)->delete();
     }
 }
 

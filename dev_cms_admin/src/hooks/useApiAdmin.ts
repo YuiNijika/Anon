@@ -9,6 +9,8 @@ interface ApiResponse<T = any> {
   data?: T
 }
 
+const inFlightGetRequests = new Map<string, Promise<ApiResponse<any>>>()
+
 export function useApiAdmin() {
   const api = useApi()
 
@@ -48,12 +50,12 @@ export function useApiAdmin() {
       params?: Record<string, any>
     ) => {
       const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-      
+
       // 获取 API 前缀，如果为空则使用 /anon
       const apiPrefix = await getApiPrefix()
       const prefix = apiPrefix === '' ? '/anon' : apiPrefix
       const adminPrefix = `${prefix}/cms/admin`
-      
+
       const path = normalizedEndpoint.startsWith(adminPrefix) || normalizedEndpoint.startsWith('/cms/admin')
         ? normalizedEndpoint
         : `${adminPrefix}${normalizedEndpoint}`
@@ -84,49 +86,66 @@ export function useApiAdmin() {
       }
 
       try {
-        const res = await fetch(url, {
-          ...options,
-          headers,
-          credentials: 'include',
-        })
-        const data: ApiResponse<T> = await res.json()
-
-        const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
-
-        if (isAuthError) {
-          // 重新检查登录状态并获取 token
-          const isLoggedIn = await checkLoginStatus()
-          if (isLoggedIn) {
-            const newToken = await getAdminToken()
-            if (newToken) {
-              const retryHeaders: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'X-API-Token': newToken,
-                ...(options.headers as Record<string, string>),
-              }
-              const retryRes = await fetch(url, {
-                ...options,
-                headers: retryHeaders,
-                credentials: 'include',
-              })
-              const retryData: ApiResponse<T> = await retryRes.json()
-              if (retryData.code === 200) {
-                return retryData
-              }
-            }
+        const method = (options.method || 'GET').toUpperCase()
+        if (method === 'GET') {
+          const cached = inFlightGetRequests.get(url)
+          if (cached) {
+            return (await cached) as ApiResponse<T>
           }
         }
 
-        if (data.code !== 200) {
-          throw new Error(data.message || '请求失败')
+        const requestPromise = (async () => {
+          const res = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'include',
+          })
+          const data: ApiResponse<T> = await res.json()
+
+          const isAuthError = data.code === 401 || data.code === 403 || res.status === 401 || res.status === 403
+
+          if (isAuthError) {
+            // 重新检查登录状态并获取 token
+            const isLoggedIn = await checkLoginStatus()
+            if (isLoggedIn) {
+              const newToken = await getAdminToken()
+              if (newToken) {
+                const retryHeaders: Record<string, string> = {
+                  'Content-Type': 'application/json',
+                  'X-API-Token': newToken,
+                  ...(options.headers as Record<string, string>),
+                }
+                const retryRes = await fetch(url, {
+                  ...options,
+                  headers: retryHeaders,
+                  credentials: 'include',
+                })
+                const retryData: ApiResponse<T> = await retryRes.json()
+                if (retryData.code === 200) {
+                  return retryData
+                }
+              }
+            }
+          }
+
+          if (data.code !== 200) {
+            throw new Error(data.message || '请求失败')
+          }
+
+          return data
+        })()
+
+        if ((options.method || 'GET').toUpperCase() === 'GET') {
+          inFlightGetRequests.set(url, requestPromise as Promise<ApiResponse<any>>)
+          requestPromise.finally(() => inFlightGetRequests.delete(url))
         }
 
-        return data
+        return await requestPromise
       } catch (error) {
         // 检测网络连接错误
         if (isNetworkError(error)) {
           const networkError = new Error('后端服务不可用，请检查服务是否已启动')
-          ;(networkError as any).isNetworkError = true
+            ; (networkError as any).isNetworkError = true
           throw networkError
         }
         throw error
@@ -214,7 +233,7 @@ export function useApiAdmin() {
         // 检测网络连接错误
         if (isNetworkError(error)) {
           const networkError = new Error('后端服务不可用，请检查服务是否已启动')
-          ;(networkError as any).isNetworkError = true
+            ; (networkError as any).isNetworkError = true
           throw networkError
         }
         throw error

@@ -72,6 +72,7 @@ export default function SettingsBasic() {
 
       const submitData: BasicSettings = {
         title: values.title || '',
+        subtitle: values.subtitle || 'Powered by AnonEcho',
         description: values.description || '',
         keywords: arrayToString(values.keywords),
         allow_register: values.allow_register === true, // 明确转换为布尔值
@@ -111,6 +112,14 @@ export default function SettingsBasic() {
           rules={[{ required: true, message: '请输入站点标题' }]}
         >
           <Input placeholder="站点名称" />
+        </Form.Item>
+
+        <Form.Item
+          name="subtitle"
+          label="站点副标题"
+          extra="如果为空则不显示"
+        >
+          <Input placeholder="Powered by AnonEcho" />
         </Form.Item>
 
         <Form.Item name="description" label="站点描述">

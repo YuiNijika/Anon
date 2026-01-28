@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout as AntLayout,
@@ -26,6 +26,8 @@ import {
 } from '@ant-design/icons'
 import { useAuth, useTheme } from '@/hooks'
 import { Sidebar } from '@/components/Sidebar'
+import { AdminApi, type BasicSettings } from '@/services/admin'
+import { useApiAdmin } from '@/hooks/useApiAdmin'
 
 const { Header, Content, Sider } = AntLayout
 
@@ -51,6 +53,16 @@ const menuItems: MenuProps['items'] = [
     label: '管理',
     children: [
       {
+        key: '/manage/posts',
+        icon: <EditOutlined />,
+        label: '文章',
+      },
+      {
+        key: '/manage/users',
+        icon: <UserOutlined />,
+        label: '用户',
+      },
+      {
         key: '/manage/categories',
         icon: <FolderOutlined />,
         label: '分类',
@@ -64,11 +76,6 @@ const menuItems: MenuProps['items'] = [
         key: '/manage/files',
         icon: <FileOutlined />,
         label: '附件',
-      },
-      {
-        key: '/manage/posts',
-        icon: <EditOutlined />,
-        label: '文章',
       },
     ],
   },
@@ -100,6 +107,7 @@ const routeTitleMap: Record<string, string> = {
   '/manage/tags': '管理标签',
   '/manage/files': '管理附件',
   '/manage/posts': '管理文章',
+  '/manage/users': '管理用户',
   '/settings/basic': '常规设置',
   '/settings/theme': '主题设置',
 }
@@ -121,6 +129,7 @@ function useResponsive() {
 
 export default function Layout() {
   const auth = useAuth()
+  const apiAdmin = useApiAdmin()
   const { isDark } = useTheme()
   const { isMobile } = useResponsive()
   const navigate = useNavigate()
@@ -132,6 +141,9 @@ export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const [pageTitle, setPageTitle] = useState('控制台')
+  const [siteTitle, setSiteTitle] = useState<string>('管理后台')
+  const [siteSubtitle, setSiteSubtitle] = useState<string>('')
+  const siteFetchingRef = useRef(false)
 
   useEffect(() => {
     const path = location.pathname
@@ -147,6 +159,45 @@ export default function Layout() {
       setOpenKeys(['manage'])
     }
   }, [location.pathname])
+
+  useEffect(() => {
+    if (auth.initializing) {
+      return
+    }
+    if (!auth.isAuthenticated) {
+      return
+    }
+    if (siteFetchingRef.current) {
+      return
+    }
+
+    const fetchSite = async () => {
+      siteFetchingRef.current = true
+      try {
+        const res = await AdminApi.getBasicSettings(apiAdmin)
+        const settings = res.data as BasicSettings | undefined
+        if (settings?.title) {
+          setSiteTitle(settings.title)
+        }
+        if (settings?.subtitle) {
+          setSiteSubtitle(settings.subtitle)
+        } else {
+          setSiteSubtitle('')
+        }
+      } catch {
+        // ignore
+      } finally {
+        siteFetchingRef.current = false
+      }
+    }
+
+    fetchSite()
+  }, [apiAdmin, auth.initializing, auth.isAuthenticated])
+
+  useEffect(() => {
+    const base = siteSubtitle ? `${siteTitle} - ${siteSubtitle}` : siteTitle
+    document.title = pageTitle ? `${base} - ${pageTitle}` : base
+  }, [pageTitle, siteSubtitle, siteTitle])
 
   useEffect(() => {
     if (isMobile) {
