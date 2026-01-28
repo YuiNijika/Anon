@@ -98,19 +98,6 @@ const menuItems: MenuProps['items'] = [
   },
 ]
 
-// 路由标题映射
-const routeTitleMap: Record<string, string> = {
-  '/console': '控制台',
-  '/statistics': '统计',
-  '/write': '撰写',
-  '/manage/categories': '管理分类',
-  '/manage/tags': '管理标签',
-  '/manage/files': '管理附件',
-  '/manage/posts': '管理文章',
-  '/manage/users': '管理用户',
-  '/settings/basic': '常规设置',
-  '/settings/theme': '主题设置',
-}
 
 function useResponsive() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -140,7 +127,6 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const [pageTitle, setPageTitle] = useState('控制台')
   const [siteTitle, setSiteTitle] = useState<string>('管理后台')
   const [siteSubtitle, setSiteSubtitle] = useState<string>('')
   const siteFetchingRef = useRef(false)
@@ -148,10 +134,6 @@ export default function Layout() {
   useEffect(() => {
     const path = location.pathname
     setSelectedKey(path)
-
-    // 根据路径设置页面标题
-    const title = routeTitleMap[path] || '控制台'
-    setPageTitle(title)
 
     if (path.startsWith('/settings')) {
       setOpenKeys(['settings'])
@@ -195,9 +177,9 @@ export default function Layout() {
   }, [apiAdmin, auth.initializing, auth.isAuthenticated])
 
   useEffect(() => {
-    const base = siteSubtitle ? `${siteTitle} - ${siteSubtitle}` : siteTitle
-    document.title = pageTitle ? `${base} - ${pageTitle}` : base
-  }, [pageTitle, siteSubtitle, siteTitle])
+    const subtitle = siteSubtitle || 'Powered by AnonEcho'
+    document.title = `${siteTitle} - ${subtitle}`
+  }, [siteSubtitle, siteTitle])
 
   useEffect(() => {
     if (isMobile) {
@@ -334,7 +316,7 @@ export default function Layout() {
                 lineHeight: '64px',
               }}
             >
-              {pageTitle}
+              {siteTitle}
             </h1>
           </div>
           <Space size="middle">
