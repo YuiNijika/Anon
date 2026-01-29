@@ -15,19 +15,17 @@ $errorMessage = $errorInfo['message'];
 $text = $errorInfo['text'];
 ?>
 
-<?php Anon_Cms_Theme::components('head'); ?>
+<?php $this->components('head'); ?>
 
-<div class="error-page">
-    <div class="error-container">
-        <h1><?php echo $statusCode; ?></h1>
-        <p class="status-text"><?php echo Anon_Cms_Theme::escape($text); ?></p>
-        <?php if (!empty($errorMessage)): ?>
-            <p class="message"><?php echo Anon_Cms_Theme::escape($errorMessage); ?></p>
-        <?php endif; ?>
-        <div class="mt-3">
-            <a href="/" class="btn">返回首页</a>
-        </div>
-    </div>
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body text-center py-16">
+    <h1 class="text-6xl font-bold text-error mb-4"><?php echo (int)$statusCode; ?></h1>
+    <p class="text-xl text-base-content/70 mb-2"><?php echo $this->escape($text); ?></p>
+    <?php if (!empty($errorMessage)): ?>
+      <p class="text-sm text-base-content/60 mb-6"><?php echo $this->escape($errorMessage); ?></p>
+    <?php endif; ?>
+    <a href="/" class="btn btn-primary">返回首页</a>
+  </div>
 </div>
 
-<?php Anon_Cms_Theme::components('foot'); ?>
+<?php $this->components('foot'); ?>

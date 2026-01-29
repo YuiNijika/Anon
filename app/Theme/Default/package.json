@@ -1,0 +1,19 @@
+{
+    "name": "anon-theme-default",
+    "version": "1.0.0",
+    "description": "默认主题",
+    "author": "YuiNijika",
+    "homepage": "https://github.com/YuiNijika/Anon",
+    "private": true,
+    "anon": {
+        "displayName": "Default",
+        "screenshot": "screenshot.jpg"
+    },
+    "scripts": {
+        "build": "tailwindcss -i ./src/input.css -o ./assets/style.css --minify"
+    },
+    "devDependencies": {
+        "daisyui": "^4.12.14",
+        "tailwindcss": "^3.4.17"
+    }
+}

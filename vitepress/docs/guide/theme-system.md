@@ -29,7 +29,7 @@ app/Theme/
     │   ├── style.css     # 自动注册为 /assets/css/style
     │   ├── script.js     # 自动注册为 /assets/js/script
     │   └── logo.png      # 自动注册为 /assets/images/logo
-    └── info.json         # 主题信息文件（小写）
+    └── package.json      # 主题信息文件（小写）
 ```
 
 ## 主题自定义代码
@@ -138,8 +138,35 @@ Anon_Theme_Options::register('site_title', [
 
 ### 读取设置
 
+**方式一：使用静态方法（推荐用于 functions.php）**
+
 ```php
 $siteTitle = Anon_Theme_Options::get('site_title', '默认标题');
+```
+
+**方式二：在模板中使用 `$this->options()`（推荐用于模板文件）**
+
+```php
+<!-- 在模板中 -->
+<?php echo $this->escape($this->options()->get('title', '默认标题')); ?>
+```
+
+`$this->options()` 返回一个代理对象，提供以下方法：
+
+- `get(string $name, $default = null)`: 获取选项值
+- `set(string $name, $value)`: 设置选项值
+
+**示例：**
+
+```php
+<!-- 获取站点标题 -->
+<h1><?php echo $this->escape($this->options()->get('title', '我的网站')); ?></h1>
+
+<!-- 获取站点描述 -->
+<?php $description = $this->options()->get('description', ''); ?>
+<?php if (!empty($description)): ?>
+    <p><?php echo $this->escape($description); ?></p>
+<?php endif; ?>
 ```
 
 ### 写入设置
@@ -201,21 +228,21 @@ const Anon_PageMeta = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <?php Anon_Cms_Theme::headMeta(); ?>
-    <?php Anon_Cms_Theme::assets('style.css'); ?>
+    <?php $this->headMeta(); ?>
+    <?php $this->assets('style.css'); ?>
 </head>
 <body>
-    <?php Anon_Cms_Theme::components('head'); ?>
+    <?php $this->components('head'); ?>
     
     <main>
         <h1><?php echo Anon_Theme_Options::get('site_title', '我的网站'); ?></h1>
-        <div><?php echo $content ?? ''; ?></div>
+        <div><?php echo $this->get('content', ''); ?></div>
     </main>
     
-    <?php Anon_Cms_Theme::components('foot'); ?>
+    <?php $this->components('foot'); ?>
     
-    <?php Anon_Cms_Theme::assets('script.js'); ?>
-    <?php Anon_Cms_Theme::footMeta(); ?>
+    <?php $this->assets('script.js'); ?>
+    <?php $this->footMeta(); ?>
 </body>
 </html>
 ```
@@ -233,6 +260,23 @@ const Anon_PageMeta = [
     ],
 ],
 ```
+
+## 模板渲染模型
+
+主题模板文件会在一个“视图对象”上下文中执行，你可以像 Typecho 一样在模板里直接使用 `$this->` 调用方法。
+
+### 模板内可用的 `$this` 方法
+
+- `$this->components('head')` / `$this->components('foot')`
+- `$this->partial('name', ['key' => 'value'])`
+- `$this->assets('style.css')`
+- `$this->headMeta()` / `$this->footMeta()`
+- `$this->escape($text)`
+- `$this->markdown($content)`
+- `$this->post()` / `$this->page()`
+- `$this->posts($limit)` 获取文章列表
+- `$this->options()->get($name, $default)` / `$this->options()->set($name, $value)` 访问选项
+- `$this->get('key')` 读取 `render()` 传入的数据
 
 ## 模板 API
 
@@ -309,7 +353,7 @@ Anon_Cms_Theme::partial(string $partialName, array $data = []): void
 
 ```php
 <!-- 在模板中 -->
-<?php Anon_Cms_Theme::partial('header', ['title' => '页面标题']); ?>
+<?php $this->partial('header', ['title' => '页面标题']); ?>
 ```
 
 片段文件应放在 `partials/` 目录：
@@ -345,11 +389,11 @@ Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = [
 
 ```php
 <!-- CSS 文件自动输出 <link> 标签 -->
-<?php Anon_Cms_Theme::assets('style.css'); ?>
+<?php $this->assets('style.css'); ?>
 <!-- 输出: <link rel="stylesheet" href="/assets/css/style"> -->
 
 <!-- JS 文件自动输出 <script> 标签 -->
-<?php Anon_Cms_Theme::assets('main.js'); ?>
+<?php $this->assets('main.js'); ?>
 <!-- 输出: <script src="/assets/js/main"></script> -->
 ```
 
@@ -359,7 +403,7 @@ Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = [
 
 ```php
 <!-- 图片文件返回 URL -->
-<img src="<?php echo Anon_Cms_Theme::assets('logo.png'); ?>" alt="Logo">
+<img src="<?php echo $this->assets('logo.png'); ?>" alt="Logo">
 <!-- 返回: /assets/images/logo -->
 ```
 
@@ -368,10 +412,10 @@ Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = [
 如果需要自定义属性，可以传入 `$attributes` 参数：
 
 ```php
-<?php Anon_Cms_Theme::assets('style.css', null, ['media' => 'print']); ?>
+<?php $this->assets('style.css', null, ['media' => 'print']); ?>
 <!-- 输出: <link rel="stylesheet" href="/assets/css/style" media="print"> -->
 
-<?php Anon_Cms_Theme::assets('main.js', null, ['defer' => 'defer']); ?>
+<?php $this->assets('main.js', null, ['defer' => 'defer']); ?>
 <!-- 输出: <script src="/assets/js/main" defer></script> -->
 ```
 
@@ -410,12 +454,12 @@ Anon_Cms_Theme::components(string $componentPath, array $data = []): void
 
 ```php
 <!-- 导入 components 目录下的组件 -->
-<?php Anon_Cms_Theme::components('head'); ?>
-<?php Anon_Cms_Theme::components('foot'); ?>
+<?php $this->components('head'); ?>
+<?php $this->components('foot'); ?>
 
 <!-- 导入嵌套组件 -->
-<?php Anon_Cms_Theme::components('App.Header', ['title' => '页面标题']); ?>
-<?php Anon_Cms_Theme::components('App/Footer', ['copyright' => '2024']); ?>
+<?php $this->components('App.Header', ['title' => '页面标题']); ?>
+<?php $this->components('App/Footer', ['copyright' => '2024']); ?>
 ```
 
 ### Anon_Cms_Theme::getCurrentTheme()
@@ -428,7 +472,7 @@ $themeName = Anon_Cms_Theme::getCurrentTheme(); // 返回 'default'
 
 ### Anon_Cms_Theme::info()
 
-获取主题信息，从主题目录的 `Info.json` 文件中读取：
+获取主题信息，从主题目录的 `package.json` 文件中读取：
 
 ```php
 Anon_Cms_Theme::info(?string $key = null): mixed
@@ -456,18 +500,21 @@ $author = Anon_Cms_Theme::info('author'); // 返回 'YuiNijika'
 $version = Anon_Cms_Theme::info('version'); // 返回 '1.0.0'
 ```
 
-**Info.json 文件格式：**
+**package.json 文件格式：**
 
-主题目录下的 `Info.json` 文件应包含以下字段：
+主题目录下的 `package.json` 文件应包含以下字段：
 
 ```json
 {
-    "name": "Default",
-    "description": "默认主题",
-    "author": "YuiNijika",
-    "version": "1.0.0",
-    "url": "https://github.com/YuiNijika/AnonTheme-Default",
-    "screenshot": "screenshot.png"
+  "name": "anon-theme-default",
+  "version": "1.0.0",
+  "description": "默认主题",
+  "author": "YuiNijika",
+  "homepage": "https://github.com/YuiNijika/Anon",
+  "anon": {
+    "displayName": "Default",
+    "screenshot": "screenshot.jpg"
+  }
 }
 ```
 
@@ -508,14 +555,14 @@ const Anon_PageMeta = [
 <!-- 在 head 组件中输出 -->
 <head>
     <meta charset="UTF-8">
-    <?php Anon_Cms_Theme::headMeta(); ?>
+    <?php $this->headMeta(); ?>
 </head>
 ```
 
 **覆盖 SEO 信息：**
 
 ```php
-<?php Anon_Cms_Theme::headMeta([
+<?php $this->headMeta([
     'title' => '覆盖的标题',
     'description' => '覆盖的描述',
 ]); ?>
@@ -538,7 +585,7 @@ Anon_Cms_Theme::footMeta(): void
 
 ```php
 <!-- 在 foot 组件中 -->
-<?php Anon_Cms_Theme::footMeta(); ?>
+<?php $this->footMeta(); ?>
 ```
 
 **注册 foot 钩子：**
@@ -915,13 +962,22 @@ Anon_Cms_Theme::render('post', [
 
 ### 在模板中使用
 
-变量会被提取到当前作用域：
+模板不再通过 `extract()` 注入变量，推荐用 `$this->get()` 读取传入数据：
 
 ```php
 <!-- app/Theme/default/post.php -->
-<h1><?php echo htmlspecialchars($post['title'] ?? ''); ?></h1>
-<div><?php echo $post['content'] ?? ''; ?></div>
-<p>作者：<?php echo htmlspecialchars($author ?? ''); ?></p>
+<?php $post = $this->get('post', []); ?>
+<h1><?php echo $this->escape($post['title'] ?? ''); ?></h1>
+<div><?php echo $this->markdown($post['content'] ?? ''); ?></div>
+<p>作者：<?php echo $this->escape($this->get('author', '')); ?></p>
+```
+
+## Markdown 渲染
+
+系统可能会在 Markdown 内容前加 `<!--markdown-->` 标记用于识别内容类型。主题中渲染请统一使用 `$this->markdown()`：
+
+```php
+<?php echo $this->markdown($this->post()['content'] ?? ''); ?>
 ```
 
 ### 全局变量
@@ -979,7 +1035,7 @@ $postId = $id ?? 0;
 在模板中包含片段：
 
 ```php
-<?php Anon_Cms_Theme::partial('header', ['siteTitle' => '我的网站']); ?>
+<?php $this->partial('header', ['siteTitle' => '我的网站']); ?>
 ```
 
 ### 片段嵌套
@@ -989,8 +1045,8 @@ $postId = $id ?? 0;
 ```php
 <!-- app/Theme/default/partials/nav.php -->
 <nav>
-    <?php Anon_Cms_Theme::partial('nav-item', ['text' => '首页', 'url' => '/']); ?>
-    <?php Anon_Cms_Theme::partial('nav-item', ['text' => '关于', 'url' => '/about']); ?>
+    <?php $this->partial('nav-item', ['text' => '首页', 'url' => '/']); ?>
+    <?php $this->partial('nav-item', ['text' => '关于', 'url' => '/about']); ?>
 </nav>
 ```
 
@@ -1007,16 +1063,16 @@ $postId = $id ?? 0;
 <head>
     <meta charset="UTF-8">
     <title><?php echo $title ?? '页面标题'; ?></title>
-    <link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('style.css'); ?>">
+    <link rel="stylesheet" href="<?php echo $this->assets('style.css'); ?>">
 </head>
 <body>
-    <?php Anon_Cms_Theme::partial('header'); ?>
+    <?php $this->partial('header'); ?>
     
     <main>
         <?php echo $content ?? ''; ?>
     </main>
     
-    <?php Anon_Cms_Theme::partial('footer'); ?>
+    <?php $this->partial('footer'); ?>
 </body>
 </html>
 ```
@@ -1101,20 +1157,20 @@ app/Theme/default/
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <?php Anon_Cms_Theme::headMeta(); ?>
-    <?php Anon_Cms_Theme::assets('style.css'); ?>
+    <?php $this->headMeta(); ?>
+    <?php $this->assets('style.css'); ?>
 </head>
 <body>
-    <?php Anon_Cms_Theme::components('head'); ?>
+    <?php $this->components('head'); ?>
     
     <main class="container">
         <?php echo $content ?? ''; ?>
     </main>
     
-    <?php Anon_Cms_Theme::components('foot'); ?>
+    <?php $this->components('foot'); ?>
     
-    <?php Anon_Cms_Theme::assets('main.js'); ?>
-    <?php Anon_Cms_Theme::footMeta(); ?>
+    <?php $this->assets('main.js'); ?>
+    <?php $this->footMeta(); ?>
 </body>
 </html>
 ```
@@ -1186,7 +1242,7 @@ echo "当前主题: " . Anon_Cms_Theme::getCurrentTheme();
 如果组件文件不存在或调用出错，系统会在调用位置直接输出 HTML 错误信息，不会中断页面渲染：
 
 ```php
-<?php Anon_Cms_Theme::components('nonexistent'); ?>
+<?php $this->components('nonexistent'); ?>
 <!-- 如果组件不存在，会在该位置输出错误提示，但页面继续渲染 -->
 ```
 

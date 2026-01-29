@@ -4,6 +4,20 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_Cms_Admin_Posts
 {
     /**
+     * 移除内容中的 Markdown 标记
+     * @param string $content
+     * @return string
+     */
+    private static function stripMarkdownMarker(string $content): string
+    {
+        $content = ltrim($content);
+        if (strpos($content, '<!--markdown-->') === 0) {
+            $content = substr($content, strlen('<!--markdown-->'));
+        }
+        return ltrim($content);
+    }
+
+    /**
      * 获取单个文章
      * @param int $id
      * @return void
@@ -253,6 +267,10 @@ class Anon_Cms_Admin_Posts
         if (!$post) {
             return null;
         }
+
+        if (isset($post['content']) && is_string($post['content'])) {
+            $post['content'] = self::stripMarkdownMarker($post['content']);
+        }
         
         $post['category'] = isset($post['category_id']) && $post['category_id'] > 0 ? (int)$post['category_id'] : null;
         
@@ -327,6 +345,9 @@ class Anon_Cms_Admin_Posts
         
         if (is_array($posts)) {
             foreach ($posts as &$post) {
+                if (isset($post['content']) && is_string($post['content'])) {
+                    $post['content'] = self::stripMarkdownMarker($post['content']);
+                }
                 if (isset($post['created_at'])) {
                     $post['created_at'] = is_string($post['created_at']) ? strtotime($post['created_at']) : $post['created_at'];
                 }

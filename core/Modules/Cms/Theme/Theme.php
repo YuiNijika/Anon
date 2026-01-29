@@ -193,12 +193,11 @@ class Anon_Cms_Theme
             if ($templatePath === null) {
                 throw new RuntimeException("模板文件未找到: {$templateName}");
             }
-
-            extract($data, EXTR_SKIP);
+            $view = new Anon_Cms_Theme_View($data);
 
             ob_start();
             try {
-                include $templatePath;
+                $view->render($templatePath);
             } catch (Error $e) {
                 ob_end_clean();
                 self::handleFatalError($e);
@@ -778,6 +777,15 @@ class Anon_Cms_Theme
             $themeItems = Anon_Cms::scanDirectory($themePath);
             if ($themeItems !== null) {
                 foreach ($themeItems as $themeItem) {
+                    if (strtolower($themeItem) === 'package.json') {
+                        $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
+                        break;
+                    }
+                }
+            }
+
+            if ($infoFile === null && $themeItems !== null) {
+                foreach ($themeItems as $themeItem) {
                     if (strtolower($themeItem) === 'info.json') {
                         $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
                         break;
@@ -791,7 +799,11 @@ class Anon_Cms_Theme
                 if ($jsonContent !== false) {
                     $decoded = json_decode($jsonContent, true);
                     if (is_array($decoded)) {
-                        $themeInfo = $decoded;
+                        if (isset($decoded['anon']) && is_array($decoded['anon'])) {
+                            $themeInfo = array_merge($decoded, $decoded['anon']);
+                        } else {
+                            $themeInfo = $decoded;
+                        }
                     }
                 }
             }
@@ -806,11 +818,11 @@ class Anon_Cms_Theme
             
             $themes[] = [
                 'name' => $item,
-                'displayName' => $themeInfo['name'] ?? $item,
+                'displayName' => $themeInfo['displayName'] ?? ($themeInfo['name'] ?? $item),
                 'description' => $themeInfo['description'] ?? '',
                 'author' => $themeInfo['author'] ?? '',
                 'version' => $themeInfo['version'] ?? '',
-                'url' => $themeInfo['url'] ?? '',
+                'url' => $themeInfo['homepage'] ?? ($themeInfo['url'] ?? ''),
                 'screenshot' => $screenshot,
             ];
         }
@@ -833,7 +845,10 @@ class Anon_Cms_Theme
         
         if (!isset(self::$themeInfoCache[$cacheKey])) {
             $themeDir = self::getThemeDir();
-            $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'info');
+            $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package');
+            if ($infoFile === null) {
+                $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'info');
+            }
             
             $themeInfo = [];
             if ($infoFile !== null && file_exists($infoFile)) {
@@ -841,7 +856,11 @@ class Anon_Cms_Theme
                 if ($jsonContent !== false) {
                     $decoded = json_decode($jsonContent, true);
                     if (is_array($decoded)) {
-                        $themeInfo = $decoded;
+                        if (isset($decoded['anon']) && is_array($decoded['anon'])) {
+                            $themeInfo = array_merge($decoded, $decoded['anon']);
+                        } else {
+                            $themeInfo = $decoded;
+                        }
                     }
                 }
             }
@@ -867,6 +886,32 @@ class Anon_Cms_Theme
     public static function escape(string $text, int $flags = ENT_QUOTES): string
     {
         return htmlspecialchars($text, $flags, 'UTF-8');
+    }
+
+    /**
+     * 渲染 Markdown 内容为 HTML
+     * 会自动移除内容开头的 <!--markdown--> 标记
+     * @param string $content
+     * @return string
+     */
+    public static function markdown(string $content): string
+    {
+        $content = ltrim($content);
+        if (strpos($content, '<!--markdown-->') === 0) {
+            $content = substr($content, strlen('<!--markdown-->'));
+        }
+        $content = ltrim($content);
+        if ($content === '') {
+            return '';
+        }
+
+        require_once Anon_Main::WIDGETS_DIR . 'Parsedown.php';
+
+        $parser = new Parsedown();
+        $parser->setSafeMode(true);
+        $parser->setBreaksEnabled(true);
+
+        return $parser->text($content);
     }
 
     /**
@@ -1127,5 +1172,246 @@ class Anon_Cms_Theme
         echo '</div>';
     }
 
+}
+
+/**
+ * 主题视图对象
+ * 在模板中通过 $this 调用主题方法和读取渲染数据
+ */
+class Anon_Cms_Theme_View
+{
+    /**
+     * @var array 模板数据
+     */
+    private $data = [];
+
+    /**
+     * @param array $data
+     */
+    public function __construct(array $data = [])
+    {
+        $this->data = $data;
+    }
+
+    /**
+     * 创建子视图
+     * @param array $data
+     * @return self
+     */
+    private function child(array $data = []): self
+    {
+        if (empty($data)) {
+            return $this;
+        }
+        return new self(array_merge($this->data, $data));
+    }
+
+    /**
+     * 渲染模板文件
+     * @param string $templatePath
+     * @return void
+     */
+    public function render(string $templatePath): void
+    {
+        include $templatePath;
+    }
+
+    /**
+     * 获取模板数据
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
+     */
+    public function get(string $key, $default = null)
+    {
+        return $this->data[$key] ?? $default;
+    }
+
+    /**
+     * 转义输出
+     * @param string $text
+     * @param int $flags
+     * @return string
+     */
+    public function escape(string $text, int $flags = ENT_QUOTES): string
+    {
+        return Anon_Cms_Theme::escape($text, $flags);
+    }
+
+    /**
+     * 渲染 Markdown
+     * @param string $content
+     * @return string
+     */
+    public function markdown(string $content): string
+    {
+        return Anon_Cms_Theme::markdown($content);
+    }
+
+    /**
+     * 输出组件
+     * @param string $componentPath
+     * @param array $data
+     * @return void
+     */
+    public function components(string $componentPath, array $data = []): void
+    {
+        $componentPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $componentPath);
+
+        $themeDir = Anon_Cms_Theme::getThemeDir();
+        $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'components');
+        if ($componentsDir === null) {
+            return;
+        }
+
+        $pathParts = explode(DIRECTORY_SEPARATOR, $componentPath);
+        $componentName = array_pop($pathParts);
+        $componentDir = $componentsDir;
+
+        foreach ($pathParts as $part) {
+            $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
+            if ($foundDir === null) {
+                return;
+            }
+            $componentDir = $foundDir;
+        }
+
+        $componentFile = Anon_Cms::findFileCaseInsensitive($componentDir, $componentName);
+        if ($componentFile === null) {
+            return;
+        }
+
+        $this->child($data)->render($componentFile);
+    }
+
+    /**
+     * 输出主题资源
+     * @param string $path
+     * @param string|null $type
+     * @param array $attributes
+     * @return string
+     */
+    public function assets(string $path, ?string $type = null, array $attributes = []): string
+    {
+        return Anon_Cms_Theme::assets($path, $type, $attributes);
+    }
+
+    /**
+     * 输出页面头部 meta
+     * @param array $overrides
+     * @return void
+     */
+    public function headMeta(array $overrides = []): void
+    {
+        Anon_Cms_Theme::headMeta($overrides);
+    }
+
+    /**
+     * 输出页面底部 meta
+     * @return void
+     */
+    public function footMeta(): void
+    {
+        Anon_Cms_Theme::footMeta();
+    }
+
+    /**
+     * 输出片段
+     * @param string $partialName
+     * @param array $data
+     * @return void
+     */
+    public function partial(string $partialName, array $data = []): void
+    {
+        $themeDir = Anon_Cms_Theme::getThemeDir();
+        $partialsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'partials');
+        if ($partialsDir === null) {
+            return;
+        }
+
+        $partialPath = Anon_Cms::findFileCaseInsensitive($partialsDir, $partialName);
+        if ($partialPath === null) {
+            return;
+        }
+
+        $this->child($data)->render($partialPath);
+    }
+
+    /**
+     * 获取文章数据
+     * @return array|null
+     */
+    public function post(): ?array
+    {
+        return Anon_Cms::getPost();
+    }
+
+    /**
+     * 获取页面数据
+     * @return array|null
+     */
+    public function page(): ?array
+    {
+        return Anon_Cms::getPage();
+    }
+
+    /**
+     * 获取最新文章列表
+     * @param int $limit
+     * @return array
+     */
+    public function posts(int $limit = 10): array
+    {
+        $limit = max(1, min(50, $limit));
+
+        $db = Anon_Database::getInstance();
+        $rows = $db->db('posts')
+            ->where('type', 'post')
+            ->where('status', 'publish')
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->get();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * 获取选项管理器
+     * 在模板中通过 $this->options->get() 或 $this->options->set() 访问
+     * @return Anon_Cms_Theme_OptionsProxy
+     */
+    public function options(): Anon_Cms_Theme_OptionsProxy
+    {
+        return new Anon_Cms_Theme_OptionsProxy();
+    }
+}
+
+/**
+ * 选项代理类
+ * 提供链式调用 Anon_Cms_Options 的方法
+ */
+class Anon_Cms_Theme_OptionsProxy
+{
+    /**
+     * 获取选项值
+     * @param string $name 选项名称
+     * @param mixed $default 默认值
+     * @return mixed
+     */
+    public function get(string $name, $default = null)
+    {
+        return Anon_Cms_Options::get($name, $default);
+    }
+
+    /**
+     * 设置选项值
+     * @param string $name 选项名称
+     * @param mixed $value 选项值
+     * @return bool
+     */
+    public function set(string $name, $value): bool
+    {
+        return Anon_Cms_Options::set($name, $value);
+    }
 }
 

@@ -133,9 +133,17 @@ app/Theme/
 </html>
 ```
 
+推荐写法：
+
+```php
+<!-- app/Theme/default/index.php -->
+<h1><?php echo $this->escape($this->get('siteTitle', '我的网站')); ?></h1>
+<?php echo $this->get('content', ''); ?>
+```
+
 ### 传递数据给模板
 
-在路由处理中，可以通过 `Anon_Cms_Theme::render()` 传递数据：
+在路由处理中，可以通过 `Anon_Cms_Theme::render()` 传递数据。模板内推荐用 `$this->get()` 获取传入数据。
 
 ```php
 // 在路由文件中
@@ -148,27 +156,27 @@ Anon_Cms_Theme::render('index', [
 
 ### 使用模板片段
 
-可以使用 `Anon_Cms_Theme::partial()` 包含模板片段：
+模板里推荐用 `$this->partial()` / `$this->components()`，这样片段和组件中也能使用 `$this`。
 
 ```php
 <!-- app/Theme/default/index.php -->
-<?php Anon_Cms_Theme::partial('header', ['title' => '首页']); ?>
+<?php $this->partial('header', ['title' => '首页']); ?>
 
 <main>
     <h1>首页内容</h1>
 </main>
 
-<?php Anon_Cms_Theme::partial('footer'); ?>
+<?php $this->partial('footer'); ?>
 ```
 
 ### 主题资源 URL
 
-使用 `Anon_Cms_Theme::assets()` 获取主题资源的 URL：
+模板里使用 `$this->assets()` 获取主题资源的 URL：
 
 ```php
 <!-- app/Theme/default/index.php -->
-<link rel="stylesheet" href="<?php echo Anon_Cms_Theme::assets('css/style.css'); ?>">
-<script src="<?php echo Anon_Cms_Theme::assets('js/main.js'); ?>"></script>
+<link rel="stylesheet" href="<?php echo $this->assets('css/style.css'); ?>">
+<script src="<?php echo $this->assets('js/main.js'); ?>"></script>
 ```
 
 生成的 URL 格式：`/theme/default/css/style.css`

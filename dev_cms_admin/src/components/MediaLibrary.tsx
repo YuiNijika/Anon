@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Spin, Modal, Upload, Image, Button, Space, App, Radio, Input, Empty } from 'antd'
+import { Spin, Modal, Upload, Image, Button, Space, App, Radio, Input, Empty, Select, theme } from 'antd'
 import { UploadOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import { useApiAdmin } from '@/hooks'
@@ -18,6 +18,8 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
     const apiAdmin = useApiAdmin()
     const app = App.useApp()
     const messageApi = app.message
+    const modal = app.modal
+    const { token } = theme.useToken()
     const [loading, setLoading] = useState(false)
     const [attachments, setAttachments] = useState<any[]>([])
     const [total, setTotal] = useState(0)
@@ -26,6 +28,7 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
     const [filterType, setFilterType] = useState<string>('all')
     const [searchKeyword, setSearchKeyword] = useState('')
     const [selectedIds, setSelectedIds] = useState<number[]>([])
+    const [imageFormat, setImageFormat] = useState<'original' | 'webp' | 'png' | 'jpg' | 'jpeg'>('original')
 
     useEffect(() => {
         if (open) {
@@ -132,6 +135,19 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
         }
     }
 
+    const confirmDelete = (id: number) => {
+        modal.confirm({
+            title: '确认删除',
+            content: '确定要删除该文件吗？此操作不可恢复。',
+            okText: '删除',
+            okButtonProps: { danger: true },
+            cancelText: '取消',
+            onOk: async () => {
+                await handleDelete(id)
+            },
+        })
+    }
+
     const handleSelect = (attachment: any) => {
         if (multiple) {
             const newSelectedIds = selectedIds.includes(attachment.id)
@@ -139,14 +155,16 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                 : [...selectedIds, attachment.id]
             setSelectedIds(newSelectedIds)
         } else {
-            onSelect?.(attachment)
+            onSelect?.(buildInsertAttachment(attachment))
             onClose()
         }
     }
 
     const handleConfirmSelection = () => {
         if (multiple && selectedIds.length > 0) {
-            const selected = attachments.filter(a => selectedIds.includes(a.id))
+            const selected = attachments
+                .filter(a => selectedIds.includes(a.id))
+                .map(a => buildInsertAttachment(a))
             onSelect?.(selected)
             onClose()
         }
@@ -154,6 +172,23 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
 
     const isImage = (mimeType: string) => {
         return mimeType?.startsWith('image/')
+    }
+
+    const buildInsertAttachment = (attachment: any) => {
+        if (!isImage(attachment?.mime_type)) {
+            return attachment
+        }
+        if (imageFormat === 'original') {
+            return attachment
+        }
+        const url = typeof attachment?.url === 'string' ? attachment.url : ''
+        if (!url) {
+            return attachment
+        }
+        return {
+            ...attachment,
+            insert_url: `${url}/${imageFormat}`,
+        }
     }
 
     const filteredAttachments = searchKeyword
@@ -194,6 +229,20 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                                 上传文件
                             </Button>
                         </Upload>
+                        {!!onSelect && (
+                            <Select
+                                value={imageFormat}
+                                onChange={(value) => setImageFormat(value)}
+                                style={{ width: 140 }}
+                                options={[
+                                    { value: 'original', label: '插入原图' },
+                                    { value: 'webp', label: '插入 WebP' },
+                                    { value: 'png', label: '插入 PNG' },
+                                    { value: 'jpg', label: '插入 JPG' },
+                                    { value: 'jpeg', label: '插入 JPEG' },
+                                ]}
+                            />
+                        )}
                         <Input
                             placeholder="搜索文件..."
                             prefix={<SearchOutlined />}
@@ -235,32 +284,43 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                                 maxHeight: '500px',
                                 overflowY: 'auto',
                                 padding: '16px',
-                                border: '1px solid #f0f0f0',
+                                border: `1px solid ${token.colorBorderSecondary}`,
                                 borderRadius: '4px',
                             }}
                         >
                             {filteredAttachments.map((attachment) => {
                                 const selected = selectedIds.includes(attachment.id)
+                                const borderColor = selected ? token.colorPrimary : token.colorBorder
                                 return (
                                     <div
                                         key={attachment.id}
                                         style={{
                                             position: 'relative',
-                                            border: selected ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                                            border: `1px solid ${borderColor}`,
                                             borderRadius: '4px',
                                             padding: '8px',
                                             cursor: 'pointer',
-                                            backgroundColor: selected ? '#e6f7ff' : '#fff',
                                         }}
                                         onClick={() => handleSelect(attachment)}
                                     >
                                         {isImage(attachment.mime_type) ? (
-                                            <Image
-                                                src={buildPublicUrl(attachment.url)}
-                                                alt={attachment.original_name}
-                                                style={{ width: '100%', height: '120px', objectFit: 'cover' }}
-                                                preview={false}
-                                            />
+                                            <div
+                                                style={{
+                                                    width: '100%',
+                                                    height: '120px',
+                                                    overflow: 'hidden',
+                                                    borderRadius: '2px',
+                                                }}
+                                            >
+                                                <Image
+                                                    src={buildPublicUrl(attachment.url)}
+                                                    alt={attachment.original_name}
+                                                    width="100%"
+                                                    height={120}
+                                                    style={{ objectFit: 'cover' }}
+                                                    preview={false}
+                                                />
+                                            </div>
                                         ) : (
                                             <div
                                                 style={{
@@ -269,7 +329,6 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    backgroundColor: '#f5f5f5',
                                                     fontSize: '48px',
                                                 }}
                                             >
@@ -295,7 +354,7 @@ export default function MediaLibrary({ open, onClose, onSelect, multiple = false
                                             icon={<DeleteOutlined />}
                                             onClick={(e) => {
                                                 e.stopPropagation()
-                                                handleDelete(attachment.id)
+                                                confirmDelete(attachment.id)
                                             }}
                                             style={{ position: 'absolute', top: '4px', right: '4px' }}
                                         />

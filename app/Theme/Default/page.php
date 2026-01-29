@@ -1,21 +1,24 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-$page = Anon_Cms::getPage();
-
-Anon_Cms_Theme::components('head');
+$this->components('head');
 ?>
 
-<main>
-    <article>
-        <h1><?php echo Anon_Cms_Theme::escape($page['title'] ?? ''); ?></h1>
-        <div class="meta">
-            <span>更新时间：<?php echo date('Y-m-d H:i:s', strtotime($page['updated_at'] ?? 'now')); ?></span>
-        </div>
-        <div class="content">
-            <?php echo $page['content'] ?? ''; ?>
-        </div>
-    </article>
-</main>
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body">
+    <div class="mb-4">
+      <span class="badge badge-outline">页面</span>
+      <h1 class="text-3xl font-bold mt-3 mb-2">
+        <?php echo $this->escape($this->page()['title'] ?? ''); ?>
+      </h1>
+      <p class="text-sm text-base-content/60">
+        更新于 <?php echo date('Y-m-d H:i', strtotime($this->page()['updated_at'] ?? 'now')); ?>
+      </p>
+    </div>
+    <div class="prose max-w-none">
+      <?php echo $this->markdown($this->page()['content'] ?? ''); ?>
+    </div>
+  </div>
+</div>
 
-<?php Anon_Cms_Theme::components('foot'); ?>
+<?php $this->components('foot'); ?>

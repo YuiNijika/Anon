@@ -7,7 +7,7 @@ const Anon_PageMeta = [
     'keywords' => ['测试', '路由', 'Anon'],
 ];
 ?>
-<?php Anon_Cms_Theme::components('head'); ?>
+<?php $this->components('head'); ?>
 
 <main>
     <h1>这是测试页面</h1>
@@ -27,4 +27,4 @@ const Anon_PageMeta = [
     </div>
 </main>
 
-<?php Anon_Cms_Theme::components('foot'); ?>
+<?php $this->components('foot'); ?>

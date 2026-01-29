@@ -112,7 +112,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 // Anon_System_Config::addErrorHandler(404, function () {
 //     Anon_Common::Header(404);
-//     Anon_Cms_Theme::render('error', ['code' => 404, 'message' => '页面不存在']);
+//     // 渲染主题错误页
 // });
 
 // 自定义函数和类

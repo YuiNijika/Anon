@@ -155,10 +155,18 @@ export default function Write() {
     form.resetFields()
   }
 
-  const handleMediaSelect = (attachment: any) => {
+  const handleMediaSelect = (attachmentOrList: any) => {
+    const list = Array.isArray(attachmentOrList) ? attachmentOrList : [attachmentOrList]
     const currentContent = content || ''
-    const imageMarkdown = `![${attachment.original_name}](${buildPublicUrl(attachment.url)})`
-    const newContent = currentContent + (currentContent ? '\n\n' : '') + imageMarkdown
+
+    const blocks = list
+      .filter(Boolean)
+      .map((attachment) => {
+        const url = attachment.insert_url || attachment.url
+        return `![${attachment.original_name}](${buildPublicUrl(url)})`
+      })
+
+    const newContent = currentContent + (currentContent ? '\n\n' : '') + blocks.join('\n\n')
     setContent(newContent)
     form.setFieldValue('content', newContent)
   }

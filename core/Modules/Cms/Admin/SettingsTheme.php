@@ -64,6 +64,15 @@ class Anon_Cms_Admin_SettingsTheme
             $themeItems = Anon_Cms::scanDirectory($themePath);
             if ($themeItems !== null) {
                 foreach ($themeItems as $themeItem) {
+                    if (strtolower($themeItem) === 'package.json') {
+                        $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
+                        break;
+                    }
+                }
+            }
+            
+            if ($infoFile === null && $themeItems !== null) {
+                foreach ($themeItems as $themeItem) {
                     if (strtolower($themeItem) === 'info.json') {
                         $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
                         break;
@@ -83,12 +92,22 @@ class Anon_Cms_Admin_SettingsTheme
             }
             
             $decoded = json_decode($jsonContent, true);
-            if (!is_array($decoded) || empty($decoded['screenshot'])) {
+            if (!is_array($decoded)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
             
-            $screenshotFileName = $decoded['screenshot'];
+            $themeInfo = $decoded;
+            if (isset($decoded['anon']) && is_array($decoded['anon'])) {
+                $themeInfo = array_merge($decoded, $decoded['anon']);
+            }
+            
+            if (empty($themeInfo['screenshot'])) {
+                $screenshotCache = $nullSvgPath;
+                return $nullSvgPath;
+            }
+            
+            $screenshotFileName = $themeInfo['screenshot'];
             $screenshotFile = $themePath . DIRECTORY_SEPARATOR . $screenshotFileName;
             
             if (!file_exists($screenshotFile)) {

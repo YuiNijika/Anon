@@ -1,26 +1,60 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-Anon_Cms_Theme::components('head'); 
+$this->components('head');
 ?>
 
-<main>
-    <?php 
-    if (isset($content) && !empty($content)) {
-        echo $content;
-    } else {
-        echo '<h1>欢迎使用 Anon CMS</h1>';
-        echo '<p>这是默认主题的首页模板。</p>';
-        echo '<p>您可以在 <code>app/Theme/Default/Index.php</code> 中自定义此页面。</p>';
-        echo '<div class="card mt-2">';
-        echo '<div class="card-title">快速开始</div>';
-        echo '<div class="card-content">';
-        echo '<p>使用 <code>const Anon_PageMeta</code> 来定义 SEO 信息。</p>';
-        echo '<p>使用 <code>Anon_Cms_Theme::components(\'head\')</code> 和 <code>Anon_Cms_Theme::components(\'foot\')</code> 来加载头部和底部。</p>';
-        echo '</div>';
-        echo '</div>';
-    }
-    ?>
-</main>
+<div class="space-y-6">
+  <!-- 站点介绍 -->
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body">
+      <h1 class="card-title text-4xl mb-2">
+        <?php echo $this->escape((string)$this->options()->get('title', Anon_Common::NAME)); ?>
+      </h1>
+      <?php $subtitle = (string)$this->options()->get('subtitle', ''); ?>
+      <?php if (!empty($subtitle)): ?>
+        <p class="text-lg text-base-content/70 mb-2"><?php echo $this->escape($subtitle); ?></p>
+      <?php endif; ?>
+      <?php $siteDesc = (string)$this->options()->get('description', ''); ?>
+      <?php if (!empty($siteDesc)): ?>
+        <p class="text-base-content/60"><?php echo $this->escape($siteDesc); ?></p>
+      <?php endif; ?>
+    </div>
+  </div>
 
-<?php Anon_Cms_Theme::components('foot'); ?>
+  <!-- 文章列表 -->
+  <?php $posts = $this->posts(12); ?>
+  <?php if (empty($posts)): ?>
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body text-center">
+        <p class="text-base-content/60">暂无文章</p>
+      </div>
+    </div>
+  <?php else: ?>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <?php foreach ($posts as $p): ?>
+        <a href="/post/<?php echo (int)($p['id'] ?? 0); ?>" class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-2">
+              <?php echo $this->escape((string)($p['title'] ?? '')); ?>
+            </h2>
+            <p class="text-sm text-base-content/70 line-clamp-2 mb-3">
+              <?php
+                $seo = Anon_Cms_PageMeta::getSeo(['content' => (string)($p['content'] ?? '')]);
+                echo $this->escape((string)($seo['description'] ?? ''));
+              ?>
+            </p>
+            <div class="card-actions justify-between items-center">
+              <span class="badge badge-ghost badge-sm">
+                <?php echo date('Y-m-d', strtotime((string)($p['created_at'] ?? 'now'))); ?>
+              </span>
+              <span class="text-xs text-base-content/50">阅读 →</span>
+            </div>
+          </div>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php $this->components('foot'); ?>

@@ -220,7 +220,7 @@ class Anon_Cms_Theme_FatalError
         </div>
         
         <div class="error-footer">
-            <p>如需帮助，请访问 <a href="{$siteUrl}" target="_blank">{$siteName}</a></p>
+            <p>如需帮助，请访问 <a href="https://github.com/YuiNijika/Anon" target="_blank">GitHub</a> 提交 issue。</p>
         </div>
     </div>
 </body>

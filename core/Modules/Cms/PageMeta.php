@@ -291,9 +291,23 @@ class Anon_Cms_PageMeta
         if (empty($content)) {
             return '';
         }
-        
+
+        $content = ltrim($content);
+        if (strpos($content, '<!--markdown-->') === 0) {
+            $content = substr($content, strlen('<!--markdown-->'));
+        }
+
         $text = strip_tags($content);
-        $text = preg_replace('/\s+/', ' ', $text);
+
+        // 清理常见 Markdown 语法，避免 description 出现符号残留
+        $text = preg_replace('/```[\s\S]*?```/u', ' ', $text);
+        $text = preg_replace('/`[^`]*`/u', ' ', $text);
+        $text = preg_replace('/!\[[^\]]*\]\([^)]+\)/u', ' ', $text);
+        $text = preg_replace('/\[[^\]]*\]\([^)]+\)/u', ' ', $text);
+        $text = preg_replace('/(^|\s)#+\s+/u', ' ', $text);
+        $text = preg_replace('/[*_~>#-]{1,3}/u', ' ', $text);
+
+        $text = preg_replace('/\s+/u', ' ', $text);
         $text = trim($text);
         
         if (mb_strlen($text) <= $length) {

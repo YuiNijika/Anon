@@ -120,8 +120,9 @@ Anon_System_Hook::add_filter('anon_auth_capabilities', function($capabilities) {
     ];
     
     // 为特定角色添加资源级权限
-    $capabilities['author'][] = 'post:create';
-    $capabilities['author'][] = 'post:edit';
+    // editor 对应 CMS 管理端的“编辑”用户组
+    $capabilities['editor'][] = 'post:create';
+    $capabilities['editor'][] = 'post:edit';
     
     return $capabilities;
 });
@@ -149,8 +150,8 @@ Anon_System_Hook::add_filter('anon_auth_capabilities_remove', function($removeLi
     // 从 editor 角色移除多个权限
     $removeList['editor'] = ['delete_posts', 'publish_posts'];
     
-    // 从 author 角色移除单个权限（也可以使用字符串）
-    $removeList['author'] = 'publish_own_posts';
+    // 从 editor 角色移除单个权限（也可以使用字符串）
+    $removeList['editor'] = 'publish_own_posts';
     
     return $removeList;
 });

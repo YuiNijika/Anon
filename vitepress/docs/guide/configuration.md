@@ -140,7 +140,7 @@ return [
         `name` VARCHAR(255) NOT NULL UNIQUE COMMENT '用户名',
         `password` VARCHAR(255) NOT NULL COMMENT '密码哈希值',
         `email` VARCHAR(255) NOT NULL UNIQUE COMMENT '邮箱地址',
-        `group` VARCHAR(255) NOT NULL DEFAULT 'member' COMMENT '用户组',
+        `group` VARCHAR(255) NOT NULL DEFAULT 'user' COMMENT '用户组',
         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息表'"
@@ -150,6 +150,14 @@ return [
 使用 `{prefix}` 作为表前缀占位符，安装时会自动替换为 `env.php` 中配置的表前缀。
 - 可以添加多个表的 SQL 语句，安装系统会自动执行所有 SQL
 - 每个表的 SQL 语句必须是完整的 CREATE TABLE 语句
+
+### 用户组说明
+
+- `admin`：管理员
+- `editor`：编辑
+- `user`：普通用户
+
+说明：管理后台对外显示用户组为 `admin/editor/user`。数据库内部若存在历史值 `author`，会映射为 `editor` 展示。
 
 ## 配置访问
 
