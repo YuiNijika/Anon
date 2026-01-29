@@ -10,7 +10,8 @@
 </footer>
 
 <?php 
-    $this->assets('main.js');
+    // JS 延迟加载
+    $this->assets('main.js', null, ['defer' => 'defer']);
     $this->footMeta();
 ?>
 </body>

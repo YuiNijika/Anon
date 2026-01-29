@@ -235,8 +235,21 @@ const Anon_PageMeta = [
     <?php $this->components('head'); ?>
     
     <main>
-        <h1><?php echo Anon_Theme_Options::get('site_title', '我的网站'); ?></h1>
-        <div><?php echo $this->get('content', ''); ?></div>
+        <h1><?php echo $this->escape($this->options()->get('title', '我的网站')); ?></h1>
+        
+        <!-- 文章列表 -->
+        <?php $posts = $this->posts(10); ?>
+        <?php foreach ($posts as $post): ?>
+          <article>
+            <h2>
+              <a href="/post/<?php echo $post->id(); ?>">
+                <?php echo $this->escape($post->title()); ?>
+              </a>
+            </h2>
+            <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+            <time><?php echo $post->date('Y-m-d'); ?></time>
+          </article>
+        <?php endforeach; ?>
     </main>
     
     <?php $this->components('foot'); ?>
@@ -267,16 +280,17 @@ const Anon_PageMeta = [
 
 ### 模板内可用的 `$this` 方法
 
-- `$this->components('head')` / `$this->components('foot')`
-- `$this->partial('name', ['key' => 'value'])`
-- `$this->assets('style.css')`
-- `$this->headMeta()` / `$this->footMeta()`
-- `$this->escape($text)`
-- `$this->markdown($content)`
-- `$this->post()` / `$this->page()`
-- `$this->posts($limit)` 获取文章列表
-- `$this->options()->get($name, $default)` / `$this->options()->set($name, $value)` 访问选项
-- `$this->get('key')` 读取 `render()` 传入的数据
+- `$this->components('head')` / `$this->components('foot')` - 引入组件
+- `$this->partial('name', ['key' => 'value'])` - 引入模板片段
+- `$this->assets('style.css')` - 引入静态资源
+- `$this->headMeta()` / `$this->footMeta()` - 输出 SEO meta 标签
+- `$this->escape($text)` - 转义 HTML 输出
+- `$this->markdown($content)` - 渲染 Markdown 内容
+- `$this->post()` - 获取当前文章对象（`Anon_Cms_Post`）
+- `$this->page()` - 获取当前页面对象（`Anon_Cms_Post`）
+- `$this->posts($limit)` - 获取文章列表（返回 `Anon_Cms_Post[]` 数组）
+- `$this->options()->get($name, $default)` / `$this->options()->set($name, $value)` - 访问选项
+- `$this->get('key')` - 读取 `render()` 传入的数据
 
 ## 模板 API
 
@@ -977,7 +991,142 @@ Anon_Cms_Theme::render('post', [
 系统可能会在 Markdown 内容前加 `<!--markdown-->` 标记用于识别内容类型。主题中渲染请统一使用 `$this->markdown()`：
 
 ```php
-<?php echo $this->markdown($this->post()['content'] ?? ''); ?>
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <?php echo $this->markdown($post->content()); ?>
+<?php endif; ?>
+```
+
+## 文章和页面对象（Anon_Cms_Post）
+
+系统提供了类似 Typecho 的链式调用 API，通过 `Anon_Cms_Post` 对象访问文章和页面数据。
+
+### 获取文章/页面对象
+
+```php
+// 获取当前文章对象
+<?php $post = $this->post(); ?>
+
+// 获取当前页面对象
+<?php $page = $this->page(); ?>
+
+// 获取文章列表（返回对象数组）
+<?php $posts = $this->posts(12); ?>
+```
+
+### 对象方法
+
+`Anon_Cms_Post` 类提供以下方法：
+
+#### 基本信息
+
+- `id(): int` - 获取文章/页面 ID
+- `title(): string` - 获取标题
+- `content(): string` - 获取内容
+- `excerpt(int $length = 150): string` - 获取摘要（自动提取）
+- `slug(): string` - 获取 Slug
+- `type(): string` - 获取类型（`post` 或 `page`）
+- `status(): string` - 获取状态
+
+#### 时间相关
+
+- `created(): int` - 获取创建时间（时间戳）
+- `date(string $format = 'Y-m-d H:i:s'): string` - 获取创建时间（格式化字符串）
+- `modified(): int` - 获取更新时间（时间戳）
+
+#### 其他
+
+- `category(): ?int` - 获取分类 ID
+- `get(string $key, $default = null)` - 获取字段值
+- `has(string $key): bool` - 检查字段是否存在
+- `toArray(): array` - 获取原始数据数组
+
+### 使用示例
+
+#### 文章列表页（index.php）
+
+```php
+<?php $posts = $this->posts(12); ?>
+<?php foreach ($posts as $post): ?>
+  <article>
+    <h2>
+      <a href="/post/<?php echo $post->id(); ?>">
+        <?php echo $this->escape($post->title()); ?>
+      </a>
+    </h2>
+    <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+    <time><?php echo $post->date('Y-m-d'); ?></time>
+  </article>
+<?php endforeach; ?>
+```
+
+#### 文章详情页（post.php）
+
+```php
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <article>
+    <h1><?php echo $this->escape($post->title()); ?></h1>
+    <div class="meta">
+      <time>发布于 <?php echo $post->date('Y-m-d H:i'); ?></time>
+      <?php if ($post->category()): ?>
+        <span>分类：<?php echo $post->category(); ?></span>
+      <?php endif; ?>
+    </div>
+    <div class="content">
+      <?php echo $this->markdown($post->content()); ?>
+    </div>
+  </article>
+<?php endif; ?>
+```
+
+#### 页面详情页（page.php）
+
+```php
+<?php $page = $this->page(); ?>
+<?php if ($page): ?>
+  <article>
+    <h1><?php echo $this->escape($page->title()); ?></h1>
+    <div class="meta">
+      <time>更新于 <?php echo date('Y-m-d H:i', $page->modified()); ?></time>
+    </div>
+    <div class="content">
+      <?php echo $this->markdown($page->content()); ?>
+    </div>
+  </article>
+<?php endif; ?>
+```
+
+#### 访问自定义字段
+
+```php
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <!-- 使用 get() 方法访问自定义字段 -->
+  <?php $customField = $post->get('custom_field', '默认值'); ?>
+  <?php if ($post->has('featured_image')): ?>
+    <img src="<?php echo $post->get('featured_image'); ?>" alt="">
+  <?php endif; ?>
+<?php endif; ?>
+```
+
+### 性能优化
+
+系统在内部实现了请求级缓存，确保：
+
+- 同一请求内多次调用 `$this->post()` 或 `$this->page()` 不会重复查询数据库
+- `$this->posts($limit)` 的结果会被缓存，避免重复查询
+- 所有缓存仅在当前请求内有效，不会跨请求
+
+### 与数组访问的兼容性
+
+如果需要访问原始数组数据，可以使用 `toArray()` 方法：
+
+```php
+<?php $post = $this->post(); ?>
+<?php $postArray = $post->toArray(); ?>
+<!-- 现在可以使用数组方式访问 -->
+<?php echo $postArray['title']; ?>
 ```
 
 ### 全局变量
@@ -1097,11 +1246,12 @@ Anon_Cms_Theme::render('layout', compact('title', 'content'));
 始终转义输出，防止 XSS 攻击：
 
 ```php
-<!-- 正确 -->
-<h1><?php echo htmlspecialchars($title ?? ''); ?></h1>
+<!-- 正确：使用 $this->escape() -->
+<?php $post = $this->post(); ?>
+<h1><?php echo $this->escape($post->title()); ?></h1>
 
-<!-- 错误 -->
-<h1><?php echo $title ?? ''; ?></h1>
+<!-- 错误：直接输出 -->
+<h1><?php echo $post->title(); ?></h1>
 ```
 
 ### 2. 默认值
@@ -1109,8 +1259,11 @@ Anon_Cms_Theme::render('layout', compact('title', 'content'));
 为变量提供默认值：
 
 ```php
-<?php echo $title ?? '默认标题'; ?>
-<?php echo $content ?? ''; ?>
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <h1><?php echo $this->escape($post->title()); ?></h1>
+  <p><?php echo $this->escape($post->excerpt(150) ?: '暂无摘要'); ?></p>
+<?php endif; ?>
 ```
 
 ### 3. 代码组织
@@ -1185,13 +1338,36 @@ const Anon_PageMeta = [
     'description' => '这是首页的描述',
 ];
 
-$siteTitle = Anon_Theme_Options::get('site_title', '我的网站');
-$content = '
-    <h1>欢迎访问</h1>
-    <p>这是首页内容</p>
-';
-Anon_Cms_Theme::render('layout', compact('content'));
+$this->components('head');
 ?>
+
+<div class="space-y-6">
+  <!-- 站点介绍 -->
+  <div class="card">
+    <h1><?php echo $this->escape($this->options()->get('title', '我的网站')); ?></h1>
+    <p><?php echo $this->escape($this->options()->get('description', '')); ?></p>
+  </div>
+
+  <!-- 文章列表 -->
+  <?php $posts = $this->posts(12); ?>
+  <?php if (!empty($posts)): ?>
+    <div class="grid gap-4">
+      <?php foreach ($posts as $post): ?>
+        <article class="card">
+          <h2>
+            <a href="/post/<?php echo $post->id(); ?>">
+              <?php echo $this->escape($post->title()); ?>
+            </a>
+          </h2>
+          <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+          <time><?php echo $post->date('Y-m-d'); ?></time>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php $this->components('foot'); ?>
 ```
 
 ### 文章页模板
@@ -1206,14 +1382,23 @@ const Anon_PageMeta = [
     'canonical' => '/post/' . ($id ?? 0),
 ];
 
-$postId = $id ?? 0;
-$post = Anon_Cms::getPost($postId);
-
-if ($post) {
-    $content = $post['content'];
-    Anon_Cms_Theme::render('layout', compact('content'));
-}
+$this->components('head');
 ?>
+
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <article>
+    <h1><?php echo $this->escape($post->title()); ?></h1>
+    <div class="meta">
+      <time>发布于 <?php echo $post->date('Y-m-d H:i'); ?></time>
+    </div>
+    <div class="content">
+      <?php echo $this->markdown($post->content()); ?>
+    </div>
+  </article>
+<?php endif; ?>
+
+<?php $this->components('foot'); ?>
 ```
 
 ## 调试技巧

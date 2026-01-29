@@ -9,7 +9,6 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
     $this->assets('style.css');
 ?>
 <script>
-  // 防止主题闪屏：在页面渲染前设置主题
   (function() {
     try {
       const saved = localStorage.getItem('theme');

@@ -249,13 +249,22 @@ class Anon_Cms_Theme
     /**
      * 获取主题资源 URL 或输出 HTML 标签
      * @param string $path 资源路径
-     * @param string|null $type 资源类型（可选，不指定则根据文件后缀自动判断）
+     * @param bool|string|null $forceNoCacheOrType 强制禁止缓存（true）或资源类型，不指定则根据文件后缀自动判断
      * @param array $attributes 额外属性
      * @return string 如果只返回 URL，否则返回空字符串
      */
-    public static function assets(string $path, ?string $type = null, array $attributes = []): string
+    public static function assets(string $path, $forceNoCacheOrType = null, array $attributes = []): string
     {
         $path = ltrim($path, '/');
+        
+        $forceNoCache = false;
+        $type = null;
+        
+        if (is_bool($forceNoCacheOrType)) {
+            $forceNoCache = $forceNoCacheOrType;
+        } elseif (is_string($forceNoCacheOrType)) {
+            $type = $forceNoCacheOrType;
+        }
         
         if (!self::$assetsRegistered) {
             self::registerAssets();
@@ -284,30 +293,38 @@ class Anon_Cms_Theme
         $mimeTypes = self::getMimeTypes();
         $mimeType = $mimeTypes[$fileExt] ?? 'application/octet-stream';
         
+        // 添加缓存参数
+        $cacheParam = self::getAssetCacheParam();
+        if ($forceNoCache) {
+            // 强制禁止缓存：同时添加版本号和 nocache 参数
+            $cacheParam .= '&nocache=1';
+        }
+        $urlWithCache = $url . $cacheParam;
+
         if ($type === 'css' || $type === 'js') {
             if ($type === 'css') {
                 $rel = $attributes['rel'] ?? 'stylesheet';
                 $media = isset($attributes['media']) ? ' media="' . htmlspecialchars($attributes['media']) . '"' : '';
-                echo '<link rel="' . htmlspecialchars($rel) . '" href="' . htmlspecialchars($url) . '"' . $media . '>' . "\n";
+                echo '<link rel="' . htmlspecialchars($rel) . '" href="' . htmlspecialchars($urlWithCache) . '"' . $media . '>' . "\n";
             } elseif ($type === 'js') {
                 $defer = isset($attributes['defer']) ? ' defer' : '';
                 $async = isset($attributes['async']) ? ' async' : '';
-                echo '<script src="' . htmlspecialchars($url) . '"' . $defer . $async . '></script>' . "\n";
+                echo '<script src="' . htmlspecialchars($urlWithCache) . '"' . $defer . $async . '></script>' . "\n";
             }
             return '';
         }
         
         if ($type === 'favicon' || $type === 'icon') {
             $rel = $type === 'favicon' ? 'icon' : 'icon';
-            echo '<link rel="' . $rel . '" href="' . htmlspecialchars($url) . '" type="' . htmlspecialchars($mimeType) . '">' . "\n";
+            echo '<link rel="' . $rel . '" href="' . htmlspecialchars($urlWithCache) . '" type="' . htmlspecialchars($mimeType) . '">' . "\n";
             return '';
         }
-        
+
         if (!empty($attributes)) {
             return '';
         }
-        
-        return $url;
+
+        return $urlWithCache;
     }
 
     /**
@@ -334,6 +351,62 @@ class Anon_Cms_Theme
     }
 
     private static $assetsRegistered = false;
+    private static $assetCacheVersion = null;
+    private static $assetCacheMode = null;
+
+    /**
+     * 获取资源缓存参数
+     * @param bool|null $dev 是否为开发模式，null 表示自动检测
+     * @return string 缓存参数字符串
+     */
+    public static function getAssetCacheParam(?bool $dev = null): string
+    {
+        // 如果已设置缓存模式，使用已设置的值
+        if (self::$assetCacheMode !== null) {
+            $dev = self::$assetCacheMode === 'dev';
+        } elseif ($dev === null) {
+            // 自动检测：从配置或环境变量读取
+            $dev = Anon_Cms_Options::get('theme:dev_mode', false);
+        }
+
+        if ($dev) {
+            return '?nocache=1';
+        }
+
+        // 获取版本号
+        if (self::$assetCacheVersion === null) {
+            // 优先使用主题配置的版本号，否则使用系统版本号
+            $themeName = self::getCurrentTheme();
+            $themeVersion = Anon_Cms_Options::get("theme:{$themeName}:version", null);
+            if ($themeVersion !== null) {
+                self::$assetCacheVersion = (string)$themeVersion;
+            } else {
+                self::$assetCacheVersion = Anon_Common::VERSION;
+            }
+        }
+
+        return '?ver=' . self::$assetCacheVersion;
+    }
+
+    /**
+     * 设置资源缓存模式
+     * @param string|null $mode 缓存模式，'dev' 表示开发模式，'prod' 表示生产模式，null 表示自动检测
+     * @return void
+     */
+    public static function setAssetCacheMode(?string $mode): void
+    {
+        self::$assetCacheMode = $mode;
+    }
+
+    /**
+     * 设置资源缓存版本号
+     * @param string|null $version 版本号，null 表示使用默认版本号
+     * @return void
+     */
+    public static function setAssetCacheVersion(?string $version): void
+    {
+        self::$assetCacheVersion = $version;
+    }
 
     /**
      * 注册主题静态资源路由
@@ -1233,9 +1306,13 @@ class Anon_Cms_Theme_View
      * @param int $flags
      * @return string
      */
-    public function escape(string $text, int $flags = ENT_QUOTES): string
+    public function escape($text, int $flags = ENT_QUOTES): string
     {
-        return Anon_Cms_Theme::escape($text, $flags);
+        // 处理 null 和非字符串值，转换为空字符串
+        if ($text === null) {
+            return '';
+        }
+        return Anon_Cms_Theme::escape((string)$text, $flags);
     }
 
     /**
@@ -1291,9 +1368,16 @@ class Anon_Cms_Theme_View
      * @param array $attributes
      * @return string
      */
-    public function assets(string $path, ?string $type = null, array $attributes = []): string
+    /**
+     * 输出主题资源
+     * @param string $path 资源路径
+     * @param bool|string|null $forceNoCacheOrType 强制禁止缓存（true）或资源类型，不指定则根据文件后缀自动判断
+     * @param array $attributes 额外属性
+     * @return string
+     */
+    public function assets(string $path, $forceNoCacheOrType = null, array $attributes = []): string
     {
-        return Anon_Cms_Theme::assets($path, $type, $attributes);
+        return Anon_Cms_Theme::assets($path, $forceNoCacheOrType, $attributes);
     }
 
     /**
@@ -1338,31 +1422,45 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取文章数据
-     * @return array|null
+     * 获取文章数据对象
+     * @return Anon_Cms_Post|null
      */
-    public function post(): ?array
+    public function post(): ?Anon_Cms_Post
     {
-        return Anon_Cms::getPost();
+        $data = Anon_Cms::getPost();
+        return $data ? new Anon_Cms_Post($data) : null;
     }
 
     /**
-     * 获取页面数据
-     * @return array|null
+     * 获取页面数据对象
+     * @return Anon_Cms_Post|null
      */
-    public function page(): ?array
+    public function page(): ?Anon_Cms_Post
     {
-        return Anon_Cms::getPage();
+        $data = Anon_Cms::getPage();
+        return $data ? new Anon_Cms_Post($data) : null;
     }
 
     /**
-     * 获取最新文章列表
+     * 文章列表缓存
+     * @var array
+     */
+    private static $postsCache = [];
+
+    /**
+     * 获取最新文章列表（带缓存优化）
      * @param int $limit
-     * @return array
+     * @return Anon_Cms_Post[]
      */
     public function posts(int $limit = 10): array
     {
         $limit = max(1, min(50, $limit));
+        
+        // 性能优化：使用缓存，避免重复查询
+        $cacheKey = 'posts_' . $limit;
+        if (isset(self::$postsCache[$cacheKey])) {
+            return self::$postsCache[$cacheKey];
+        }
 
         $db = Anon_Database::getInstance();
         $rows = $db->db('posts')
@@ -1372,7 +1470,18 @@ class Anon_Cms_Theme_View
             ->limit($limit)
             ->get();
 
-        return is_array($rows) ? $rows : [];
+        $rawPosts = is_array($rows) ? $rows : [];
+        
+        // 转换为 Post 对象数组
+        $result = [];
+        foreach ($rawPosts as $postData) {
+            $result[] = new Anon_Cms_Post($postData);
+        }
+        
+        // 缓存结果（仅在同一请求内有效）
+        self::$postsCache[$cacheKey] = $result;
+        
+        return $result;
     }
 
     /**
@@ -1384,6 +1493,7 @@ class Anon_Cms_Theme_View
     {
         return new Anon_Cms_Theme_OptionsProxy();
     }
+
 }
 
 /**
@@ -1412,6 +1522,198 @@ class Anon_Cms_Theme_OptionsProxy
     public function set(string $name, $value): bool
     {
         return Anon_Cms_Options::set($name, $value);
+    }
+}
+
+/**
+ * 文章/页面对象类
+ * 提供类似 Typecho 的链式调用 API
+ */
+class Anon_Cms_Post
+{
+    /**
+     * @var array 文章数据
+     */
+    private $data;
+
+    /**
+     * @param array $data 文章数据数组
+     */
+    public function __construct(array $data)
+    {
+        $this->data = $data;
+    }
+
+    /**
+     * 获取文章 ID
+     * @return int
+     */
+    public function id(): int
+    {
+        return (int)($this->data['id'] ?? 0);
+    }
+
+    /**
+     * 获取标题
+     * @return string
+     */
+    public function title(): string
+    {
+        return (string)($this->data['title'] ?? '');
+    }
+
+    /**
+     * 获取内容
+     * @return string
+     */
+    public function content(): string
+    {
+        return (string)($this->data['content'] ?? '');
+    }
+
+    /**
+     * 获取摘要
+     * @param int $length 长度，默认 150
+     * @return string
+     */
+    public function excerpt(int $length = 150): string
+    {
+        $content = $this->content();
+        if (empty($content)) {
+            return '';
+        }
+
+        // 移除 HTML 标签
+        $text = strip_tags($content);
+        
+        // 移除 Markdown 标记
+        $text = preg_replace('/<!--markdown-->/', '', $text);
+        
+        // 移除 Markdown 语法符号
+        $text = preg_replace('/```[\s\S]*?```/u', ' ', $text);
+        $text = preg_replace('/`[^`]*`/u', ' ', $text);
+        $text = preg_replace('/!\[[^\]]*\]\([^)]+\)/u', ' ', $text);
+        $text = preg_replace('/\[[^\]]*\]\([^)]+\)/u', ' ', $text);
+        $text = preg_replace('/(^|\s)#+\s+/u', ' ', $text);
+        $text = preg_replace('/[*_~>#-]{1,3}/u', ' ', $text);
+        
+        // 清理多余空白
+        $text = preg_replace('/\s+/u', ' ', $text);
+        $text = trim($text);
+        
+        // 截取指定长度
+        if (mb_strlen($text, 'UTF-8') <= $length) {
+            return $text;
+        }
+        
+        return mb_substr($text, 0, $length, 'UTF-8') . '...';
+    }
+
+    /**
+     * 获取 Slug
+     * @return string
+     */
+    public function slug(): string
+    {
+        return (string)($this->data['slug'] ?? '');
+    }
+
+    /**
+     * 获取类型
+     * @return string
+     */
+    public function type(): string
+    {
+        return (string)($this->data['type'] ?? '');
+    }
+
+    /**
+     * 获取状态
+     * @return string
+     */
+    public function status(): string
+    {
+        return (string)($this->data['status'] ?? '');
+    }
+
+    /**
+     * 获取创建时间
+     * @return int
+     */
+    public function created(): int
+    {
+        $createdAt = $this->data['created_at'] ?? null;
+        if (is_string($createdAt)) {
+            return (int)strtotime($createdAt);
+        }
+        return (int)$createdAt;
+    }
+
+    /**
+     * 获取创建时间 格式化
+     * @param string $format 格式，默认 'Y-m-d H:i:s'
+     * @return string
+     */
+    public function date(string $format = 'Y-m-d H:i:s'): string
+    {
+        $timestamp = $this->created();
+        return $timestamp > 0 ? date($format, $timestamp) : '';
+    }
+
+    /**
+     * 获取更新时间
+     * @return int
+     */
+    public function modified(): int
+    {
+        $updatedAt = $this->data['updated_at'] ?? null;
+        if (is_string($updatedAt)) {
+            return (int)strtotime($updatedAt);
+        }
+        return (int)$updatedAt;
+    }
+
+    /**
+     * 获取分类 ID
+     * @return int|null
+     */
+    public function category(): ?int
+    {
+        $categoryId = $this->data['category_id'] ?? null;
+        return $categoryId && $categoryId > 0 ? (int)$categoryId : null;
+    }
+
+    /**
+     * 获取原始数据
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return $this->data;
+    }
+
+    /**
+     * 获取字段值
+     * @param string $key 字段名
+     * @param mixed $default 默认值
+     * @return mixed
+     */
+    public function get(string $key, $default = null)
+    {
+        if (isset($this->data[$key])) {
+            return $this->data[$key];
+        }
+        return $default;
+    }
+
+    /**
+     * 检查字段是否存在
+     * @param string $key 字段名
+     * @return bool
+     */
+    public function has(string $key): bool
+    {
+        return isset($this->data[$key]);
     }
 }
 

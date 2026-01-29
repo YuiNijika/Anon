@@ -1,4 +1,7 @@
-(() => {
+// 性能优化：使用 requestIdleCallback 延迟非关键代码执行
+(function () {
+  'use strict';
+
   // 主题切换功能
   const themeToggle = document.getElementById('theme-toggle');
   if (!themeToggle) return;
@@ -70,10 +73,19 @@
   // 绑定点击事件
   themeToggle.addEventListener('click', toggleTheme);
 
-  // 初始化
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTheme);
+  // 初始化（延迟执行，不阻塞页面渲染）
+  function initWhenReady() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTheme);
+    } else {
+      initTheme();
+    }
+  }
+
+  // 使用 requestIdleCallback 或 setTimeout 延迟初始化
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initWhenReady, { timeout: 1000 });
   } else {
-    initTheme();
+    setTimeout(initWhenReady, 0);
   }
 })();

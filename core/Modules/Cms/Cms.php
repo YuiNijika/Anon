@@ -5,6 +5,13 @@ class Anon_Cms
 {
     private const TEMPLATE_EXTENSIONS = ['php', 'html', 'htm'];
     private static $pageStartTime = null;
+    
+    /**
+     * 文章/页面数据缓存（请求级缓存）
+     * @var array
+     */
+    private static $postCache = [];
+    private static $pageCache = [];
 
     /**
      * 获取页面类型
@@ -185,7 +192,7 @@ class Anon_Cms
     }
 
     /**
-     * 获取文章数据，如果不存在则返回错误页面
+     * 获取文章数据，如果不存在则返回错误页面（带缓存优化）
      * @param int|null $id 文章 ID，如果为 null 则从作用域变量获取
      * @return array|null 文章数据，如果不存在则返回 null（已渲染错误页面）
      */
@@ -205,6 +212,12 @@ class Anon_Cms
             return null;
         }
 
+        // 性能优化：使用缓存，避免重复查询
+        $cacheKey = 'post_' . $id;
+        if (isset(self::$postCache[$cacheKey])) {
+            return self::$postCache[$cacheKey];
+        }
+
         $db = Anon_Database::getInstance();
         $post = $db->db('posts')
             ->where('id', $id)
@@ -217,11 +230,14 @@ class Anon_Cms
             return null;
         }
 
+        // 缓存结果（仅在同一请求内有效）
+        self::$postCache[$cacheKey] = $post;
+
         return $post;
     }
 
     /**
-     * 获取页面数据，如果不存在则返回错误页面
+     * 获取页面数据，如果不存在则返回错误页面（带缓存优化）
      * @param string|null $slug 页面 slug，如果为 null 则从作用域变量获取
      * @return array|null 页面数据，如果不存在则返回 null（已渲染错误页面）
      */
@@ -236,6 +252,12 @@ class Anon_Cms
             return null;
         }
 
+        // 性能优化：使用缓存，避免重复查询
+        $cacheKey = 'page_' . md5($slug);
+        if (isset(self::$pageCache[$cacheKey])) {
+            return self::$pageCache[$cacheKey];
+        }
+
         $db = Anon_Database::getInstance();
         $page = $db->db('posts')
             ->where('slug', $slug)
@@ -248,6 +270,9 @@ class Anon_Cms
             return null;
         }
 
+        // 缓存结果（仅在同一请求内有效）
+        self::$pageCache[$cacheKey] = $page;
+
         return $page;
     }
 
@@ -259,11 +284,11 @@ class Anon_Cms
      */
     private static function renderError(int $code, string $message): void
     {
-        $errorTemplate = Anon_Cms_Theme::findTemplate('error');
-        if ($errorTemplate) {
-            extract(['code' => $code, 'message' => $message], EXTR_SKIP);
-            include $errorTemplate;
-        }
+        // 使用 Anon_Cms_Theme::render() 渲染，确保 $this 对象存在
+        Anon_Cms_Theme::render('error', [
+            'code' => $code,
+            'message' => $message,
+        ]);
         exit;
     }
 }
