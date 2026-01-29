@@ -1,75 +1,14 @@
 # Anon Framework
 
-> 一个简洁优雅的 PHP API 开发框架
-
-开发赞助: [Cyber蝈蝈总](https://github.com/Katock-Cricket)
-
-[配套前端](https://github.com/YuiNijika/AnonClient) | [GitHub 仓库](https://github.com/YuiNijika/Anon)
+> 一个简洁优雅的 PHP `API&CMS` 开发框架
+>
+> 当然你也可以直接安装`CMS`模式把它当作博客系统来使用。
 
 ## PHP 版本要求
 
 PHP 7.4 - 8.4
 
 > **注意**：当前分支代码为开发版，生产环境请使用[稳定版](https://github.com/YuiNijika/Anon/releases)
-
----
-
-## 🚀 快速开始
-
-### 创建第一个 API
-
-```php
-// server/app/Router/Hello/World.php
-<?php
-if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-const Anon_Http_RouterMeta = [
-    'header' => true,
-    'requireLogin' => false,
-    'method' => 'GET',
-];
-
-try {
-    Anon_Http_Response::success([
-        'message' => 'Hello World!',
-        'time' => date('Y-m-d H:i:s')
-    ], '请求成功');
-} catch (Exception $e) {
-    Anon_Http_Response::handleException($e);
-}
-```
-
-访问：`GET /hello/world`
-
-### 处理 POST 请求
-
-```php
-// server/app/Router/Api/User.php
-<?php
-if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-const Anon_Http_RouterMeta = [
-    'header' => true,
-    'requireLogin' => true,
-    'method' => 'POST',
-];
-
-try {
-    Anon_Http_Request::requireMethod('POST');
-    $data = Anon_Http_Request::validate([
-        'username' => '用户名不能为空',
-        'email' => '邮箱不能为空'
-    ]);
-    
-    $userInfo = Anon_Http_Request::requireAuth();
-    
-    // 业务逻辑...
-    
-    Anon_Http_Response::success(['id' => 1], '创建成功');
-} catch (Exception $e) {
-    Anon_Http_Response::handleException($e);
-}
-```
 
 ---
 
@@ -109,34 +48,9 @@ try {
 
 ---
 
-## 📋 开发规范
-
-详细的开发规范请参考：[开发规范文档](https://yuinijika.github.io/Anon/guide/coding-standards)
-
-包含内容：
-
-- **代码风格**：缩进、换行、编码等格式规范
-- **命名规范**：类名、方法名、变量名、常量名等命名约定
-- **注释规范**：注释风格和最佳实践
-- **路由文件规范**：路由文件的标准结构和必需元素
-- **错误处理规范**：统一的异常处理和错误响应
-- **安全规范**：输入验证、输出处理、数据库操作安全
-- **代码组织规范**：目录结构和配置管理
-- **Git 提交规范**：提交信息格式和类型说明
-
----
-
 ## 📄 许可证
 
 MIT License
 
-Copyright (c) 2024-2025 鼠子(YuiNijika)
+Copyright (c) 2024-2026 鼠子(YuiNijika)
 
----
-
-## 🔗 相关链接
-
-- 📖 [在线文档](https://yuinijika.github.io/Anon/) - 完整的开发文档
-- 💻 [GitHub 仓库](https://github.com/YuiNijika/Anon)
-- 🎨 [配套前端](https://github.com/YuiNijika/AnonClient)
-- 🐛 [问题反馈](https://github.com/YuiNijika/Anon/issues)
