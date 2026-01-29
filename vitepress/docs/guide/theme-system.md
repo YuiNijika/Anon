@@ -289,8 +289,267 @@ const Anon_PageMeta = [
 - `$this->post()` - 获取当前文章对象（`Anon_Cms_Post`）
 - `$this->page()` - 获取当前页面对象（`Anon_Cms_Post`）
 - `$this->posts($limit)` - 获取文章列表（返回 `Anon_Cms_Post[]` 数组）
+- `$this->permalink($post)` - 生成永久链接
 - `$this->options()->get($name, $default)` / `$this->options()->set($name, $value)` - 访问选项
 - `$this->get('key')` - 读取 `render()` 传入的数据
+
+### permalink() 方法
+
+生成文章、页面、分类或标签的永久链接：
+
+```php
+$this->permalink($post = null): string
+```
+
+**参数：**
+
+- `$post`: 可选，可以是：
+  - `Anon_Cms_Post` 对象
+  - 文章/页面数据数组
+  - `null`（使用当前文章/页面）
+
+**返回值：**
+
+- 返回永久链接 URL 字符串
+
+**功能特点：**
+
+1. **自动读取路由配置**：从 `options` 表的 `routes` 字段读取路由规则
+2. **智能匹配路由**：根据文章/页面类型（`post`、`page`、`category`、`tag`）匹配对应的路由模板
+3. **参数替换**：支持替换路由中的参数：
+   - `{id}` - 文章/页面 ID
+   - `{slug}` - 文章/页面 slug（自动 URL 编码）
+   - `{year}`、`{month}`、`{day}` - 发布日期
+4. **默认回退**：如果没有找到匹配的路由，使用默认规则：
+   - 文章：`/post/{id}`
+   - 页面：`/{slug}`
+
+**使用示例：**
+
+```php
+<!-- 在 post.php 或 page.php 中，使用当前文章/页面 -->
+<a href="<?php echo $this->permalink(); ?>">
+  <?php echo $this->escape($this->post()->title()); ?>
+</a>
+
+<!-- 在 index.php 中，遍历文章列表 -->
+<?php foreach ($this->posts(10) as $post): ?>
+  <article>
+    <h2>
+      <a href="<?php echo $this->permalink($post); ?>">
+        <?php echo $this->escape($post->title()); ?>
+      </a>
+    </h2>
+    <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+  </article>
+<?php endforeach; ?>
+
+<!-- 传入文章对象 -->
+<?php $post = $this->post(); ?>
+<?php if ($post): ?>
+  <a href="<?php echo $this->permalink($post); ?>">查看文章</a>
+<?php endif; ?>
+
+<!-- 传入数组数据 -->
+<?php
+$postData = [
+  'id' => 1,
+  'slug' => 'hello-world',
+  'type' => 'post',
+];
+?>
+<a href="<?php echo $this->permalink($postData); ?>">链接</a>
+```
+
+**路由规则示例：**
+
+假设在管理后台配置了以下路由规则：
+
+- `/post/{id}` → `post`（文章）
+- `/{slug}` → `page`（独立页面）
+- `/category/{slug}` → `category`（分类）
+- `/tag/{slug}` → `tag`（标签）
+
+当调用 `$this->permalink($post)` 时，系统会：
+
+1. 检查文章类型（如 `post`）
+2. 查找匹配的路由模板（找到 `/post/{id}`）
+3. 替换参数（将 `{id}` 替换为文章 ID）
+4. 返回生成的 URL（如 `/post/123`）
+
+### posts() 方法 - 分页支持
+
+`posts()` 方法支持分页功能，可以自动处理文章列表的分页：
+
+```php
+$this->posts(int $pageSize = 10, ?int $page = null): array
+```
+
+**参数：**
+
+- `$pageSize`: 每页显示的文章数量，默认 10
+- `$page`: 当前页码，如果为 `null` 则自动从 URL 的 `?page=` 参数获取
+
+**返回值：**
+
+- 返回当前页的文章数组（`Anon_Cms_Post[]`）
+
+**分页逻辑：**
+
+- 如果 `$pageSize <= 0`，则不分页，返回最新的文章列表
+- 自动从 URL 查询参数 `?page=2` 获取当前页码
+- 自动计算总页数和分页信息
+
+**使用示例：**
+
+```php
+<!-- 获取分页的文章列表，每页 12 条 -->
+<?php $posts = $this->posts(12); ?>
+
+<!-- 遍历文章 -->
+<?php foreach ($posts as $post): ?>
+  <article>
+    <h2>
+      <a href="<?php echo $this->permalink($post); ?>">
+        <?php echo $this->escape($post->title()); ?>
+      </a>
+    </h2>
+    <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+  </article>
+<?php endforeach; ?>
+```
+
+### pageNav() 方法 - 分页导航
+
+获取分页导航数据，返回结构化的分页信息：
+
+```php
+$this->pageNav(): ?array
+```
+
+**返回值：**
+
+- 如果有分页且总页数大于 1，返回分页数据数组
+- 如果没有分页或只有一页，返回 `null`
+
+**返回数据结构：**
+
+```php
+[
+    'prev' => [
+        'page' => 1,           // 上一页页码
+        'link' => '/?page=1'   // 上一页链接
+    ] | null,                  // 如果没有上一页则为 null
+    'next' => [
+        'page' => 3,           // 下一页页码
+        'link' => '/?page=3'   // 下一页链接
+    ] | null,                  // 如果没有下一页则为 null
+    'pages' => [               // 页码数组
+        [
+            'page' => 1,       // 页码
+            'link' => '/',     // 链接
+            'current' => false // 是否为当前页
+        ],
+        [
+            'page' => 2,
+            'link' => '/?page=2',
+            'current' => true  // 当前页
+        ],
+        // ...
+    ],
+    'current' => 2,            // 当前页码
+    'total' => 5               // 总页数
+]
+```
+
+**使用示例：**
+
+```php
+<!-- 获取分页导航 -->
+<?php $nav = $this->pageNav(); ?>
+<?php if ($nav): ?>
+  <div class="pagination">
+    <!-- 上一页 -->
+    <?php if ($nav['prev']): ?>
+      <a href="<?php echo $this->escape($nav['prev']['link']); ?>" class="prev">上一页</a>
+    <?php endif; ?>
+    
+    <!-- 页码 -->
+    <?php foreach ($nav['pages'] as $page): ?>
+      <?php if ($page['current']): ?>
+        <span class="current"><?php echo $page['page']; ?></span>
+      <?php else: ?>
+        <a href="<?php echo $this->escape($page['link']); ?>"><?php echo $page['page']; ?></a>
+      <?php endif; ?>
+    <?php endforeach; ?>
+    
+    <!-- 下一页 -->
+    <?php if ($nav['next']): ?>
+      <a href="<?php echo $this->escape($nav['next']['link']); ?>" class="next">下一页</a>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
+```
+
+**完整示例 - 带分页的文章列表页：**
+
+```php
+<!-- app/Theme/default/index.php -->
+<?php $this->components('head'); ?>
+
+<div class="posts">
+  <?php $posts = $this->posts(12); ?>
+  
+  <?php if (empty($posts)): ?>
+    <p>暂无文章</p>
+  <?php else: ?>
+    <?php foreach ($posts as $post): ?>
+      <article>
+        <h2>
+          <a href="<?php echo $this->permalink($post); ?>">
+            <?php echo $this->escape($post->title()); ?>
+          </a>
+        </h2>
+        <p><?php echo $this->escape($post->excerpt(150)); ?></p>
+        <time><?php echo $post->date('Y-m-d'); ?></time>
+      </article>
+    <?php endforeach; ?>
+    
+    <!-- 分页导航 -->
+    <?php $nav = $this->pageNav(); ?>
+    <?php if ($nav): ?>
+      <nav class="pagination">
+        <?php if ($nav['prev']): ?>
+          <a href="<?php echo $this->escape($nav['prev']['link']); ?>">上一页</a>
+        <?php endif; ?>
+        
+        <?php foreach ($nav['pages'] as $page): ?>
+          <?php if ($page['current']): ?>
+            <span class="current"><?php echo $page['page']; ?></span>
+          <?php else: ?>
+            <a href="<?php echo $this->escape($page['link']); ?>"><?php echo $page['page']; ?></a>
+          <?php endif; ?>
+        <?php endforeach; ?>
+        
+        <?php if ($nav['next']): ?>
+          <a href="<?php echo $this->escape($nav['next']['link']); ?>">下一页</a>
+        <?php endif; ?>
+      </nav>
+    <?php endif; ?>
+  <?php endif; ?>
+</div>
+
+<?php $this->components('foot'); ?>
+```
+
+**URL 格式：**
+
+分页链接会自动添加到当前 URL 的查询参数中：
+
+- 首页：`/`
+- 第 2 页：`/?page=2`
+- 第 3 页：`/?page=3`
+- 如果当前 URL 已有其他参数：`/category/tech?page=2`
 
 ## 模板 API
 
@@ -1451,6 +1710,7 @@ try {
 **错误类型判断：**
 
 系统会自动判断错误类型：
+
 - 组件调用错误：输出 HTML 错误信息，继续渲染
 - 系统级错误（如 `Call to undefined method`、`Class not found`）：停止主题加载，显示系统级错误页面
 - 普通异常：按正常异常处理流程

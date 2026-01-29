@@ -53,16 +53,23 @@ export interface BasicSettings {
   subtitle: string
   description: string
   keywords: string
-  allow_register: boolean
-  api_prefix: string
-  api_enabled: boolean
-  access_log_enabled: boolean
   upload_allowed_types: {
     image: string
     media: string
     document: string
     other: string
   }
+}
+
+export interface PageSettings {
+  routes: Record<string, string>
+}
+
+export interface PermissionSettings {
+  allow_register: boolean
+  access_log_enabled: boolean
+  api_prefix: string
+  api_enabled: boolean
 }
 
 export const AdminApi = {
@@ -80,6 +87,22 @@ export const AdminApi = {
 
   updateBasicSettings: (api: ApiClient, data: BasicSettings) => {
     return api.admin.post<BasicSettings>('/settings/basic', data)
+  },
+
+  getPermissionSettings: (api: ApiClient) => {
+    return api.admin.get<PermissionSettings>('/settings/permission')
+  },
+
+  updatePermissionSettings: (api: ApiClient, data: PermissionSettings) => {
+    return api.admin.post<PermissionSettings>('/settings/permission', data)
+  },
+
+  getPageSettings: (api: ApiClient) => {
+    return api.admin.get<PageSettings>('/settings/page')
+  },
+
+  updatePageSettings: (api: ApiClient, data: PageSettings) => {
+    return api.admin.post<PageSettings>('/settings/page', data)
   },
 
   getStatistics: (api: ApiClient) => {

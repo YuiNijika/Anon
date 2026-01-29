@@ -1,10 +1,70 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form, Input, Button, Switch, App, Space, Divider, Typography, Select } from 'antd'
+import { Form, Input, Button, App, Space, Divider, Typography, Select, Radio, Alert } from 'antd'
 import { useApiAdmin } from '@/hooks'
-import { AdminApi, type BasicSettings } from '@/services/admin'
+import { AdminApi, type BasicSettings, type PageSettings } from '@/services/admin'
 
 const { TextArea } = Input
-const { Title } = Typography
+const { Title, Text } = Typography
+
+// 路径预设风格
+const PATH_STYLES = [
+  {
+    value: 'default',
+    label: '默认风格',
+    paths: {
+      post: '/archives/{id}/',
+      page: '/{slug}.html',
+      category: '/category/{slug}/',
+      tag: '/tag/{slug}/',
+    },
+  },
+  {
+    value: 'wordpress',
+    label: 'WordPress 风格',
+    paths: {
+      post: '/archives/{slug}.html',
+      page: '/{slug}.html',
+      category: '/category/{slug}/',
+      tag: '/tag/{slug}/',
+    },
+  },
+  {
+    value: 'date',
+    label: '按日期归档',
+    paths: {
+      post: '/{year}/{month}/{day}/{slug}.html',
+      page: '/{slug}.html',
+      category: '/category/{slug}/',
+      tag: '/tag/{slug}/',
+    },
+  },
+  {
+    value: 'category',
+    label: '按分类归档',
+    paths: {
+      post: '/{category}/{slug}.html',
+      page: '/{slug}.html',
+      category: '/category/{slug}/',
+      tag: '/tag/{slug}/',
+    },
+  },
+  {
+    value: 'custom',
+    label: '个性化定义',
+    paths: {
+      post: '',
+      page: '',
+      category: '',
+      tag: '',
+    },
+  },
+]
+
+// 可用参数说明
+const POST_PARAMS = ['{id}', '{slug}', '{category}', '{directory}', '{year}', '{month}', '{day}']
+const PAGE_PARAMS = ['{id}', '{slug}', '{directory}']
+const CATEGORY_PARAMS = ['{id}', '{slug}', '{directory}']
+const TAG_PARAMS = ['{id}', '{slug}']
 
 export default function SettingsBasic() {
   const apiAdmin = useApiAdmin()
@@ -13,6 +73,7 @@ export default function SettingsBasic() {
   const message = app.message
   const [loading, setLoading] = useState(false)
   const fetchingRef = useRef(false)
+  const [pathStyle, setPathStyle] = useState<string>('default')
 
   useEffect(() => {
     loadSettings()
@@ -38,47 +99,88 @@ export default function SettingsBasic() {
     fetchingRef.current = true
     try {
       setLoading(true)
-      const res = await AdminApi.getBasicSettings(apiAdmin)
-      if (res.data) {
-        const uploadTypes = res.data.upload_allowed_types || {}
 
-        form.setFieldsValue({
-          ...res.data,
-          keywords: stringToArray(res.data.keywords),
+      // 并行加载基本设置和页面设置
+      const [basicRes, pageRes] = await Promise.all([
+        AdminApi.getBasicSettings(apiAdmin),
+        AdminApi.getPageSettings(apiAdmin),
+      ])
+
+      if (basicRes.data) {
+        const uploadTypes = basicRes.data.upload_allowed_types || {}
+
+        const formData: any = {
+          ...basicRes.data,
+          keywords: stringToArray(basicRes.data.keywords),
           upload_allowed_types: {
             image: stringToArray(uploadTypes.image),
             media: stringToArray(uploadTypes.media),
             document: stringToArray(uploadTypes.document),
             other: stringToArray(uploadTypes.other),
           },
-        })
+        }
+
+        // 加载页面路径设置
+        if (pageRes.data) {
+          const routes = pageRes.data.routes || {}
+          const postPath = Object.entries(routes).find(([_, template]) => template === 'post')?.[0] || '/archives/{id}/'
+          const pagePath = Object.entries(routes).find(([_, template]) => template === 'page')?.[0] || '/{slug}.html'
+          const categoryPath = Object.entries(routes).find(([_, template]) => template === 'category')?.[0] || '/category/{slug}/'
+          const tagPath = Object.entries(routes).find(([_, template]) => template === 'tag')?.[0] || '/tag/{slug}/'
+
+          // 检测路径风格
+          const detectedStyle =
+            PATH_STYLES.find(
+              (style) =>
+                style.paths.post === postPath &&
+                style.paths.page === pagePath &&
+                style.paths.category === categoryPath &&
+                style.paths.tag === tagPath
+            )?.value || 'custom'
+          setPathStyle(detectedStyle)
+
+          formData.postPath = postPath
+          formData.postPathStyle = detectedStyle
+          formData.pagePath = pagePath
+          formData.categoryPath = categoryPath
+          formData.tagPath = tagPath
+        }
+
+        form.setFieldsValue(formData)
       }
     } catch (err) {
-      message.error('加载常规设置失败')
+      message.error('加载设置失败')
     } finally {
       setLoading(false)
       fetchingRef.current = false
     }
   }
 
-  const handleSubmit = async (values: BasicSettings) => {
+  const handlePathStyleChange = (style: string) => {
+    setPathStyle(style)
+    const selectedStyle = PATH_STYLES.find((s) => s.value === style)
+    if (selectedStyle && selectedStyle.paths) {
+      // 更新所有路径，保持风格一致
+      form.setFieldsValue({
+        postPath: selectedStyle.paths.post,
+        pagePath: selectedStyle.paths.page,
+        categoryPath: selectedStyle.paths.category,
+        tagPath: selectedStyle.paths.tag,
+      })
+    }
+  }
+
+  const handleSubmit = async (values: any) => {
     try {
       setLoading(true)
 
-      // 直接使用 onFinish 的 values，它应该包含所有字段值
-      // 确保布尔值字段存在，即使为 false 也要明确发送
-      // 将数组转换为逗号分隔的字符串
+      // 保存基本设置
       const uploadTypes = values.upload_allowed_types || {}
-
-      const submitData: BasicSettings = {
+      const basicData: BasicSettings = {
         title: values.title || '',
         subtitle: values.subtitle || 'Powered by AnonEcho',
         description: values.description || '',
         keywords: arrayToString(values.keywords),
-        allow_register: values.allow_register === true, // 明确转换为布尔值
-        api_enabled: values.api_enabled === true, // 明确转换为布尔值
-        access_log_enabled: values.access_log_enabled !== false, // 默认为 true
-        api_prefix: values.api_prefix || '/api',
         upload_allowed_types: {
           image: arrayToString(uploadTypes.image),
           media: arrayToString(uploadTypes.media),
@@ -87,16 +189,30 @@ export default function SettingsBasic() {
         },
       }
 
-      // 调试信息
-      console.log('Form values from onFinish:', values)
-      console.log('Submit data:', JSON.stringify(submitData, null, 2))
+      await AdminApi.updateBasicSettings(apiAdmin, basicData)
 
-      await AdminApi.updateBasicSettings(apiAdmin, submitData)
-      message.success('常规设置已保存')
-      // 保存成功后重新加载数据，确保表单显示最新值
+      // 保存页面路径设置
+      const routes: Record<string, string> = {}
+      if (values.postPath && values.postPath.trim()) {
+        routes[values.postPath.trim()] = 'post'
+      }
+      if (values.pagePath && values.pagePath.trim()) {
+        routes[values.pagePath.trim()] = 'page'
+      }
+      if (values.categoryPath && values.categoryPath.trim()) {
+        routes[values.categoryPath.trim()] = 'category'
+      }
+      if (values.tagPath && values.tagPath.trim()) {
+        routes[values.tagPath.trim()] = 'tag'
+      }
+
+      const pageData: PageSettings = { routes }
+      await AdminApi.updatePageSettings(apiAdmin, pageData)
+
+      message.success('设置已保存')
       await loadSettings()
     } catch (err) {
-      message.error('保存常规设置失败')
+      message.error('保存设置失败')
     } finally {
       setLoading(false)
     }
@@ -138,48 +254,6 @@ export default function SettingsBasic() {
             style={{ width: '100%' }}
             allowClear
           />
-        </Form.Item>
-
-        <Divider />
-
-        <Title level={4}>用户与访问</Title>
-        <Form.Item
-          name="allow_register"
-          label="允许注册"
-          valuePropName="checked"
-          extra="允许用户自行注册账户"
-        >
-          <Switch />
-        </Form.Item>
-
-        <Form.Item
-          name="access_log_enabled"
-          label="启用访问日志"
-          valuePropName="checked"
-          extra="记录网站的访问日志"
-        >
-          <Switch />
-        </Form.Item>
-
-        <Divider />
-
-        <Title level={4}>API 设置</Title>
-        <Form.Item
-          name="api_enabled"
-          label="启用 API"
-          valuePropName="checked"
-          extra="启用后，系统将提供 RESTful API 接口"
-        >
-          <Switch />
-        </Form.Item>
-
-        <Form.Item
-          name="api_prefix"
-          label="API 前缀"
-          rules={[{ required: true, message: '请输入 API 前缀' }]}
-          extra="API 接口的前缀路径，必须以 / 开头"
-        >
-          <Input placeholder="/api" />
         </Form.Item>
 
         <Divider />
@@ -304,6 +378,145 @@ export default function SettingsBasic() {
               { value: 'ipa', label: 'ipa' },
             ]}
           />
+        </Form.Item>
+
+        <Divider />
+
+        {/* 链接设置 */}
+        <Title level={4}>链接设置</Title>
+
+        <Alert
+          message="提示"
+          description="一旦你选择了某种链接风格请不要轻易修改它，这可能会影响搜索引擎收录和外部链接。"
+          type="warning"
+          showIcon
+          style={{ marginBottom: '24px' }}
+        />
+
+        {/* 文章路径设置 */}
+        <Title level={5} style={{ marginTop: '24px', marginBottom: '16px' }}>自定义文章路径</Title>
+        <div style={{ marginBottom: '16px' }}>
+          <Text type="secondary" style={{ fontSize: '13px' }}>
+            选择一种合适的文章静态路径风格，使得你的网站链接更加友好。
+          </Text>
+        </div>
+
+        <Form.Item name="postPathStyle" label="路径风格">
+          <Radio.Group
+            value={pathStyle}
+            onChange={(e) => handlePathStyleChange(e.target.value)}
+            options={PATH_STYLES.map((style) => ({
+              label: style.label,
+              value: style.value,
+            }))}
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="postPath"
+          label="文章路径"
+          rules={[
+            { required: true, message: '请输入文章路径' },
+            { pattern: /^\/.*/, message: '路径必须以 / 开头' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve()
+                const hasParam = POST_PARAMS.some((param) => value.includes(param))
+                if (!hasParam) {
+                  return Promise.reject(new Error('路径中至少包含一个可用参数'))
+                }
+                return Promise.resolve()
+              },
+            },
+          ]}
+          extra={
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+              可用参数: {POST_PARAMS.join(', ')}
+            </div>
+          }
+        >
+          <Input placeholder="/archives/{id}/" />
+        </Form.Item>
+
+        {/* 独立页面路径设置 */}
+        <Form.Item
+          name="pagePath"
+          label="页面路径"
+          rules={[
+            { required: true, message: '请输入页面路径' },
+            { pattern: /^\/.*/, message: '路径必须以 / 开头' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve()
+                const hasParam = PAGE_PARAMS.some((param) => value.includes(param))
+                if (!hasParam) {
+                  return Promise.reject(new Error('路径中至少包含一个可用参数'))
+                }
+                return Promise.resolve()
+              },
+            },
+          ]}
+          extra={
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+              可用参数: {PAGE_PARAMS.join(', ')}
+            </div>
+          }
+        >
+          <Input placeholder="/{slug}.html" />
+        </Form.Item>
+
+        {/* 分类路径设置 */}
+        <Form.Item
+          name="categoryPath"
+          label="分类路径"
+          rules={[
+            { required: true, message: '请输入分类路径' },
+            { pattern: /^\/.*/, message: '路径必须以 / 开头' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve()
+                const hasParam = CATEGORY_PARAMS.some((param) => value.includes(param))
+                if (!hasParam) {
+                  return Promise.reject(new Error('路径中至少包含一个可用参数'))
+                }
+                return Promise.resolve()
+              },
+            },
+          ]}
+          extra={
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+              可用参数: {CATEGORY_PARAMS.join(', ')}
+            </div>
+          }
+        >
+          <Input placeholder="/category/{slug}/" />
+        </Form.Item>
+
+        {/* 标签路径设置 */}
+        <Form.Item
+          name="tagPath"
+          label="标签路径"
+          rules={[
+            { required: true, message: '请输入标签路径' },
+            { pattern: /^\/.*/, message: '路径必须以 / 开头' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve()
+                const hasParam = TAG_PARAMS.some((param) => value.includes(param))
+                if (!hasParam) {
+                  return Promise.reject(new Error('路径中至少包含一个可用参数'))
+                }
+                return Promise.resolve()
+              },
+            },
+          ]}
+          extra={
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+              可用参数: {TAG_PARAMS.join(', ')}
+            </div>
+          }
+        >
+          <Input placeholder="/tag/{slug}/" />
         </Form.Item>
 
         <Form.Item>

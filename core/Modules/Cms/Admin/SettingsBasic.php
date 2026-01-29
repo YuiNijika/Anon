@@ -59,10 +59,6 @@ class Anon_Cms_Admin_SettingsBasic
                 'subtitle' => Anon_Cms_Options::get('subtitle', 'Powered by AnonEcho'),
                 'description' => Anon_Cms_Options::get('description', ''),
                 'keywords' => Anon_Cms_Options::get('keywords', ''),
-                'allow_register' => $toBool(Anon_Cms_Options::get('allow_register', '0')),
-                'api_prefix' => Anon_Cms_Options::get('apiPrefix', '/api'),
-                'api_enabled' => $toBool(Anon_Cms_Options::get('api_enabled', '0')),
-                'access_log_enabled' => $toBool(Anon_Cms_Options::get('access_log_enabled', '1')),
                 'upload_allowed_types' => $uploadAllowedTypes,
             ];
             
@@ -121,22 +117,6 @@ class Anon_Cms_Admin_SettingsBasic
             $keywords = isset($data['keywords']) ? trim($data['keywords']) : '';
             
             /**
-             * 处理布尔值字段，如果字段不存在则使用默认值
-             */
-            $allowRegister = isset($data['allow_register']) ? $toBoolString($data['allow_register']) : '0';
-            $apiPrefix = isset($data['api_prefix']) ? trim($data['api_prefix']) : '/api';
-            $apiEnabled = isset($data['api_enabled']) ? $toBoolString($data['api_enabled']) : '0';
-            $accessLogEnabled = isset($data['access_log_enabled']) ? $toBoolString($data['access_log_enabled']) : '1';
-            
-            /**
-             * 调试信息（生产环境可移除）
-             */
-            if (Anon_Debug::isEnabled()) {
-                error_log('Settings Basic POST Data: ' . json_encode($data));
-                error_log('Parsed api_enabled: ' . $apiEnabled);
-            }
-            
-            /**
              * 处理上传允许类型配置
              */
             $uploadAllowedTypes = [];
@@ -159,19 +139,10 @@ class Anon_Cms_Admin_SettingsBasic
                 return;
             }
 
-            if (empty($apiPrefix) || $apiPrefix[0] !== '/') {
-                Anon_Http_Response::error('API 前缀必须以 / 开头', 400);
-                return;
-            }
-
             Anon_Cms_Options::set('title', $siteName);
             Anon_Cms_Options::set('subtitle', $siteSubtitle);
             Anon_Cms_Options::set('description', $siteDescription);
             Anon_Cms_Options::set('keywords', $keywords);
-            Anon_Cms_Options::set('allow_register', $allowRegister);
-            Anon_Cms_Options::set('apiPrefix', $apiPrefix);
-            Anon_Cms_Options::set('api_enabled', $apiEnabled);
-            Anon_Cms_Options::set('access_log_enabled', $accessLogEnabled);
             Anon_Cms_Options::set('upload_allowed_types', json_encode($uploadAllowedTypes, JSON_UNESCAPED_UNICODE));
             
             /**
@@ -184,10 +155,6 @@ class Anon_Cms_Admin_SettingsBasic
                 'subtitle' => $siteSubtitle,
                 'description' => $siteDescription,
                 'keywords' => $keywords,
-                'allow_register' => $allowRegister === '1',
-                'api_prefix' => $apiPrefix,
-                'api_enabled' => $apiEnabled === '1',
-                'access_log_enabled' => $accessLogEnabled === '1',
                 'upload_allowed_types' => $uploadAllowedTypes,
             ], '保存设置成功');
         } catch (Exception $e) {

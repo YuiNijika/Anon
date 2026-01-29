@@ -2,6 +2,8 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 require_once __DIR__ . '/SettingsBasic.php';
+require_once __DIR__ . '/SettingsPermission.php';
+require_once __DIR__ . '/SettingsPage.php';
 require_once __DIR__ . '/SettingsTheme.php';
 require_once __DIR__ . '/Categories.php';
 require_once __DIR__ . '/Tags.php';
@@ -106,6 +108,34 @@ class Anon_Cms_Admin
                 Anon_Cms_Admin_SettingsBasic::get();
             } elseif ($requestMethod === 'POST') {
                 Anon_Cms_Admin_SettingsBasic::save();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/settings/permission', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_SettingsPermission::get();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_SettingsPermission::save();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/settings/page', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_SettingsPage::get();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_SettingsPage::save();
             } else {
                 Anon_Http_Response::error('不支持的请求方法', 405);
             }

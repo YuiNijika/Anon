@@ -800,7 +800,7 @@ class Anon_System_Install
             ], JSON_UNESCAPED_UNICODE),
             'routes' => json_encode([
                 '/post/{id}' => 'post',
-                '/page/{slug}' => 'page',
+                '/{slug}' => 'page',
             ], JSON_UNESCAPED_UNICODE),
         ];
 

@@ -1448,26 +1448,78 @@ class Anon_Cms_Theme_View
     private static $postsCache = [];
 
     /**
-     * 获取最新文章列表（带缓存优化）
-     * @param int $limit
+     * 分页器实例
+     * @var Anon_Cms_Paginator|null
+     */
+    private $paginator = null;
+
+    /**
+     * 获取最新文章列表
+     * @param int $pageSize 每页数量
+     * @param int|null $page 当前页码
      * @return Anon_Cms_Post[]
      */
-    public function posts(int $limit = 10): array
+    public function posts(int $pageSize = 10, ?int $page = null): array
     {
-        $limit = max(1, min(50, $limit));
+        // 如果不分页（pageSize <= 0），使用原来的逻辑
+        if ($pageSize <= 0) {
+            $pageSize = 10;
+            $db = Anon_Database::getInstance();
+            $rows = $db->db('posts')
+                ->where('type', 'post')
+                ->where('status', 'publish')
+                ->orderBy('created_at', 'DESC')
+                ->limit($pageSize)
+                ->get();
+
+            $rawPosts = is_array($rows) ? $rows : [];
+            $result = [];
+            foreach ($rawPosts as $postData) {
+                $result[] = new Anon_Cms_Post($postData);
+            }
+            return $result;
+        }
+
+        // 分页逻辑
+        $pageSize = max(1, min(100, $pageSize));
         
+        // 获取当前页码
+        if ($page === null) {
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        } else {
+            $page = max(1, $page);
+        }
+
         // 性能优化：使用缓存，避免重复查询
-        $cacheKey = 'posts_' . $limit;
+        $cacheKey = 'posts_' . $pageSize . '_' . $page;
         if (isset(self::$postsCache[$cacheKey])) {
-            return self::$postsCache[$cacheKey];
+            $cached = self::$postsCache[$cacheKey];
+            $this->paginator = $cached['paginator'];
+            return $cached['posts'];
         }
 
         $db = Anon_Database::getInstance();
+        
+        // 获取总数
+        $total = $db->db('posts')
+            ->where('type', 'post')
+            ->where('status', 'publish')
+            ->count();
+
+        // 计算总页数
+        $totalPages = max(1, (int)ceil($total / $pageSize));
+        
+        // 确保页码不超过总页数
+        $page = min($page, $totalPages);
+
+        // 获取文章列表
+        $offset = ($page - 1) * $pageSize;
         $rows = $db->db('posts')
             ->where('type', 'post')
             ->where('status', 'publish')
             ->orderBy('created_at', 'DESC')
-            ->limit($limit)
+            ->offset($offset)
+            ->limit($pageSize)
             ->get();
 
         $rawPosts = is_array($rows) ? $rows : [];
@@ -1477,10 +1529,61 @@ class Anon_Cms_Theme_View
         foreach ($rawPosts as $postData) {
             $result[] = new Anon_Cms_Post($postData);
         }
+
+        // 创建分页器
+        $this->paginator = new Anon_Cms_Paginator($page, $pageSize, $total, $totalPages);
         
         // 缓存结果（仅在同一请求内有效）
-        self::$postsCache[$cacheKey] = $result;
+        self::$postsCache[$cacheKey] = [
+            'posts' => $result,
+            'paginator' => $this->paginator,
+        ];
         
+        return $result;
+    }
+
+    /**
+     * 获取分页导航数据
+     * @return array|null
+     */
+    public function pageNav(): ?array
+    {
+        if ($this->paginator === null || $this->paginator->totalPages() <= 1) {
+            return null;
+        }
+
+        $paginator = $this->paginator;
+        $result = [
+            'prev' => null,
+            'next' => null,
+            'pages' => [],
+            'current' => $paginator->currentPage(),
+            'total' => $paginator->totalPages(),
+        ];
+
+        if ($paginator->hasPrev()) {
+            $result['prev'] = [
+                'page' => $paginator->prevPage(),
+                'link' => $paginator->pageLink($paginator->prevPage()),
+            ];
+        }
+
+        if ($paginator->hasNext()) {
+            $result['next'] = [
+                'page' => $paginator->nextPage(),
+                'link' => $paginator->pageLink($paginator->nextPage()),
+            ];
+        }
+
+        $pageNumbers = $paginator->getPageNumbers();
+        foreach ($pageNumbers as $pageNum) {
+            $result['pages'][] = [
+                'page' => $pageNum,
+                'link' => $paginator->pageLink($pageNum),
+                'current' => $pageNum == $paginator->currentPage(),
+            ];
+        }
+
         return $result;
     }
 
@@ -1492,6 +1595,153 @@ class Anon_Cms_Theme_View
     public function options(): Anon_Cms_Theme_OptionsProxy
     {
         return new Anon_Cms_Theme_OptionsProxy();
+    }
+
+    /**
+     * 生成永久链接
+     * @param Anon_Cms_Post|array|null $post 文章或页面对象
+     * @return string
+     */
+    public function permalink($post = null): string
+    {
+        // 如果没有提供 post，尝试从当前上下文获取
+        if ($post === null) {
+            $post = $this->post();
+            if ($post === null) {
+                $post = $this->page();
+            }
+        }
+
+        // 如果仍然没有 post，返回空字符串
+        if ($post === null) {
+            return '';
+        }
+
+        // 如果是数组，转换为 Anon_Cms_Post 对象
+        if (is_array($post)) {
+            $post = new Anon_Cms_Post($post);
+        }
+
+        // 获取 post 类型
+        $type = $post->type();
+        if (empty($type)) {
+            return '';
+        }
+
+        // 获取路由配置
+        $routesValue = Anon_Cms_Options::get('routes', '');
+        $routes = [];
+        
+        if (is_array($routesValue)) {
+            $routes = $routesValue;
+        } elseif (is_string($routesValue) && !empty($routesValue)) {
+            $decoded = json_decode($routesValue, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $routes = $decoded;
+            }
+        }
+
+        // 根据类型查找对应的路由模板
+        $routePattern = null;
+        
+        // 优先查找精确匹配的路由
+        foreach ($routes as $pattern => $template) {
+            // 检查模板是否匹配当前类型
+            if ($template === $type) {
+                $routePattern = $pattern;
+                break;
+            }
+        }
+        
+        // 如果没有找到，尝试使用类型映射
+        if ($routePattern === null) {
+            $typeMapping = [
+                'post' => 'post',
+                'page' => 'page',
+            ];
+            
+            $templateName = $typeMapping[$type] ?? null;
+            if ($templateName !== null) {
+                foreach ($routes as $pattern => $template) {
+                    if ($template === $templateName) {
+                        $routePattern = $pattern;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 如果没有找到匹配的路由，使用默认规则
+        if ($routePattern === null) {
+            if ($type === 'post') {
+                $routePattern = '/post/{id}';
+            } elseif ($type === 'page') {
+                $routePattern = '/{slug}';
+            } else {
+                return '';
+            }
+        }
+
+        // 替换路由参数
+        $url = $routePattern;
+        
+        // 替换 {id}（文章/页面 ID）
+        if (strpos($url, '{id}') !== false) {
+            $id = $post->id();
+            $url = str_replace('{id}', $id, $url);
+        }
+        
+        // 替换 {slug}（文章/页面 slug）
+        if (strpos($url, '{slug}') !== false) {
+            $slug = $post->slug();
+            $url = str_replace('{slug}', urlencode($slug), $url);
+        }
+        
+        // 替换 {category}（分类 slug，需要从分类中获取）
+        if (strpos($url, '{category}') !== false) {
+            $categoryId = $post->categoryId();
+            if ($categoryId) {
+                // TODO: 需要实现获取分类 slug 的方法
+                // 暂时使用分类 ID
+                $url = str_replace('{category}', $categoryId, $url);
+            } else {
+                $url = str_replace('{category}', '', $url);
+            }
+        }
+        
+        // 替换 {directory}（多级分类，暂时使用分类 slug）
+        if (strpos($url, '{directory}') !== false) {
+            $categoryId = $post->categoryId();
+            if ($categoryId) {
+                // TODO: 需要实现获取多级分类路径的方法
+                $url = str_replace('{directory}', $categoryId, $url);
+            } else {
+                $url = str_replace('{directory}', '', $url);
+            }
+        }
+        
+        // 替换日期相关参数
+        $date = $post->date('Y-m-d');
+        if (!empty($date)) {
+            $dateParts = explode('-', $date);
+            if (count($dateParts) === 3) {
+                $year = $dateParts[0];
+                $month = $dateParts[1];
+                $day = $dateParts[2];
+                
+                $url = str_replace('{year}', $year, $url);
+                $url = str_replace('{month}', $month, $url);
+                $url = str_replace('{day}', $day, $url);
+            }
+        }
+        
+
+        // 确保 URL 以 / 开头
+        if (strpos($url, '/') !== 0) {
+            $url = '/' . $url;
+        }
+
+        return $url;
     }
 
 }
@@ -1522,6 +1772,169 @@ class Anon_Cms_Theme_OptionsProxy
     public function set(string $name, $value): bool
     {
         return Anon_Cms_Options::set($name, $value);
+    }
+}
+
+/**
+ * 分页器类
+ * 提供类似 Typecho 的分页功能
+ */
+class Anon_Cms_Paginator
+{
+    /**
+     * @var int 当前页码
+     */
+    private $currentPage;
+
+    /**
+     * @var int 每页数量
+     */
+    private $pageSize;
+
+    /**
+     * @var int 总记录数
+     */
+    private $total;
+
+    /**
+     * @var int 总页数
+     */
+    private $totalPages;
+
+    /**
+     * @param int $currentPage 当前页码
+     * @param int $pageSize 每页数量
+     * @param int $total 总记录数
+     * @param int $totalPages 总页数
+     */
+    public function __construct(int $currentPage, int $pageSize, int $total, int $totalPages)
+    {
+        $this->currentPage = $currentPage;
+        $this->pageSize = $pageSize;
+        $this->total = $total;
+        $this->totalPages = $totalPages;
+    }
+
+    /**
+     * 获取当前页码
+     * @return int
+     */
+    public function currentPage(): int
+    {
+        return $this->currentPage;
+    }
+
+    /**
+     * 获取每页数量
+     * @return int
+     */
+    public function pageSize(): int
+    {
+        return $this->pageSize;
+    }
+
+    /**
+     * 获取总记录数
+     * @return int
+     */
+    public function total(): int
+    {
+        return $this->total;
+    }
+
+    /**
+     * 获取总页数
+     * @return int
+     */
+    public function totalPages(): int
+    {
+        return $this->totalPages;
+    }
+
+    /**
+     * 判断是否有上一页
+     * @return bool
+     */
+    public function hasPrev(): bool
+    {
+        return $this->currentPage > 1;
+    }
+
+    /**
+     * 判断是否有下一页
+     * @return bool
+     */
+    public function hasNext(): bool
+    {
+        return $this->currentPage < $this->totalPages;
+    }
+
+    /**
+     * 获取上一页页码
+     * @return int
+     */
+    public function prevPage(): int
+    {
+        return max(1, $this->currentPage - 1);
+    }
+
+    /**
+     * 获取下一页页码
+     * @return int
+     */
+    public function nextPage(): int
+    {
+        return min($this->totalPages, $this->currentPage + 1);
+    }
+
+    /**
+     * 生成分页链接
+     * @param int $page 页码
+     * @return string
+     */
+    public function pageLink(int $page): string
+    {
+        $currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
+        $parsedUrl = parse_url($currentUrl);
+        $path = $parsedUrl['path'] ?? '/';
+        $query = [];
+        
+        if (isset($parsedUrl['query'])) {
+            parse_str($parsedUrl['query'], $query);
+        }
+        
+        // 更新页码
+        if ($page <= 1) {
+            unset($query['page']);
+        } else {
+            $query['page'] = $page;
+        }
+        
+        // 构建 URL
+        $url = $path;
+        if (!empty($query)) {
+            $url .= '?' . http_build_query($query);
+        }
+        
+        return $url;
+    }
+
+    /**
+     * 获取所有页码数组
+     * @param int $range 当前页前后显示的页码数量
+     * @return array
+     */
+    public function getPageNumbers(int $range = 2): array
+    {
+        $pages = [];
+        $start = max(1, $this->currentPage - $range);
+        $end = min($this->totalPages, $this->currentPage + $range);
+        
+        for ($i = $start; $i <= $end; $i++) {
+            $pages[] = $i;
+        }
+        
+        return $pages;
     }
 }
 
@@ -1573,7 +1986,7 @@ class Anon_Cms_Post
 
     /**
      * 获取摘要
-     * @param int $length 长度，默认 150
+     * @param int $length 长度
      * @return string
      */
     public function excerpt(int $length = 150): string

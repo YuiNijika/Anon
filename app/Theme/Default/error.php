@@ -19,17 +19,17 @@ $statusText = [
     500 => 'Internal Server Error'
 ];
 $text = $statusText[$code] ?? 'Error';
-?>
 
-<?php $this->components('head'); ?>
+$this->components('head');
+?>
 
 <div class="card bg-base-100 shadow-md">
   <div class="card-body text-center py-16">
     <h1 class="text-6xl font-bold text-error mb-4"><?php echo (int)$code; ?></h1>
     <p class="text-xl text-base-content/70 mb-2"><?php echo $this->escape($text); ?></p>
-    <?php if (!empty($message)): ?>
+    <?php if (!empty($message)) { ?>
       <p class="text-sm text-base-content/60 mb-6"><?php echo $this->escape($message); ?></p>
-    <?php endif; ?>
+    <?php } ?>
     <a href="/" class="btn btn-primary">返回首页</a>
   </div>
 </div>

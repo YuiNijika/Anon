@@ -3,6 +3,7 @@ import Layout from '@/layouts/Layout'
 import Login from '@/pages/Login'
 import Console from '@/pages/Console'
 import SettingsBasic from '@/pages/SettingsBasic'
+import SettingsPermission from '@/pages/SettingsPermission'
 import SettingsTheme from '@/pages/SettingsTheme'
 import Statistics from '@/pages/Statistics'
 import Write from '@/pages/Write'
@@ -60,6 +61,10 @@ export const routes = [
       {
         path: 'settings/basic',
         element: <SettingsBasic />,
+      },
+      {
+        path: 'settings/permission',
+        element: <SettingsPermission />,
       },
       {
         path: 'settings/theme',

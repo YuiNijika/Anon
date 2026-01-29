@@ -90,6 +90,11 @@ const menuItems: MenuProps['items'] = [
         label: '常规设置',
       },
       {
+        key: '/settings/permission',
+        icon: <SettingOutlined />,
+        label: '权限设置',
+      },
+      {
         key: '/settings/theme',
         icon: <BgColorsOutlined />,
         label: '主题设置',
