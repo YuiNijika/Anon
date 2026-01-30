@@ -211,7 +211,10 @@ export default function ManageUsers() {
                             }}
                             onSearch={() => {
                                 setPage(1)
-                                loadData()
+                                const params: any = { page, page_size: pageSize }
+                                if (searchKeyword) params.search = searchKeyword
+                                if (filterGroup) params.group = filterGroup
+                                loadUsers(params)
                             }}
                             style={{ width: 300 }}
                         />

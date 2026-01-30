@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useApiAdmin } from './useApiAdmin'
-import { AdminApi, type Attachment, type AttachmentListResponse } from '@/services/admin'
+import { AdminApi, type Attachment } from '@/services/admin'
 import { App } from 'antd'
 
 export function useAttachments() {
@@ -13,7 +13,7 @@ export function useAttachments() {
     try {
       setLoading(true)
       const response = await AdminApi.getAttachments(apiAdmin, params)
-      if (response.code === 200) {
+      if (response.code === 200 && response.data) {
         setData(response.data.list || [])
         return response.data
       } else {

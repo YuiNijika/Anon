@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useApiAdmin } from './useApiAdmin'
-import { AdminApi, type User, type UserListResponse } from '@/services/admin'
+import { AdminApi, type User } from '@/services/admin'
 import { App } from 'antd'
 
 export function useUsers() {
@@ -14,7 +14,7 @@ export function useUsers() {
     try {
       setLoading(true)
       const response = await AdminApi.getUsers(apiAdmin, params)
-      if (response.code === 200) {
+      if (response.code === 200 && response.data) {
         setData(response.data.list || [])
         setTotal(response.data.total || 0)
         return response.data

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useApiAdmin } from './useApiAdmin'
-import { AdminApi, type Post, type PostListResponse } from '@/services/admin'
+import { AdminApi, type Post } from '@/services/admin'
 import { App } from 'antd'
 
 export function usePosts() {
@@ -20,7 +20,7 @@ export function usePosts() {
     try {
       setLoading(true)
       const response = await AdminApi.getPosts(apiAdmin, params)
-      if (response.code === 200) {
+      if (response.code === 200 && response.data) {
         setData(response.data.list || [])
         setTotal(response.data.total || 0)
         if (params?.search && response.data.total === 0) {
