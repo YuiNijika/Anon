@@ -2,22 +2,16 @@ import { useState, useEffect } from 'react'
 import { Card, Table, Button, App, Space, Modal, Form, Input, Select, Avatar, Dropdown } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined, UserOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import { useApiAdmin, useAuth } from '@/hooks'
-import { getApiBaseUrl } from '@/utils/api'
-import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
+import { useUsers, useAuth } from '@/hooks'
 
 const { Option } = Select
 
 export default function ManageUsers() {
-    const apiAdmin = useApiAdmin()
+    const { loading, data, total, loadUsers, createUser, updateUser, deleteUser } = useUsers()
     const auth = useAuth()
     const app = App.useApp()
-    const messageApi = app.message
     const modal = app.modal
     const [form] = Form.useForm()
-    const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<any[]>([])
-    const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(20)
     const [searchKeyword, setSearchKeyword] = useState('')
@@ -26,35 +20,18 @@ export default function ManageUsers() {
     const [editingRecord, setEditingRecord] = useState<any>(null)
 
     useEffect(() => {
-        loadData()
-    }, [page, pageSize, searchKeyword, filterGroup])
-
-    const loadData = async () => {
-        try {
-            setLoading(true)
-            const params: any = {
-                page,
-                page_size: pageSize,
-            }
-            if (searchKeyword) {
-                params.search = searchKeyword
-            }
-            if (filterGroup) {
-                params.group = filterGroup
-            }
-            const response = await apiAdmin.admin.get('/users', params)
-            if (response.code === 200) {
-                setData(response.data.list || [])
-                setTotal(response.data.total || 0)
-            } else {
-                messageApi.error(response.message || '加载用户列表失败')
-            }
-        } catch (err) {
-            messageApi.error('加载用户列表失败')
-        } finally {
-            setLoading(false)
+        const params: any = {
+            page,
+            page_size: pageSize,
         }
-    }
+        if (searchKeyword) {
+            params.search = searchKeyword
+        }
+        if (filterGroup) {
+            params.group = filterGroup
+        }
+        loadUsers(params)
+    }, [page, pageSize, searchKeyword, filterGroup, loadUsers])
 
     const handleAdd = () => {
         setEditingRecord(null)
@@ -76,69 +53,46 @@ export default function ManageUsers() {
             title: '确认删除',
             content: '确定要删除这个用户吗？此操作不可恢复。',
             onOk: async () => {
-                try {
-                    const baseUrl = getApiBaseUrl()
-                    const apiPrefix = await getApiPrefix()
-                    const prefix = apiPrefix || '/anon'
-                    const url = `${baseUrl}${prefix}/cms/admin/users?uid=${uid}`
-                    const isLoggedIn = await checkLoginStatus()
-                    const headers: HeadersInit = {
-                        'Content-Type': 'application/json',
-                    }
-                    if (isLoggedIn) {
-                        const token = await getAdminToken()
-                        if (token) {
-                            headers['X-API-Token'] = token
-                        }
-                    }
-
-                    const response = await fetch(url, {
-                        method: 'DELETE',
-                        headers,
-                        credentials: 'include',
-                    }).then(res => res.json())
-
-                    if (response.code === 200) {
-                        messageApi.success('删除成功')
-                        loadData()
-                    } else {
-                        messageApi.error(response.message || '删除失败')
-                    }
-                } catch (err) {
-                    messageApi.error('删除失败')
+                const success = await deleteUser(uid)
+                if (success) {
+                    const params: any = { page, page_size: pageSize }
+                    if (searchKeyword) params.search = searchKeyword
+                    if (filterGroup) params.group = filterGroup
+                    loadUsers(params)
                 }
             },
         })
     }
 
     const handleSubmit = async (values: any) => {
-        try {
-            let response
-            if (editingRecord) {
-                const updateData: any = {
-                    uid: editingRecord.uid,
-                    name: values.name,
-                    email: values.email,
-                    display_name: values.display_name,
-                    group: values.group,
-                }
-                if (values.password) {
-                    updateData.password = values.password
-                }
-                response = await apiAdmin.admin.put('/users', updateData)
-            } else {
-                response = await apiAdmin.admin.post('/users', values)
+        if (editingRecord) {
+            const updateData: any = {
+                uid: editingRecord.uid,
+                name: values.name,
+                email: values.email,
+                display_name: values.display_name,
+                group: values.group,
             }
-
-            if (response.code === 200) {
-                messageApi.success(editingRecord ? '更新成功' : '创建成功')
+            if (values.password) {
+                updateData.password = values.password
+            }
+            const result = await updateUser(updateData)
+            if (result) {
                 setModalVisible(false)
-                loadData()
-            } else {
-                messageApi.error(response.message || (editingRecord ? '更新失败' : '创建失败'))
+                const params: any = { page, page_size: pageSize }
+                if (searchKeyword) params.search = searchKeyword
+                if (filterGroup) params.group = filterGroup
+                loadUsers(params)
             }
-        } catch (err) {
-            messageApi.error(editingRecord ? '更新失败' : '创建失败')
+        } else {
+            const result = await createUser(values)
+            if (result) {
+                setModalVisible(false)
+                const params: any = { page, page_size: pageSize }
+                if (searchKeyword) params.search = searchKeyword
+                if (filterGroup) params.group = filterGroup
+                loadUsers(params)
+            }
         }
     }
 

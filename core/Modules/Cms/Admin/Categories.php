@@ -5,6 +5,114 @@ class Anon_Cms_Admin_Categories
 {
     /**
      * 获取分类列表
+     * @return array
+     */
+    private static function getCategoryList()
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('metas')
+            ->where('type', 'category')
+            ->orderBy('created_at', 'DESC')
+            ->get();
+    }
+
+    /**
+     * 获取分类信息
+     * @param int $id
+     * @return array|null
+     */
+    private static function getCategoryById($id)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('metas')
+            ->where('id', $id)
+            ->where('type', 'category')
+            ->first();
+    }
+
+    /**
+     * 检查别名是否已存在
+     * @param string $slug
+     * @param int $excludeId
+     * @return array|null
+     */
+    private static function checkSlugExists($slug, $excludeId = 0)
+    {
+        $db = Anon_Database::getInstance();
+        $query = $db->db('metas')
+            ->where('slug', $slug)
+            ->where('type', 'category');
+        if ($excludeId > 0) {
+            $query->where('id', '!=', $excludeId);
+        }
+        return $query->first();
+    }
+
+    /**
+     * 获取子分类数量
+     * @param int $id
+     * @return int
+     */
+    private static function getChildrenCount($id)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('metas')
+            ->where('type', 'category')
+            ->where('parent_id', $id)
+            ->count();
+    }
+
+    /**
+     * 创建分类
+     * @param string $name
+     * @param string $slug
+     * @param string|null $description
+     * @param int|null $parentId
+     * @return int|false
+     */
+    private static function createCategory($name, $slug, $description = null, $parentId = null)
+    {
+        $db = Anon_Database::getInstance();
+        $insertData = [
+            'name' => $name,
+            'slug' => $slug,
+            'type' => 'category',
+            'parent_id' => $parentId,
+        ];
+        if ($description !== null) {
+            $insertData['description'] = $description;
+        }
+        return $db->db('metas')->insert($insertData);
+    }
+
+    /**
+     * 更新分类
+     * @param int $id
+     * @param array $data
+     * @return bool
+     */
+    private static function updateCategory($id, $data)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('metas')
+            ->where('id', $id)
+            ->where('type', 'category')
+            ->update($data) !== false;
+    }
+
+    /**
+     * 删除分类
+     * @param int $id
+     * @return bool
+     */
+    private static function deleteCategory($id)
+    {
+        $db = Anon_Database::getInstance();
+        return $db->db('metas')->where('id', $id)->delete();
+    }
+
+    /**
+     * 获取分类列表
      * @return void
      */
     public static function get()
@@ -150,113 +258,4 @@ class Anon_Cms_Admin_Categories
             Anon_Http_Response::handleException($e);
         }
     }
-
-    /**
-     * 获取分类列表
-     * @return array
-     */
-    private static function getCategoryList()
-    {
-        $db = Anon_Database::getInstance();
-        return $db->db('metas')
-            ->where('type', 'category')
-            ->orderBy('created_at', 'DESC')
-            ->get();
-    }
-
-    /**
-     * 检查别名是否已存在
-     * @param string $slug
-     * @param int $excludeId
-     * @return array|null
-     */
-    private static function checkSlugExists($slug, $excludeId = 0)
-    {
-        $db = Anon_Database::getInstance();
-        $query = $db->db('metas')
-            ->where('slug', $slug)
-            ->where('type', 'category');
-        if ($excludeId > 0) {
-            $query->where('id', '!=', $excludeId);
-        }
-        return $query->first();
-    }
-
-    /**
-     * 创建分类
-     * @param string $name
-     * @param string $slug
-     * @param string|null $description
-     * @param int|null $parentId
-     * @return int|false
-     */
-    private static function createCategory($name, $slug, $description = null, $parentId = null)
-    {
-        $db = Anon_Database::getInstance();
-        $insertData = [
-            'name' => $name,
-            'slug' => $slug,
-            'type' => 'category',
-            'parent_id' => $parentId,
-        ];
-        if ($description !== null) {
-            $insertData['description'] = $description;
-        }
-        return $db->db('metas')->insert($insertData);
-    }
-
-    /**
-     * 获取分类信息
-     * @param int $id
-     * @return array|null
-     */
-    private static function getCategoryById($id)
-    {
-        $db = Anon_Database::getInstance();
-        return $db->db('metas')
-            ->where('id', $id)
-            ->where('type', 'category')
-            ->first();
-    }
-
-    /**
-     * 更新分类
-     * @param int $id
-     * @param array $data
-     * @return bool
-     */
-    private static function updateCategory($id, $data)
-    {
-        $db = Anon_Database::getInstance();
-        return $db->db('metas')
-            ->where('id', $id)
-            ->where('type', 'category')
-            ->update($data) !== false;
-    }
-
-    /**
-     * 获取子分类数量
-     * @param int $id
-     * @return int
-     */
-    private static function getChildrenCount($id)
-    {
-        $db = Anon_Database::getInstance();
-        return $db->db('metas')
-            ->where('type', 'category')
-            ->where('parent_id', $id)
-            ->count();
-    }
-
-    /**
-     * 删除分类
-     * @param int $id
-     * @return bool
-     */
-    private static function deleteCategory($id)
-    {
-        $db = Anon_Database::getInstance();
-        return $db->db('metas')->where('id', $id)->delete();
-    }
 }
-

@@ -72,7 +72,76 @@ export interface PermissionSettings {
   api_enabled: boolean
 }
 
+export interface Post {
+  id: number
+  title: string
+  slug: string
+  content: string
+  type: 'post' | 'page'
+  status: 'publish' | 'draft' | 'private'
+  created_at: number
+  updated_at: number
+  author_id: number
+  category_id?: number
+  views?: number
+}
+
+export interface PostListResponse {
+  list: Post[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface Category {
+  id: number
+  name: string
+  slug: string
+  description?: string
+  parent_id?: number
+  count?: number
+}
+
+export interface Tag {
+  id: number
+  name: string
+  slug: string
+  count?: number
+}
+
+export interface User {
+  uid: number
+  name: string
+  email: string
+  display_name?: string
+  group: 'admin' | 'editor' | 'user'
+  avatar?: string
+  created_at: number
+}
+
+export interface UserListResponse {
+  list: User[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface Attachment {
+  id: number
+  name: string
+  url: string
+  type: string
+  size: number
+  mime_type: string
+  created_at: number
+}
+
+export interface AttachmentListResponse {
+  list: Attachment[]
+}
+
 export const AdminApi = {
+  // 主题设置
   getThemeOptions: (api: ApiClient) => {
     return api.admin.get<ThemeOptionsData>('/settings/theme-options')
   },
@@ -115,6 +184,93 @@ export const AdminApi = {
 
   updateThemeSettings: (api: ApiClient, theme: string) => {
     return api.admin.post<{ theme: string }>('/settings/theme', { theme })
+  },
+
+  // 文章管理
+  getPosts: (api: ApiClient, params?: { page?: number; page_size?: number; type?: string; status?: string; search?: string }) => {
+    return api.admin.get<PostListResponse>('/posts', params)
+  },
+
+  getPost: (api: ApiClient, id: number) => {
+    return api.admin.get<Post>(`/posts/${id}`)
+  },
+
+  createPost: (api: ApiClient, data: Partial<Post>) => {
+    return api.admin.post<Post>('/posts', data)
+  },
+
+  updatePost: (api: ApiClient, data: Partial<Post> & { id: number }) => {
+    return api.admin.put<Post>('/posts', data)
+  },
+
+  deletePost: (api: ApiClient, id: number) => {
+    return api.admin.delete<{ id: number }>('/posts', { id })
+  },
+
+  // 分类管理
+  getCategories: (api: ApiClient) => {
+    return api.admin.get<Category[]>('/metas/categories')
+  },
+
+  createCategory: (api: ApiClient, data: Partial<Category>) => {
+    return api.admin.post<Category>('/metas/categories', data)
+  },
+
+  updateCategory: (api: ApiClient, data: Partial<Category> & { id: number }) => {
+    return api.admin.put<Category>('/metas/categories', data)
+  },
+
+  deleteCategory: (api: ApiClient, id: number) => {
+    return api.admin.delete<{ id: number }>('/metas/categories', { id })
+  },
+
+  // 标签管理
+  getTags: (api: ApiClient) => {
+    return api.admin.get<Tag[]>('/metas/tags')
+  },
+
+  createTag: (api: ApiClient, data: Partial<Tag>) => {
+    return api.admin.post<Tag>('/metas/tags', data)
+  },
+
+  updateTag: (api: ApiClient, data: Partial<Tag> & { id: number }) => {
+    return api.admin.put<Tag>('/metas/tags', data)
+  },
+
+  deleteTag: (api: ApiClient, id: number) => {
+    return api.admin.delete<{ id: number }>('/metas/tags', { id })
+  },
+
+  // 用户管理
+  getUsers: (api: ApiClient, params?: { page?: number; page_size?: number }) => {
+    return api.admin.get<UserListResponse>('/users', params)
+  },
+
+  createUser: (api: ApiClient, data: Partial<User> & { password: string }) => {
+    return api.admin.post<User>('/users', data)
+  },
+
+  updateUser: (api: ApiClient, data: Partial<User> & { uid: number }) => {
+    return api.admin.put<User>('/users', data)
+  },
+
+  deleteUser: (api: ApiClient, uid: number) => {
+    return api.admin.delete<{ uid: number }>('/users', { uid })
+  },
+
+  // 附件管理
+  getAttachments: (api: ApiClient, params?: { sort?: 'new' | 'old' }) => {
+    return api.admin.get<AttachmentListResponse>('/attachments', params)
+  },
+
+  uploadAttachment: (api: ApiClient, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.admin.post<Attachment>('/attachments/upload', formData)
+  },
+
+  deleteAttachment: (api: ApiClient, id: number) => {
+    return api.admin.delete<{ id: number }>('/attachments', { id })
   },
 }
 

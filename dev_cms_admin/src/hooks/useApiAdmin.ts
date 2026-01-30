@@ -71,8 +71,9 @@ export function useApiAdmin() {
 
       const baseUrl = getApiBaseUrl()
       const url = `${baseUrl}${path}${query}`
+      const isFormData = options.body instanceof FormData
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers,
       }
 
@@ -265,13 +266,14 @@ export function useApiAdmin() {
           return adminRequest<T>(endpoint, { method: 'GET' }, params)
         },
         post: <T = any>(endpoint: string, body?: any) => {
-          return adminRequest<T>(endpoint, { method: 'POST', body: JSON.stringify(body) })
+          const isFormData = body instanceof FormData
+          return adminRequest<T>(endpoint, { method: 'POST', body: isFormData ? body : JSON.stringify(body) })
         },
         put: <T = any>(endpoint: string, body?: any) => {
           return adminRequest<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) })
         },
-        delete: <T = any>(endpoint: string) => {
-          return adminRequest<T>(endpoint, { method: 'DELETE' })
+        delete: <T = any>(endpoint: string, body?: any) => {
+          return adminRequest<T>(endpoint, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined })
         },
       },
       // 不带前缀的 API（直接使用）

@@ -170,20 +170,28 @@ class Anon_Cms_Admin_Users
             
             if (isset($data['group'])) {
                 $currentUserId = Anon_Http_Request::getUserId();
-                if ($uid === $currentUserId) {
-                    Anon_Http_Response::error('不能更改自己的用户组', 400);
-                    return;
-                }
-                
                 $group = trim($data['group']);
-                $validGroups = ['admin', 'editor', 'user'];
-                if (!in_array($group, $validGroups)) {
-                    Anon_Http_Response::error('用户组无效', 400);
-                    return;
-                }
-                
                 $dbGroup = $group === 'editor' ? 'author' : $group;
-                $updateData['group'] = $dbGroup;
+                
+                // 检查用户组是否发生变化
+                $currentGroup = $user['group'] ?? null;
+                $currentGroupForCheck = $currentGroup === 'author' ? 'editor' : $currentGroup;
+                
+                // 只有当用户组值发生变化时才处理
+                if ($currentGroupForCheck !== $group) {
+                    if ($uid === $currentUserId) {
+                        Anon_Http_Response::error('不能更改自己的用户组', 400);
+                        return;
+                    }
+                    
+                    $validGroups = ['admin', 'editor', 'user'];
+                    if (!in_array($group, $validGroups)) {
+                        Anon_Http_Response::error('用户组无效', 400);
+                        return;
+                    }
+                    
+                    $updateData['group'] = $dbGroup;
+                }
             }
             
             if (isset($data['avatar'])) {

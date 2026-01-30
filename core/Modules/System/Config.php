@@ -125,21 +125,24 @@ class Anon_System_Config
             // 检测是否有 nocache 参数，如果有则不缓存
             $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
             
-            // 检测是否有 ver 参数，如果有则强制刷新缓存
+            // 检测是否有 ver 参数，ver 参数作为版本标识，不同版本视为不同资源
             $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
             
-            if ($hasNoCacheParam || $hasVerParam) {
-                // 有 nocache 或 ver 参数，强制不缓存
+            if ($hasNoCacheParam) {
+                // 有 nocache 参数，强制不缓存
                 header('Cache-Control: no-cache, no-store, must-revalidate');
                 header('Pragma: no-cache');
                 header('Expires: 0');
-                if ($hasVerParam) {
-                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($actualFilePath)) . ' GMT');
-                }
             } elseif ($cacheTime > 0) {
-                // 没有 nocache 和 ver 参数，使用原来的缓存逻辑
+                // 正常缓存逻辑
+                // ver 参数在 URL 中，不同版本号会被浏览器视为不同资源
+                // 当版本号变化时，浏览器会请求新 URL 并缓存新资源
                 header('Cache-Control: public, max-age=' . $cacheTime);
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+                if ($hasVerParam) {
+                    // 设置 Last-Modified 为文件修改时间，帮助浏览器判断资源是否更新
+                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($actualFilePath)) . ' GMT');
+                }
             } else {
                 header('Cache-Control: no-cache, no-store, must-revalidate');
                 header('Pragma: no-cache');

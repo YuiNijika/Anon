@@ -15,9 +15,9 @@ $post = $this->post();
       </div>
       <div class="prose max-w-none">
         <?php echo $this->markdown($post->content()); ?>
-      </div>
+            </div>
     <?php } ?>
-  </div>
-</div>
+            </div>
+        </div>
 
 <?php $this->components('foot'); ?>

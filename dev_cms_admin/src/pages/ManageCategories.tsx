@@ -1,41 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, Table, Button, App, Space, Modal, Form, Input, Dropdown } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
-import { useApiAdmin } from '@/hooks'
-import { getApiBaseUrl } from '@/utils/api'
-import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
+import { useCategories } from '@/hooks'
 
 export default function ManageCategories() {
-    const apiAdmin = useApiAdmin()
+    const { loading, data, loadCategories, createCategory, updateCategory, deleteCategory } = useCategories()
     const app = App.useApp()
-    const messageApi = app.message
     const modal = app.modal
     const [form] = Form.useForm()
-    const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<any[]>([])
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<any>(null)
 
     useEffect(() => {
-        loadData()
-    }, [])
-
-    const loadData = async () => {
-        try {
-            setLoading(true)
-            const response = await apiAdmin.admin.get('/metas/categories')
-            if (response.code === 200) {
-                setData(response.data || [])
-            } else {
-                messageApi.error(response.message || '加载分类列表失败')
-            }
-        } catch (err) {
-            messageApi.error('加载分类列表失败')
-        } finally {
-            setLoading(false)
-        }
-    }
+        loadCategories()
+    }, [loadCategories])
 
     const handleAdd = () => {
         setEditingRecord(null)
@@ -54,62 +33,30 @@ export default function ManageCategories() {
             title: '确认删除',
             content: '确定要删除这个分类吗？',
             onOk: async () => {
-                try {
-                    const baseUrl = getApiBaseUrl()
-                    const apiPrefix = await getApiPrefix()
-                    const prefix = apiPrefix || '/anon'
-                    const url = `${baseUrl}${prefix}/cms/admin/metas/categories?id=${id}`
-                    const isLoggedIn = await checkLoginStatus()
-                    const headers: HeadersInit = {
-                        'Content-Type': 'application/json',
-                    }
-                    if (isLoggedIn) {
-                        const token = await getAdminToken()
-                        if (token) {
-                            headers['X-API-Token'] = token
-                        }
-                    }
-
-                    const response = await fetch(url, {
-                        method: 'DELETE',
-                        headers,
-                        credentials: 'include',
-                    }).then(res => res.json())
-
-                    if (response.code === 200) {
-                        messageApi.success('删除成功')
-                        loadData()
-                    } else {
-                        messageApi.error(response.message || '删除失败')
-                    }
-                } catch (err) {
-                    messageApi.error('删除失败')
+                const success = await deleteCategory(id)
+                if (success) {
+                    loadCategories()
                 }
             },
         })
     }
 
     const handleSubmit = async (values: any) => {
-        try {
-            let response
-            if (editingRecord) {
-                response = await apiAdmin.admin.put('/metas/categories', {
-                    id: editingRecord.id,
-                    ...values,
-                })
-            } else {
-                response = await apiAdmin.admin.post('/metas/categories', values)
-            }
-
-            if (response.code === 200) {
-                messageApi.success(editingRecord ? '更新成功' : '创建成功')
+        if (editingRecord) {
+            const result = await updateCategory({
+                id: editingRecord.id,
+                ...values,
+            })
+            if (result) {
                 setModalVisible(false)
-                loadData()
-            } else {
-                messageApi.error(response.message || (editingRecord ? '更新失败' : '创建失败'))
+                loadCategories()
             }
-        } catch (err) {
-            messageApi.error(editingRecord ? '更新失败' : '创建失败')
+        } else {
+            const result = await createCategory(values)
+            if (result) {
+                setModalVisible(false)
+                loadCategories()
+            }
         }
     }
 

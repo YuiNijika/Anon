@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, App, Space, Input, Tag, Dropdown } from 'antd'
+import { Card, Table, Button, App, Space, Input, Tag, Dropdown, Empty } from 'antd'
 import { EditOutlined, DeleteOutlined, PlusOutlined, MoreOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { useApiAdmin } from '@/hooks'
-import { getApiBaseUrl } from '@/utils/api'
-import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
+import { usePosts } from '@/hooks'
 
 export default function ManagePosts() {
-    const apiAdmin = useApiAdmin()
+    const { loading, data, total, loadPosts, deletePost } = usePosts()
     const navigate = useNavigate()
     const app = App.useApp()
-    const messageApi = app.message
     const modal = app.modal
-    const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<any[]>([])
-    const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(20)
     const [searchKeyword, setSearchKeyword] = useState('')
@@ -23,79 +17,38 @@ export default function ManagePosts() {
     const [typeFilter, setTypeFilter] = useState<string>('all')
 
     useEffect(() => {
-        loadData()
-    }, [page, pageSize, searchKeyword, statusFilter, typeFilter])
-
-    const loadData = async () => {
-        try {
-            setLoading(true)
-            const params: any = {
-                page,
-                page_size: pageSize,
-            }
-
-            if (searchKeyword) {
-                params.search = searchKeyword
-            }
-
-            if (statusFilter !== 'all') {
-                params.status = statusFilter
-            }
-
-            if (typeFilter !== 'all') {
-                params.type = typeFilter
-            }
-
-            const response = await apiAdmin.admin.get('/posts', params)
-            if (response.code === 200) {
-                setData(response.data.list || [])
-                setTotal(response.data.total || 0)
-            } else {
-                messageApi.error(response.message || '加载文章列表失败')
-            }
-        } catch (err) {
-            messageApi.error('加载文章列表失败')
-        } finally {
-            setLoading(false)
+        const params: any = {
+            page,
+            page_size: pageSize,
         }
-    }
+
+        if (searchKeyword) {
+            params.search = searchKeyword
+        }
+
+        if (statusFilter !== 'all') {
+            params.status = statusFilter
+        }
+
+        if (typeFilter !== 'all') {
+            params.type = typeFilter
+        }
+
+        loadPosts(params)
+    }, [page, pageSize, searchKeyword, statusFilter, typeFilter, loadPosts])
 
     const handleDelete = async (id: number) => {
         modal.confirm({
             title: '确认删除',
             content: '确定要删除这篇文章吗？',
             onOk: async () => {
-                try {
-                    const baseUrl = getApiBaseUrl()
-                    const apiPrefix = await getApiPrefix()
-                    const prefix = apiPrefix || '/anon'
-                    const url = `${baseUrl}${prefix}/cms/admin/posts`
-                    const isLoggedIn = await checkLoginStatus()
-                    const headers: HeadersInit = {
-                        'Content-Type': 'application/json',
-                    }
-                    if (isLoggedIn) {
-                        const token = await getAdminToken()
-                        if (token) {
-                            headers['X-API-Token'] = token
-                        }
-                    }
-
-                    const response = await fetch(url, {
-                        method: 'DELETE',
-                        headers,
-                        body: JSON.stringify({ id }),
-                        credentials: 'include',
-                    }).then(res => res.json())
-
-                    if (response.code === 200) {
-                        messageApi.success('删除成功')
-                        loadData()
-                    } else {
-                        messageApi.error(response.message || '删除失败')
-                    }
-                } catch (err) {
-                    messageApi.error('删除失败')
+                const success = await deletePost(id)
+                if (success) {
+                    const params: any = { page, page_size: pageSize }
+                    if (searchKeyword) params.search = searchKeyword
+                    if (statusFilter !== 'all') params.status = statusFilter
+                    if (typeFilter !== 'all') params.type = typeFilter
+                    loadPosts(params)
                 }
             },
         })
@@ -286,6 +239,13 @@ export default function ManagePosts() {
                         loading={loading}
                         rowKey="id"
                         scroll={{ x: 800 }}
+                        locale={{
+                            emptyText: searchKeyword ? (
+                                <Empty description="未找到匹配的文章" />
+                            ) : (
+                                <Empty description="暂无文章" />
+                            ),
+                        }}
                         pagination={{
                             current: page,
                             pageSize: pageSize,

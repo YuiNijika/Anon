@@ -204,7 +204,7 @@ export default function Console() {
                   '-'
                 )}
               </Descriptions.Item>
-              <Descriptions.Item label="更新时间">
+              <Descriptions.Item label="请求时间">
                 {githubRepo?.updated_at ? new Date(githubRepo.updated_at).toLocaleString('zh-CN') : '-'}
               </Descriptions.Item>
             </Descriptions>

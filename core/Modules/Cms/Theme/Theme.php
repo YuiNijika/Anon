@@ -365,7 +365,6 @@ class Anon_Cms_Theme
         if (self::$assetCacheMode !== null) {
             $dev = self::$assetCacheMode === 'dev';
         } elseif ($dev === null) {
-            // 自动检测：从配置或环境变量读取
             $dev = Anon_Cms_Options::get('theme:dev_mode', false);
         }
 
@@ -375,14 +374,19 @@ class Anon_Cms_Theme
 
         // 获取版本号
         if (self::$assetCacheVersion === null) {
-            // 优先使用主题配置的版本号，否则使用系统版本号
-            $themeName = self::getCurrentTheme();
-            $themeVersion = Anon_Cms_Options::get("theme:{$themeName}:version", null);
-            if ($themeVersion !== null) {
+            // 从主题配置文件中读取版本号
+            $themeVersion = self::info('version');
+            if ($themeVersion !== null && $themeVersion !== '') {
                 self::$assetCacheVersion = (string)$themeVersion;
             } else {
-                self::$assetCacheVersion = Anon_Common::VERSION;
+                // 如果主题配置文件中没有版本号，设置为空字符串，不添加版本号参数
+                self::$assetCacheVersion = '';
             }
+        }
+
+        // 如果没有版本号，返回空字符串，不添加 ver 参数
+        if (self::$assetCacheVersion === '') {
+            return '';
         }
 
         return '?ver=' . self::$assetCacheVersion;

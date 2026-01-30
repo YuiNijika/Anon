@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Table, Button, App, Upload, Modal, Image, Dropdown, Progress, List, Typography, Select, Space } from 'antd'
 import { UploadOutlined, DeleteOutlined, MoreOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import type { UploadProps, MenuProps, UploadFile } from 'antd'
-import { useApiAdmin } from '@/hooks'
+import { useAttachments } from '@/hooks'
 import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
@@ -17,71 +17,26 @@ interface UploadFileItem extends UploadFile {
 }
 
 export default function ManageFiles() {
-  const apiAdmin = useApiAdmin()
+  const { loading, data, loadAttachments, deleteAttachment } = useAttachments()
   const app = App.useApp()
   const messageApi = app.message
   const modal = app.modal
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<any[]>([])
   const [uploadModalVisible, setUploadModalVisible] = useState(false)
   const [uploadFileList, setUploadFileList] = useState<UploadFileItem[]>([])
   const [sort, setSort] = useState<'new' | 'old'>('new')
 
   useEffect(() => {
-    loadData()
-  }, [sort])
-
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      const response = await apiAdmin.admin.get('/attachments', { sort })
-      if (response.code === 200) {
-        setData(response.data.list || [])
-      } else {
-        messageApi.error(response.message || '加载附件列表失败')
-      }
-    } catch (err) {
-      messageApi.error('加载附件列表失败')
-    } finally {
-      setLoading(false)
-    }
-  }
+    loadAttachments({ sort })
+  }, [sort, loadAttachments])
 
   const handleDelete = async (id: number) => {
     modal.confirm({
       title: '确认删除',
       content: '确定要删除这个附件吗？',
       onOk: async () => {
-        try {
-          const baseUrl = getApiBaseUrl()
-          const apiPrefix = await getApiPrefix()
-          const prefix = apiPrefix || '/anon'
-          const url = `${baseUrl}${prefix}/cms/admin/attachments?id=${id}`
-          const isLoggedIn = await checkLoginStatus()
-          const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-          }
-          if (isLoggedIn) {
-            const token = await getAdminToken()
-            if (token) {
-              headers['X-API-Token'] = token
-            }
-          }
-
-          const response = await fetch(url, {
-            method: 'DELETE',
-            headers,
-            credentials: 'include',
-          }).then(res => res.json())
-
-          if (response.code === 200) {
-            messageApi.success('删除成功')
-            loadData()
-          } else {
-            messageApi.error(response.message || '删除失败')
-          }
-        } catch (err) {
-          messageApi.error('删除失败')
+        const success = await deleteAttachment(id)
+        if (success) {
+          loadAttachments({ sort })
         }
       },
     })
@@ -142,7 +97,7 @@ export default function ManageFiles() {
                 )
               )
               messageApi.success(`${file.name} 上传成功`)
-              loadData()
+              loadAttachments({ sort })
               return
             } else {
               errorMessage = response.message || '上传失败'

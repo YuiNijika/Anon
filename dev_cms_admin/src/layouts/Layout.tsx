@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Layout as AntLayout,
@@ -6,8 +6,8 @@ import {
   Dropdown,
   Button,
   message,
-  Drawer,
-  Space,
+  Menu,
+  theme,
 } from 'antd'
 import type { MenuProps } from 'antd'
 import {
@@ -16,7 +16,6 @@ import {
   BarChartOutlined,
   LogoutOutlined,
   UserOutlined,
-  MenuOutlined,
   AppstoreOutlined,
   BgColorsOutlined,
   EditOutlined,
@@ -24,85 +23,83 @@ import {
   TagsOutlined,
   FileOutlined,
 } from '@ant-design/icons'
-import { useAuth, useTheme } from '@/hooks'
-import { Sidebar } from '@/components/Sidebar'
+import { useAuth } from '@/hooks'
 import { AdminApi, type BasicSettings } from '@/services/admin'
 import { useApiAdmin } from '@/hooks/useApiAdmin'
 
 const { Header, Content, Sider } = AntLayout
 
-const menuItems: MenuProps['items'] = [
+const sideMenuItems: MenuProps['items'] = [
   {
     key: '/console',
-    icon: <DashboardOutlined />,
+    icon: React.createElement(DashboardOutlined),
     label: '控制台',
   },
   {
     key: '/statistics',
-    icon: <BarChartOutlined />,
+    icon: React.createElement(BarChartOutlined),
     label: '统计',
   },
   {
     key: '/write',
-    icon: <EditOutlined />,
+    icon: React.createElement(EditOutlined),
     label: '撰写',
   },
   {
     key: 'manage',
-    icon: <FolderOutlined />,
+    icon: React.createElement(FolderOutlined),
     label: '管理',
     children: [
       {
         key: '/manage/posts',
-        icon: <EditOutlined />,
+        icon: React.createElement(EditOutlined),
         label: '文章',
       },
       {
         key: '/manage/users',
-        icon: <UserOutlined />,
+        icon: React.createElement(UserOutlined),
         label: '用户',
       },
       {
         key: '/manage/categories',
-        icon: <FolderOutlined />,
+        icon: React.createElement(FolderOutlined),
         label: '分类',
       },
       {
         key: '/manage/tags',
-        icon: <TagsOutlined />,
+        icon: React.createElement(TagsOutlined),
         label: '标签',
       },
       {
         key: '/manage/files',
-        icon: <FileOutlined />,
+        icon: React.createElement(FileOutlined),
         label: '附件',
       },
     ],
   },
   {
     key: 'settings',
-    icon: <SettingOutlined />,
+    icon: React.createElement(SettingOutlined),
     label: '设置',
     children: [
       {
         key: '/settings/basic',
-        icon: <AppstoreOutlined />,
+        icon: React.createElement(AppstoreOutlined),
         label: '常规设置',
       },
       {
         key: '/settings/permission',
-        icon: <SettingOutlined />,
+        icon: React.createElement(SettingOutlined),
         label: '权限设置',
       },
       {
         key: '/settings/theme',
-        icon: <BgColorsOutlined />,
+        icon: React.createElement(BgColorsOutlined),
         label: '主题设置',
       },
     ],
   },
 ]
-
 
 function useResponsive() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -122,19 +119,20 @@ function useResponsive() {
 export default function Layout() {
   const auth = useAuth()
   const apiAdmin = useApiAdmin()
-  const { isDark } = useTheme()
   const { isMobile } = useResponsive()
   const navigate = useNavigate()
   const location = useLocation()
   const [selectedKey, setSelectedKey] = useState('/console')
   const [openKeys, setOpenKeys] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const [siteTitle, setSiteTitle] = useState<string>('管理后台')
   const [siteSubtitle, setSiteSubtitle] = useState<string>('')
   const siteFetchingRef = useRef(false)
+
+  const {
+    token: { colorBgContainer, borderRadiusLG, colorBorder, colorText },
+  } = theme.useToken()
 
   useEffect(() => {
     const path = location.pathname
@@ -186,36 +184,26 @@ export default function Layout() {
     document.title = `${siteTitle} - ${subtitle}`
   }, [siteSubtitle, siteTitle])
 
-  useEffect(() => {
-    if (isMobile) {
-      setCollapsed(true)
-    }
-  }, [isMobile])
 
   useEffect(() => {
-    // 等待初始化完成
     if (auth.initializing) {
       return
     }
 
-    // 初始化完成后，如果未登录则跳转到登录页
     if (!auth.isAuthenticated) {
       navigate('/login', { replace: true })
       return
     }
 
-    // 已登录，显示页面
     setMounted(true)
   }, [auth, navigate])
 
   const handleMenuClick = ({ key }: { key: string }) => {
     setSelectedKey(key)
     navigate(key)
-    setMobileMenuOpen(false)
   }
 
   const handleOpenChange = (keys: string[]) => {
-    // 确保 keys 是数组且去重，避免重复触发
     const uniqueKeys = Array.isArray(keys) ? [...new Set(keys)] : []
     setOpenKeys(uniqueKeys)
   }
@@ -233,159 +221,123 @@ export default function Layout() {
   const userMenuItems: MenuProps['items'] = [
     {
       key: 'logout',
-      icon: <LogoutOutlined />,
+      icon: React.createElement(LogoutOutlined),
       label: '退出登录',
       onClick: handleLogout,
     },
   ]
 
+
   if (!mounted) {
     return null
   }
 
-  const siderBgColor = isDark ? '#001529' : '#1890ff'
-  const layoutBgColor = isDark ? '#141414' : '#f0f2f5'
-  const headerBgColor = isDark ? '#1f1f1f' : '#ffffff'
-  const headerBorderColor = isDark ? '#303030' : '#e8e8e8'
-  const contentBgColor = isDark ? '#1f1f1f' : '#ffffff'
-  const drawerBgColor = isDark ? '#001529' : '#1890ff'
+  const topMenuItems: MenuProps['items'] = [
+    {
+      key: '/console',
+      label: '控制台',
+    },
+    {
+      key: '/statistics',
+      label: '统计',
+    },
+    {
+      key: '/write',
+      label: '撰写',
+    },
+  ]
+
+  const headerHeight = 64
+  const siderWidth = 200
 
   return (
-    <AntLayout style={{ minHeight: '100vh', backgroundColor: layoutBgColor }}>
-      <Sider
-        width={200}
-        theme={isDark ? 'dark' : 'light'}
-        collapsed={collapsed}
-        breakpoint="lg"
-        collapsedWidth={0}
-        onBreakpoint={(broken) => {
-          setCollapsed(broken)
-        }}
+    <AntLayout style={{ minHeight: '100vh' }}>
+      <Header
         style={{
           position: 'fixed',
-          left: 0,
           top: 0,
-          bottom: 0,
-          zIndex: 100,
-          overflow: 'hidden',
-          backgroundColor: siderBgColor,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 24px',
+          height: headerHeight,
+          background: colorBgContainer,
+          borderBottom: `1px solid ${colorBorder}`,
         }}
       >
-        <Sidebar
-          selectedKey={selectedKey}
-          openKeys={openKeys}
-          onMenuClick={handleMenuClick}
-          onOpenChange={handleOpenChange}
-          menuItems={menuItems}
+        <div style={{ fontSize: 18, fontWeight: 600, marginRight: 24, color: colorText }}>
+          {siteTitle}
+        </div>
+        <Menu
+          mode="horizontal"
+          selectedKeys={[selectedKey]}
+          items={topMenuItems}
+          style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
+          onClick={handleMenuClick}
         />
-      </Sider>
-      <AntLayout
-        style={{
-          backgroundColor: layoutBgColor,
-          marginLeft: collapsed ? 0 : 200,
-          transition: 'margin-left 0.2s',
-        }}
-      >
-        <Header
+        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+          <Button
+            type="text"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              height: 'auto',
+              padding: '4px 8px',
+            }}
+          >
+            <Avatar src={auth.user?.avatar} size="small" />
+            {!isMobile && <span>{auth.user?.display_name || auth.user?.name || 'Unknown'}</span>}
+          </Button>
+        </Dropdown>
+      </Header>
+      <AntLayout style={{ marginTop: headerHeight }}>
+        <Sider
+          width={siderWidth}
           style={{
-            padding: '0 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            position: 'sticky',
-            top: 0,
-            zIndex: 99,
-            height: 64,
-            backgroundColor: headerBgColor,
-            borderBottom: `1px solid ${headerBorderColor}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            padding: '16px 0 16px 0',
+            margin: 0,
+            position: 'fixed',
+            left: 0,
+            top: headerHeight,
+            bottom: 0,
+            background: colorBgContainer,
+            overflow: 'auto',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <Button
-              type="text"
-              icon={<MenuOutlined />}
-              onClick={() => setMobileMenuOpen(true)}
-              style={{
-                display: collapsed ? 'flex' : 'none',
-                alignItems: 'center',
-                marginRight: collapsed ? 16 : 0,
-              }}
-            />
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '20px',
-                fontWeight: 600,
-                color: isDark ? '#ffffff' : '#000000',
-                lineHeight: '64px',
-              }}
-            >
-              {siteTitle}
-            </h1>
-          </div>
-          <Space size="middle">
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Button
-                type="text"
-                style={{
-                  height: 'auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <Avatar icon={<UserOutlined />} size="small" />
-                {!isMobile && <span>{auth.user?.name || '用户'}</span>}
-              </Button>
-            </Dropdown>
-          </Space>
-        </Header>
-        <Content
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            openKeys={openKeys}
+            onOpenChange={handleOpenChange}
+            style={{ height: '100%', borderRight: 0 }}
+            items={sideMenuItems}
+            onClick={handleMenuClick}
+          />
+        </Sider>
+        <AntLayout
           style={{
-            margin: '24px',
-            padding: '24px',
-            backgroundColor: contentBgColor,
-            minHeight: 'calc(100vh - 112px)',
-            borderRadius: '4px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginLeft: siderWidth,
+            padding: 24,
+            minHeight: `calc(100vh - ${headerHeight}px)`,
+            overflow: 'auto',
           }}
         >
-          <Outlet />
-        </Content>
+          <Content
+            style={{
+              padding: 24,
+              margin: 0,
+              minHeight: 280,
+              background: colorBgContainer,
+              borderRadius: borderRadiusLG,
+            }}
+          >
+            <Outlet />
+          </Content>
+        </AntLayout>
       </AntLayout>
-      <Drawer
-        placement="left"
-        onClose={() => setMobileMenuOpen(false)}
-        open={mobileMenuOpen}
-        size={isMobile ? '75%' : 240}
-        closable={false}
-        maskClosable={true}
-        styles={{
-          body: {
-            padding: 0,
-            backgroundColor: drawerBgColor,
-            height: '100%',
-            overflow: 'hidden',
-          },
-          header: {
-            display: 'none',
-          },
-        }}
-        style={{
-          backgroundColor: drawerBgColor,
-        }}
-        zIndex={1000}
-      >
-        <Sidebar
-          selectedKey={selectedKey}
-          openKeys={openKeys}
-          onMenuClick={handleMenuClick}
-          onOpenChange={handleOpenChange}
-          menuItems={menuItems}
-          onClose={() => setMobileMenuOpen(false)}
-        />
-      </Drawer>
     </AntLayout>
   )
 }
