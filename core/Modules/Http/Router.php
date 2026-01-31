@@ -106,6 +106,18 @@ class Anon_Http_Router
             exit;
         }
 
+        // 记录请求开始时间，用于访问日志
+        $startTime = microtime(true);
+        
+        // 注册关闭函数，在请求结束时记录访问日志
+        register_shutdown_function(function() use ($startTime) {
+            try {
+                Anon_Cms_AccessLog::log(['start_time' => $startTime]);
+            } catch (Throwable $e) {
+                // 静默失败，避免影响正常请求
+            }
+        });
+
         self::handleRequest();
     }
 

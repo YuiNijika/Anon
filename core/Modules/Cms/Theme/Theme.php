@@ -5,10 +5,12 @@ class Anon_Cms_Theme
 {
     private static $currentTheme = 'default';
     private static $themeDir = null;
+    private static $themeDirCache = null;
     private static $templateCache = [];
     private static $themeInfoCache = [];
     private static $mimeTypesCache = null;
     private static $typeDirsCache = null;
+    private static $allThemesCache = null;
 
     /**
      * 获取 MIME 类型映射
@@ -115,7 +117,7 @@ class Anon_Cms_Theme
     {
         try {
             $functionsFile = self::$themeDir . DIRECTORY_SEPARATOR . 'functions.php';
-            if (file_exists($functionsFile)) {
+            if (Anon_Cms::fileExists($functionsFile)) {
                 require_once $functionsFile;
             }
         } catch (Error $e) {
@@ -467,12 +469,12 @@ class Anon_Cms_Theme
         foreach ($items as $item) {
             $itemPath = $dir . DIRECTORY_SEPARATOR . $item;
             
-            if (is_dir($itemPath)) {
+            if (Anon_Cms::isDir($itemPath)) {
                 self::scanAssetsDirectory($itemPath, $prefix . '/' . $item);
                 continue;
             }
             
-            if (!is_file($itemPath)) {
+            if (!Anon_Cms::isFile($itemPath)) {
                 continue;
             }
             
@@ -832,21 +834,27 @@ class Anon_Cms_Theme
      */
     public static function getAllThemes(): array
     {
+        if (self::$allThemesCache !== null) {
+            return self::$allThemesCache;
+        }
+        
         $themesDir = Anon_Main::APP_DIR . 'Theme/';
         $themes = [];
         
-        if (!is_dir($themesDir)) {
+        if (!Anon_Cms::isDir($themesDir)) {
+            self::$allThemesCache = $themes;
             return $themes;
         }
         
         $items = Anon_Cms::scanDirectory($themesDir);
         if ($items === null) {
+            self::$allThemesCache = $themes;
             return $themes;
         }
         
         foreach ($items as $item) {
             $themePath = $themesDir . $item;
-            if (!is_dir($themePath)) {
+            if (!Anon_Cms::isDir($themePath)) {
                 continue;
             }
             
@@ -871,7 +879,7 @@ class Anon_Cms_Theme
             }
             
             $themeInfo = [];
-            if ($infoFile && file_exists($infoFile)) {
+            if ($infoFile && Anon_Cms::fileExists($infoFile)) {
                 $jsonContent = file_get_contents($infoFile);
                 if ($jsonContent !== false) {
                     $decoded = json_decode($jsonContent, true);
@@ -888,7 +896,7 @@ class Anon_Cms_Theme
             $screenshot = '';
             if (!empty($themeInfo['screenshot'])) {
                 $screenshotFile = $themePath . DIRECTORY_SEPARATOR . $themeInfo['screenshot'];
-                if (file_exists($screenshotFile)) {
+                if (Anon_Cms::fileExists($screenshotFile)) {
                     $screenshot = '/anon/static/cms/theme/' . $item . '/screenshot';
                 }
             }
@@ -904,6 +912,7 @@ class Anon_Cms_Theme
             ];
         }
         
+        self::$allThemesCache = $themes;
         return $themes;
     }
 
@@ -928,7 +937,7 @@ class Anon_Cms_Theme
             }
             
             $themeInfo = [];
-            if ($infoFile !== null && file_exists($infoFile)) {
+            if ($infoFile !== null && Anon_Cms::fileExists($infoFile)) {
                 $jsonContent = file_get_contents($infoFile);
                 if ($jsonContent !== false) {
                     $decoded = json_decode($jsonContent, true);
@@ -1261,6 +1270,11 @@ class Anon_Cms_Theme_View
      * @var array 模板数据
      */
     private $data = [];
+    
+    /**
+     * @var array 已渲染的组件路径
+     */
+    private static $renderedComponents = [];
 
     /**
      * @param array $data
@@ -1362,6 +1376,12 @@ class Anon_Cms_Theme_View
             return;
         }
 
+        $componentKey = $componentFile;
+        if (isset(self::$renderedComponents[$componentKey])) {
+            return;
+        }
+
+        self::$renderedComponents[$componentKey] = true;
         $this->child($data)->render($componentFile);
     }
 
@@ -1465,11 +1485,11 @@ class Anon_Cms_Theme_View
      */
     public function posts(int $pageSize = 10, ?int $page = null): array
     {
-        // 如果不分页（pageSize <= 0），使用原来的逻辑
         if ($pageSize <= 0) {
             $pageSize = 10;
             $db = Anon_Database::getInstance();
             $rows = $db->db('posts')
+                ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
                 ->where('type', 'post')
                 ->where('status', 'publish')
                 ->orderBy('created_at', 'DESC')
@@ -1494,7 +1514,6 @@ class Anon_Cms_Theme_View
             $page = max(1, $page);
         }
 
-        // 性能优化：使用缓存，避免重复查询
         $cacheKey = 'posts_' . $pageSize . '_' . $page;
         if (isset(self::$postsCache[$cacheKey])) {
             $cached = self::$postsCache[$cacheKey];
@@ -1503,22 +1522,16 @@ class Anon_Cms_Theme_View
         }
 
         $db = Anon_Database::getInstance();
-        
-        // 获取总数
         $total = $db->db('posts')
             ->where('type', 'post')
             ->where('status', 'publish')
             ->count();
 
-        // 计算总页数
         $totalPages = max(1, (int)ceil($total / $pageSize));
-        
-        // 确保页码不超过总页数
         $page = min($page, $totalPages);
-
-        // 获取文章列表
         $offset = ($page - 1) * $pageSize;
         $rows = $db->db('posts')
+            ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
             ->where('type', 'post')
             ->where('status', 'publish')
             ->orderBy('created_at', 'DESC')
@@ -1527,17 +1540,12 @@ class Anon_Cms_Theme_View
             ->get();
 
         $rawPosts = is_array($rows) ? $rows : [];
-        
-        // 转换为 Post 对象数组
         $result = [];
         foreach ($rawPosts as $postData) {
             $result[] = new Anon_Cms_Post($postData);
         }
 
-        // 创建分页器
         $this->paginator = new Anon_Cms_Paginator($page, $pageSize, $total, $totalPages);
-        
-        // 缓存结果（仅在同一请求内有效）
         self::$postsCache[$cacheKey] = [
             'posts' => $result,
             'paginator' => $this->paginator,

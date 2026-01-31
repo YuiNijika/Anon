@@ -7,11 +7,24 @@ class Anon_Cms
     private static $pageStartTime = null;
     
     /**
-     * 文章/页面数据缓存（请求级缓存）
+     * 文章/页面数据缓存
      * @var array
      */
     private static $postCache = [];
     private static $pageCache = [];
+    
+    /**
+     * 文件系统操作缓存
+     * @var array
+     */
+    private static $fileSystemCache = [
+        'scandir' => [],
+        'file_exists' => [],
+        'is_dir' => [],
+        'is_file' => [],
+        'finddir' => [],
+        'findfile' => [],
+    ];
 
     /**
      * 获取页面类型
@@ -56,8 +69,14 @@ class Anon_Cms
      */
     public static function findDirectoryCaseInsensitive(string $baseDir, string $dirName): ?string
     {
+        $cacheKey = 'finddir:' . $baseDir . ':' . $dirName;
+        if (isset(self::$fileSystemCache['finddir'][$cacheKey])) {
+            return self::$fileSystemCache['finddir'][$cacheKey];
+        }
+        
         $exactPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $dirName . DIRECTORY_SEPARATOR;
-        if (is_dir($exactPath)) {
+        if (self::isDir($exactPath)) {
+            self::$fileSystemCache['finddir'][$cacheKey] = $exactPath;
             return $exactPath;
         }
         
@@ -65,16 +84,20 @@ class Anon_Cms
         $items = self::scanDirectory($baseDir);
         
         if ($items === null) {
+            self::$fileSystemCache['finddir'][$cacheKey] = null;
             return null;
         }
         
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
-            if (is_dir($itemPath) && strtolower($item) === $dirNameLower) {
-                return $itemPath . DIRECTORY_SEPARATOR;
+            if (self::isDir($itemPath) && strtolower($item) === $dirNameLower) {
+                $result = $itemPath . DIRECTORY_SEPARATOR;
+                self::$fileSystemCache['finddir'][$cacheKey] = $result;
+                return $result;
             }
         }
         
+        self::$fileSystemCache['finddir'][$cacheKey] = null;
         return null;
     }
 
@@ -91,23 +114,31 @@ class Anon_Cms
             $extensions = self::TEMPLATE_EXTENSIONS;
         }
         
+        $extKey = implode(',', $extensions);
+        $cacheKey = 'findfile:' . $baseDir . ':' . $fileName . ':' . $extKey;
+        if (isset(self::$fileSystemCache['findfile'][$cacheKey])) {
+            return self::$fileSystemCache['findfile'][$cacheKey];
+        }
+        
         $fileNameLower = strtolower($fileName);
         
         foreach ($extensions as $ext) {
             $exactPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $fileName . '.' . $ext;
-            if (file_exists($exactPath)) {
+            if (self::fileExists($exactPath)) {
+                self::$fileSystemCache['findfile'][$cacheKey] = $exactPath;
                 return $exactPath;
             }
         }
         
         $items = self::scanDirectory($baseDir);
         if ($items === null) {
+            self::$fileSystemCache['findfile'][$cacheKey] = null;
             return null;
         }
         
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
-            if (!is_file($itemPath)) {
+            if (!self::isFile($itemPath)) {
                 continue;
             }
             
@@ -115,10 +146,12 @@ class Anon_Cms
             $itemExt = strtolower(pathinfo($item, PATHINFO_EXTENSION));
             
             if (strtolower($itemName) === $fileNameLower && in_array($itemExt, $extensions)) {
+                self::$fileSystemCache['findfile'][$cacheKey] = $itemPath;
                 return $itemPath;
             }
         }
         
+        self::$fileSystemCache['findfile'][$cacheKey] = null;
         return null;
     }
 
@@ -129,18 +162,76 @@ class Anon_Cms
      */
     public static function scanDirectory(string $dir): ?array
     {
-        if (!is_dir($dir)) {
+        $cacheKey = 'scandir:' . $dir;
+        if (isset(self::$fileSystemCache['scandir'][$cacheKey])) {
+            return self::$fileSystemCache['scandir'][$cacheKey];
+        }
+        
+        if (!self::isDir($dir)) {
+            self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
         
         $items = scandir($dir);
         if ($items === false) {
+            self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
         
-        return array_filter($items, function($item) {
+        $result = array_filter($items, function($item) {
             return $item !== '.' && $item !== '..';
         });
+        
+        self::$fileSystemCache['scandir'][$cacheKey] = $result;
+        return $result;
+    }
+    
+    /**
+     * 检查是否为目录
+     * @param string $path 路径
+     * @return bool
+     */
+    public static function isDir(string $path): bool
+    {
+        if (isset(self::$fileSystemCache['is_dir'][$path])) {
+            return self::$fileSystemCache['is_dir'][$path];
+        }
+        
+        $result = is_dir($path);
+        self::$fileSystemCache['is_dir'][$path] = $result;
+        return $result;
+    }
+    
+    /**
+     * 检查文件是否存在
+     * @param string $path 路径
+     * @return bool
+     */
+    public static function fileExists(string $path): bool
+    {
+        if (isset(self::$fileSystemCache['file_exists'][$path])) {
+            return self::$fileSystemCache['file_exists'][$path];
+        }
+        
+        $result = file_exists($path);
+        self::$fileSystemCache['file_exists'][$path] = $result;
+        return $result;
+    }
+    
+    /**
+     * 检查是否为文件（带缓存）
+     * @param string $path 路径
+     * @return bool
+     */
+    public static function isFile(string $path): bool
+    {
+        if (isset(self::$fileSystemCache['is_file'][$path])) {
+            return self::$fileSystemCache['is_file'][$path];
+        }
+        
+        $result = is_file($path);
+        self::$fileSystemCache['is_file'][$path] = $result;
+        return $result;
     }
 
     /**
@@ -192,7 +283,13 @@ class Anon_Cms
     }
 
     /**
-     * 获取文章数据，如果不存在则返回错误页面（带缓存优化）
+     * 已增加浏览量的文章ID集合
+     * @var array
+     */
+    private static $viewedPosts = [];
+
+    /**
+     * 获取文章数据，如果不存在则返回错误页面
      * @param int|null $id 文章 ID，如果为 null 则从作用域变量获取
      * @return array|null 文章数据，如果不存在则返回 null（已渲染错误页面）
      */
@@ -212,7 +309,6 @@ class Anon_Cms
             return null;
         }
 
-        // 性能优化：使用缓存，避免重复查询
         $cacheKey = 'post_' . $id;
         if (isset(self::$postCache[$cacheKey])) {
             return self::$postCache[$cacheKey];
@@ -220,6 +316,7 @@ class Anon_Cms
 
         $db = Anon_Database::getInstance();
         $post = $db->db('posts')
+            ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
             ->where('id', $id)
             ->where('type', 'post')
             ->where('status', 'publish')
@@ -230,16 +327,35 @@ class Anon_Cms
             return null;
         }
 
-        // 缓存结果（仅在同一请求内有效）
+        if (!isset(self::$viewedPosts[$id])) {
+            $currentViews = (int)($post['views'] ?? 0);
+            $post['views'] = $currentViews + 1;
+            self::$viewedPosts[$id] = true;
+            
+            register_shutdown_function(function() use ($id, $currentViews) {
+                try {
+                    $db = Anon_Database::getInstance();
+                    $db->db('posts')
+                        ->where('id', $id)
+                        ->where('type', 'post')
+                        ->update(['views' => $currentViews + 1]);
+                } catch (Exception $e) {
+                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                        error_log("异步增加文章浏览量失败: " . $e->getMessage());
+                    }
+                }
+            });
+        }
+
         self::$postCache[$cacheKey] = $post;
 
         return $post;
     }
 
     /**
-     * 获取页面数据，如果不存在则返回错误页面（带缓存优化）
+     * 获取页面数据，如果不存在则返回错误页面
      * @param string|null $slug 页面 slug，如果为 null 则从作用域变量获取
-     * @return array|null 页面数据，如果不存在则返回 null（已渲染错误页面）
+     * @return array|null 页面数据，如果不存在则返回 null
      */
     public static function getPage(?string $slug = null): ?array
     {
@@ -252,7 +368,6 @@ class Anon_Cms
             return null;
         }
 
-        // 性能优化：使用缓存，避免重复查询
         $cacheKey = 'page_' . md5($slug);
         if (isset(self::$pageCache[$cacheKey])) {
             return self::$pageCache[$cacheKey];
@@ -260,6 +375,7 @@ class Anon_Cms
 
         $db = Anon_Database::getInstance();
         $page = $db->db('posts')
+            ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
             ->where('slug', $slug)
             ->where('type', 'page')
             ->where('status', 'publish')
@@ -270,7 +386,6 @@ class Anon_Cms
             return null;
         }
 
-        // 缓存结果（仅在同一请求内有效）
         self::$pageCache[$cacheKey] = $page;
 
         return $page;
@@ -284,7 +399,6 @@ class Anon_Cms
      */
     private static function renderError(int $code, string $message): void
     {
-        // 使用 Anon_Cms_Theme::render() 渲染，确保 $this 对象存在
         Anon_Cms_Theme::render('error', [
             'code' => $code,
             'message' => $message,

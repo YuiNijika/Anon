@@ -8,7 +8,10 @@ class Anon_Cms_AccessLog
      */
     private static $excludedPaths = [
         '/anon-dev-server',
-        '/anon/cms',
+        '/anon/cms/admin',
+        '/anon/static',
+        '/assets',
+        '/static',
         '/favicon.ico',
         '/robots.txt',
     ];
@@ -53,11 +56,29 @@ class Anon_Cms_AccessLog
     private static function shouldLog(): bool
     {
         $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        $parsedUrl = parse_url($requestUri);
+        $path = $parsedUrl['path'] ?? '/';
         
+        // 排除静态资源和后台 API
         foreach (self::$excludedPaths as $excludedPath) {
-            if (strpos($requestUri, $excludedPath) === 0) {
+            if (strpos($path, $excludedPath) === 0) {
                 return false;
             }
+        }
+
+        // 排除API
+        if (strpos($path, '/anon/cms') === 0) {
+            return false;
+        }
+        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+        if (empty($apiPrefix)) {
+            $apiPrefix = '/api';
+        }
+        if ($apiPrefix[0] !== '/') {
+            $apiPrefix = '/' . $apiPrefix;
+        }
+        if (strpos($path, $apiPrefix) === 0) {
+            return false;
         }
 
         return true;
@@ -85,16 +106,62 @@ class Anon_Cms_AccessLog
             $responseTime = (int)((microtime(true) - $options['start_time']) * 1000);
         }
 
+        // 判断请求类型
+        $type = self::detectRequestType($path);
+
         return [
             'url' => $requestUri,
             'path' => $path,
             'method' => $requestMethod,
+            'type' => $type,
             'ip' => $ip,
             'user_agent' => $userAgent,
             'referer' => $referer,
             'status_code' => $statusCode,
             'response_time' => $responseTime,
         ];
+    }
+
+    /**
+     * 检测请求类型
+     * @param string $path 请求路径
+     * @return string 'api' 或 'page'
+     */
+    private static function detectRequestType(string $path): string
+    {
+        // 静态资源路径
+        if (strpos($path, '/assets') === 0 || strpos($path, '/static') === 0 || strpos($path, '/anon/static') === 0) {
+            return 'static';
+        }
+
+        // 获取 API 前缀配置
+        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+        if (empty($apiPrefix)) {
+            $apiPrefix = '/api';
+        }
+        if ($apiPrefix[0] !== '/') {
+            $apiPrefix = '/' . $apiPrefix;
+        }
+
+        // API 路径特征
+        $apiPatterns = [
+            $apiPrefix . '/',
+        ];
+
+        foreach ($apiPatterns as $pattern) {
+            if (strpos($path, $pattern) === 0) {
+                return 'api';
+            }
+        }
+
+        // 检查 Accept 头
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if (strpos($accept, 'application/json') !== false) {
+            return 'api';
+        }
+
+        // 默认是页面请求
+        return 'page';
     }
 
     /**
@@ -140,6 +207,7 @@ class Anon_Cms_AccessLog
                 'url' => $logData['url'],
                 'path' => $logData['path'],
                 'method' => $logData['method'],
+                'type' => $logData['type'] ?? 'page',
                 'ip' => $logData['ip'],
                 'user_agent' => $logData['user_agent'],
                 'referer' => $logData['referer'],
@@ -200,6 +268,9 @@ class Anon_Cms_AccessLog
         }
         if (isset($options['path'])) {
             $query->where('path', 'LIKE', $options['path'] . '%');
+        }
+        if (isset($options['type'])) {
+            $query->where('type', '=', $options['type']);
         }
         
         return $query;

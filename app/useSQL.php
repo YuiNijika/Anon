@@ -70,6 +70,7 @@ return [
             INDEX `idx_category_id` (`category_id`),
             INDEX `idx_slug` (`slug`),
             INDEX `idx_created_at` (`created_at`),
+            INDEX `idx_type_status_created` (`type`, `status`, `created_at`),
             UNIQUE KEY `uk_slug_type` (`slug`, `type`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容表（文章和页面）'",
         
@@ -136,6 +137,7 @@ return [
             `url` VARCHAR(500) NOT NULL COMMENT '访问 URL',
             `path` VARCHAR(500) NOT NULL COMMENT '访问路径',
             `method` VARCHAR(10) NOT NULL DEFAULT 'GET' COMMENT '请求方法',
+            `type` VARCHAR(20) NOT NULL DEFAULT 'page' COMMENT '请求类型：api=API请求，page=页面请求，static=静态资源',
             `ip` VARCHAR(45) NOT NULL COMMENT 'IP 地址',
             `user_agent` TEXT NULL DEFAULT NULL COMMENT 'User-Agent',
             `referer` VARCHAR(500) NULL DEFAULT NULL COMMENT '来源页面',
@@ -145,7 +147,8 @@ return [
             INDEX `idx_created_at` (`created_at`),
             INDEX `idx_path_created` (`path`(100), `created_at`),
             INDEX `idx_ip_created` (`ip`, `created_at`),
-            INDEX `idx_status_created` (`status_code`, `created_at`)
+            INDEX `idx_status_created` (`status_code`, `created_at`),
+            INDEX `idx_type_created` (`type`, `created_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='访问日志表'",
     ],
 ];

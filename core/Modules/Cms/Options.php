@@ -19,35 +19,16 @@ class Anon_Cms_Options
                 self::loadAll();
             }
 
+            // 如果缓存中有直接返回
             if (array_key_exists($name, self::$cache)) {
                 return self::$cache[$name];
             }
 
-            // 缓存中没有时直接从数据库查询
-            $db = Anon_Database::getInstance();
-            $option = $db->db('options')->where('name', $name)->first();
-
-            if ($option) {
-                $value = $option['value'] ?? null;
-
-                // 尝试解析JSON
-                if ($value !== null && $value !== '') {
-                    $decoded = json_decode($value, true);
-                    if (json_last_error() === JSON_ERROR_NONE) {
-                        $value = $decoded;
-                    }
-                }
-
-                self::$cache[$name] = $value;
-                return $value;
-            }
+            self::$cache[$name] = null;
+            return $default;
         } catch (Exception $e) {
-            // 如果表不存在或其他数据库错误，返回默认值
-            // 这在安装过程中特别有用
             return $default;
         }
-
-        return $default;
     }
 
     /**
@@ -61,12 +42,17 @@ class Anon_Cms_Options
         $db = Anon_Database::getInstance();
         $valueStr = is_array($value) || is_object($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string)$value;
 
-        $existing = $db->db('options')->where('name', $name)->first();
-
-        if ($existing) {
+        $exists = self::$loaded && array_key_exists($name, self::$cache);
+        
+        if ($exists) {
             $result = $db->db('options')->where('name', $name)->update(['value' => $valueStr]);
         } else {
-            $result = $db->db('options')->insert(['name' => $name, 'value' => $valueStr]);
+            $check = $db->db('options')->where('name', $name)->first();
+            if ($check) {
+                $result = $db->db('options')->where('name', $name)->update(['value' => $valueStr]);
+            } else {
+                $result = $db->db('options')->insert(['name' => $name, 'value' => $valueStr]);
+            }
         }
 
         if ($result) {
@@ -84,7 +70,7 @@ class Anon_Cms_Options
     {
         try {
             $db = Anon_Database::getInstance();
-            $options = $db->db('options')->get();
+            $options = $db->db('options')->select(['name', 'value'])->get();
 
             foreach ($options as $option) {
                 if (!isset($option['name'])) {
@@ -93,8 +79,7 @@ class Anon_Cms_Options
 
                 $value = $option['value'] ?? null;
 
-                // 尝试解析JSON
-                if ($value !== null && $value !== '') {
+                if ($value !== null && $value !== '' && ($value[0] === '{' || $value[0] === '[')) {
                     $decoded = json_decode($value, true);
                     if (json_last_error() === JSON_ERROR_NONE) {
                         $value = $decoded;
@@ -106,9 +91,7 @@ class Anon_Cms_Options
 
             self::$loaded = true;
         } catch (Exception $e) {
-            // 如果表不存在或其他数据库错误，静默失败
-            // 这在安装过程中特别有用
-            self::$loaded = true; // 标记为已加载，避免重复尝试
+            self::$loaded = true;
         }
     }
 

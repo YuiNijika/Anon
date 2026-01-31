@@ -73,6 +73,7 @@ export default function Write() {
           status: post.status,
           category: post.category,
           tags: post.tags || [],
+          type: post.type,
         })
       } else {
         message.error('加载文章失败')
@@ -152,7 +153,9 @@ export default function Write() {
 
   const handleTypeChange = (type: ContentType) => {
     setContentType(type)
-    form.resetFields()
+    form.setFieldValue('type', type)
+    form.resetFields(['title', 'slug', 'status', 'category', 'tags', 'content'])
+    form.setFieldValue('type', type)
   }
 
   const handleMediaSelect = (attachmentOrList: any) => {
