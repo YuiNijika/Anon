@@ -33,7 +33,6 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Options.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
-        require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Statistics.php';
         
         Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;

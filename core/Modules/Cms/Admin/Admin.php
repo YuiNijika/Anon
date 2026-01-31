@@ -1,17 +1,17 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-require_once __DIR__ . '/SettingsBasic.php';
-require_once __DIR__ . '/SettingsPermission.php';
-require_once __DIR__ . '/SettingsPage.php';
-require_once __DIR__ . '/SettingsTheme.php';
-require_once __DIR__ . '/Categories.php';
-require_once __DIR__ . '/Tags.php';
-require_once __DIR__ . '/Attachments.php';
-require_once __DIR__ . '/Posts.php';
-require_once __DIR__ . '/Users.php';
-require_once __DIR__ . '/Plugins.php';
-require_once __DIR__ . '/Themes.php';
+require_once __DIR__ . '/Settings/Basic.php';
+require_once __DIR__ . '/Settings/Permission.php';
+require_once __DIR__ . '/Manage/Categories.php';
+require_once __DIR__ . '/Manage/Tags.php';
+require_once __DIR__ . '/Manage/Attachments.php';
+require_once __DIR__ . '/Manage/Posts.php';
+require_once __DIR__ . '/Manage/Users.php';
+require_once __DIR__ . '/Index/Statistics.php';
+require_once __DIR__ . '/Index/Plugins.php';
+require_once __DIR__ . '/Index/Themes.php';
+require_once __DIR__ . '/UI/Navbar.php';
 
 class Anon_Cms_Admin
 {
@@ -89,6 +89,13 @@ class Anon_Cms_Admin
      */
     public static function initRoutes()
     {
+        self::addRoute('/navbar', function () {
+            Anon_Cms_Admin_UI_Navbar::get();
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
         self::addRoute('/statistics', function () {
             try {
                 $statistics = Anon_Cms_Statistics::getAll();
@@ -132,28 +139,15 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        self::addRoute('/settings/page', function () {
-            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-            if ($requestMethod === 'GET') {
-                Anon_Cms_Admin_SettingsPage::get();
-            } elseif ($requestMethod === 'POST') {
-                Anon_Cms_Admin_SettingsPage::save();
-            } else {
-                Anon_Http_Response::error('不支持的请求方法', 405);
-            }
-        }, [
-            'method' => ['GET', 'POST'],
-            'token' => true,
-        ]);
 
-        Anon_Cms_Admin_SettingsTheme::initStaticRoutes();
+        Anon_Cms_Admin_Themes::initStaticRoutes();
 
         self::addRoute('/settings/theme', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
-                Anon_Cms_Admin_SettingsTheme::get();
+                Anon_Cms_Admin_Themes::get();
             } elseif ($requestMethod === 'POST') {
-                Anon_Cms_Admin_SettingsTheme::switch();
+                Anon_Cms_Admin_Themes::switch();
             } else {
                 Anon_Http_Response::error('不支持的请求方法', 405);
             }
@@ -164,9 +158,9 @@ class Anon_Cms_Admin
         self::addRoute('/settings/theme-options', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
-                Anon_Cms_Admin_SettingsTheme::getOptions();
+                Anon_Cms_Admin_Themes::getOptions();
             } elseif ($requestMethod === 'POST') {
-                Anon_Cms_Admin_SettingsTheme::saveOptions();
+                Anon_Cms_Admin_Themes::saveOptions();
             } else {
                 Anon_Http_Response::error('不支持的请求方法', 405);
             }

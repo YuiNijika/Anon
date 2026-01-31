@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Form, Input, Button, App, Space, Divider, Typography, Select, Radio, Alert } from 'antd'
 import { useApiAdmin } from '@/hooks'
-import { AdminApi, type BasicSettings, type PageSettings } from '@/services/admin'
+import { AdminApi, type BasicSettings } from '@/services/admin'
 
 const { TextArea } = Input
 const { Title, Text } = Typography
@@ -100,11 +100,8 @@ export default function SettingsBasic() {
     try {
       setLoading(true)
 
-      // 并行加载基本设置和页面设置
-      const [basicRes, pageRes] = await Promise.all([
-        AdminApi.getBasicSettings(apiAdmin),
-        AdminApi.getPageSettings(apiAdmin),
-      ])
+      // 加载基本设置（包含页面设置）
+      const basicRes = await AdminApi.getBasicSettings(apiAdmin)
 
       if (basicRes.data) {
         const uploadTypes = basicRes.data.upload_allowed_types || {}
@@ -121,30 +118,28 @@ export default function SettingsBasic() {
         }
 
         // 加载页面路径设置
-        if (pageRes.data) {
-          const routes = pageRes.data.routes || {}
-          const postPath = Object.entries(routes).find(([_, template]) => template === 'post')?.[0] || '/archives/{id}/'
-          const pagePath = Object.entries(routes).find(([_, template]) => template === 'page')?.[0] || '/{slug}.html'
-          const categoryPath = Object.entries(routes).find(([_, template]) => template === 'category')?.[0] || '/category/{slug}/'
-          const tagPath = Object.entries(routes).find(([_, template]) => template === 'tag')?.[0] || '/tag/{slug}/'
+        const routes = basicRes.data.routes || {}
+        const postPath = Object.entries(routes).find(([_, template]) => template === 'post')?.[0] || '/archives/{id}/'
+        const pagePath = Object.entries(routes).find(([_, template]) => template === 'page')?.[0] || '/{slug}.html'
+        const categoryPath = Object.entries(routes).find(([_, template]) => template === 'category')?.[0] || '/category/{slug}/'
+        const tagPath = Object.entries(routes).find(([_, template]) => template === 'tag')?.[0] || '/tag/{slug}/'
 
-          // 检测路径风格
-          const detectedStyle =
-            PATH_STYLES.find(
-              (style) =>
-                style.paths.post === postPath &&
-                style.paths.page === pagePath &&
-                style.paths.category === categoryPath &&
-                style.paths.tag === tagPath
-            )?.value || 'custom'
-          setPathStyle(detectedStyle)
+        // 检测路径风格
+        const detectedStyle =
+          PATH_STYLES.find(
+            (style) =>
+              style.paths.post === postPath &&
+              style.paths.page === pagePath &&
+              style.paths.category === categoryPath &&
+              style.paths.tag === tagPath
+          )?.value || 'custom'
+        setPathStyle(detectedStyle)
 
-          formData.postPath = postPath
-          formData.postPathStyle = detectedStyle
-          formData.pagePath = pagePath
-          formData.categoryPath = categoryPath
-          formData.tagPath = tagPath
-        }
+        formData.postPath = postPath
+        formData.postPathStyle = detectedStyle
+        formData.pagePath = pagePath
+        formData.categoryPath = categoryPath
+        formData.tagPath = tagPath
 
         form.setFieldsValue(formData)
       }
@@ -174,24 +169,10 @@ export default function SettingsBasic() {
     try {
       setLoading(true)
 
-      // 保存基本设置
+      // 保存基本设置（包含页面设置）
       const uploadTypes = values.upload_allowed_types || {}
-      const basicData: BasicSettings = {
-        title: values.title || '',
-        subtitle: values.subtitle || 'Powered by AnonEcho',
-        description: values.description || '',
-        keywords: arrayToString(values.keywords),
-        upload_allowed_types: {
-          image: arrayToString(uploadTypes.image),
-          media: arrayToString(uploadTypes.media),
-          document: arrayToString(uploadTypes.document),
-          other: arrayToString(uploadTypes.other),
-        },
-      }
-
-      await AdminApi.updateBasicSettings(apiAdmin, basicData)
-
-      // 保存页面路径设置
+      
+      // 构建路由规则
       const routes: Record<string, string> = {}
       if (values.postPath && values.postPath.trim()) {
         routes[values.postPath.trim()] = 'post'
@@ -205,9 +186,22 @@ export default function SettingsBasic() {
       if (values.tagPath && values.tagPath.trim()) {
         routes[values.tagPath.trim()] = 'tag'
       }
+      
+      const basicData: BasicSettings = {
+        title: values.title || '',
+        subtitle: values.subtitle || 'Powered by AnonEcho',
+        description: values.description || '',
+        keywords: arrayToString(values.keywords),
+        upload_allowed_types: {
+          image: arrayToString(uploadTypes.image),
+          media: arrayToString(uploadTypes.media),
+          document: arrayToString(uploadTypes.document),
+          other: arrayToString(uploadTypes.other),
+        },
+        routes: routes,
+      }
 
-      const pageData: PageSettings = { routes }
-      await AdminApi.updatePageSettings(apiAdmin, pageData)
+      await AdminApi.updateBasicSettings(apiAdmin, basicData)
 
       message.success('设置已保存')
       await loadSettings()

@@ -54,12 +54,28 @@ class Anon_Cms_Admin_SettingsBasic
                 return false;
             };
             
+            /**
+             * 获取路由规则配置
+             */
+            $routesValue = Anon_Cms_Options::get('routes', '');
+            $routes = [];
+            
+            if (is_array($routesValue)) {
+                $routes = $routesValue;
+            } elseif (is_string($routesValue) && !empty($routesValue)) {
+                $decoded = json_decode($routesValue, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $routes = $decoded;
+                }
+            }
+            
             $settings = [
                 'title' => Anon_Cms_Options::get('title', ''),
                 'subtitle' => Anon_Cms_Options::get('subtitle', 'Powered by AnonEcho'),
                 'description' => Anon_Cms_Options::get('description', ''),
                 'keywords' => Anon_Cms_Options::get('keywords', ''),
                 'upload_allowed_types' => $uploadAllowedTypes,
+                'routes' => $routes,
             ];
             
             Anon_Http_Response::success($settings, '获取基本设置成功');
@@ -139,11 +155,20 @@ class Anon_Cms_Admin_SettingsBasic
                 return;
             }
 
+            /**
+             * 处理路由规则配置
+             */
+            $routes = [];
+            if (isset($data['routes']) && is_array($data['routes'])) {
+                $routes = $data['routes'];
+            }
+
             Anon_Cms_Options::set('title', $siteName);
             Anon_Cms_Options::set('subtitle', $siteSubtitle);
             Anon_Cms_Options::set('description', $siteDescription);
             Anon_Cms_Options::set('keywords', $keywords);
             Anon_Cms_Options::set('upload_allowed_types', json_encode($uploadAllowedTypes, JSON_UNESCAPED_UNICODE));
+            Anon_Cms_Options::set('routes', json_encode($routes, JSON_UNESCAPED_UNICODE));
             
             /**
              * 清除选项缓存，确保设置立即生效
@@ -156,6 +181,7 @@ class Anon_Cms_Admin_SettingsBasic
                 'description' => $siteDescription,
                 'keywords' => $keywords,
                 'upload_allowed_types' => $uploadAllowedTypes,
+                'routes' => $routes,
             ], '保存设置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);

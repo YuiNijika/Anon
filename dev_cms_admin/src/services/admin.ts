@@ -33,6 +33,13 @@ export interface ThemeSettings {
   themes: ThemeInfo[]
 }
 
+export interface NavbarItem {
+  key: string
+  label: string
+  icon?: string
+  children?: NavbarItem[]
+}
+
 export interface StatisticsData {
   posts: number
   comments: number
@@ -59,6 +66,7 @@ export interface BasicSettings {
     document: string
     other: string
   }
+  routes?: Record<string, string>
 }
 
 export interface PageSettings {
@@ -176,6 +184,10 @@ export const AdminApi = {
 
   getStatistics: (api: ApiClient) => {
     return api.admin.get<StatisticsData>('/statistics')
+  },
+
+  getNavbar: (api: ApiClient) => {
+    return api.admin.get<{ header: NavbarItem[]; sidebar: NavbarItem[] }>('/navbar')
   },
 
   getThemeSettings: (api: ApiClient) => {

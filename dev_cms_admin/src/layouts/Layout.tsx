@@ -24,12 +24,44 @@ import {
   FileOutlined,
 } from '@ant-design/icons'
 import { useAuth } from '@/hooks'
-import { AdminApi, type BasicSettings } from '@/services/admin'
+import { AdminApi, type BasicSettings, type NavbarItem } from '@/services/admin'
 import { useApiAdmin } from '@/hooks/useApiAdmin'
 
 const { Header, Content, Sider } = AntLayout
 
-const sideMenuItems: MenuProps['items'] = [
+// 图标映射
+const iconMap: Record<string, React.ComponentType> = {
+  DashboardOutlined,
+  BarChartOutlined,
+  EditOutlined,
+  BgColorsOutlined,
+  AppstoreOutlined,
+  FolderOutlined,
+  UserOutlined,
+  TagsOutlined,
+  FileOutlined,
+  SettingOutlined,
+}
+
+// 将导航项转换为 Ant Design Menu 格式
+const convertNavbarItem = (item: NavbarItem): any => {
+  const menuItem: any = {
+    key: item.key,
+    label: item.label,
+  }
+
+  if (item.icon && iconMap[item.icon]) {
+    menuItem.icon = React.createElement(iconMap[item.icon])
+  }
+
+  if (item.children && item.children.length > 0) {
+    menuItem.children = item.children.map(convertNavbarItem)
+  }
+
+  return menuItem
+}
+
+const defaultSideMenuItems: MenuProps['items'] = [
   {
     key: '/console',
     icon: React.createElement(DashboardOutlined),
@@ -134,6 +166,9 @@ export default function Layout() {
   const [siteTitle, setSiteTitle] = useState<string>('管理后台')
   const [siteSubtitle, setSiteSubtitle] = useState<string>('')
   const siteFetchingRef = useRef(false)
+  const [headerMenuItems, setHeaderMenuItems] = useState<MenuProps['items']>([])
+  const [sideMenuItems, setSideMenuItems] = useState<MenuProps['items']>(defaultSideMenuItems)
+  const navbarFetchingRef = useRef(false)
 
   const {
     token: { colorBgContainer, borderRadiusLG, colorBorder, colorText },
@@ -189,6 +224,42 @@ export default function Layout() {
     document.title = `${siteTitle} - ${subtitle}`
   }, [siteSubtitle, siteTitle])
 
+  useEffect(() => {
+    if (auth.initializing) {
+      return
+    }
+    if (!auth.isAuthenticated) {
+      return
+    }
+    if (navbarFetchingRef.current) {
+      return
+    }
+
+    const fetchNavbar = async () => {
+      navbarFetchingRef.current = true
+      try {
+        const res = await AdminApi.getNavbar(apiAdmin)
+        if (res.data) {
+          // 转换顶部导航
+          const headerItems = res.data.header?.map(convertNavbarItem) || []
+          setHeaderMenuItems(headerItems)
+
+          // 转换侧边导航
+          const sidebarItems = res.data.sidebar?.map(convertNavbarItem) || defaultSideMenuItems
+          setSideMenuItems(sidebarItems)
+        }
+      } catch {
+        // 使用默认导航
+        setHeaderMenuItems([])
+        setSideMenuItems(defaultSideMenuItems)
+      } finally {
+        navbarFetchingRef.current = false
+      }
+    }
+
+    fetchNavbar()
+  }, [apiAdmin, auth.initializing, auth.isAuthenticated])
+
 
   useEffect(() => {
     if (auth.initializing) {
@@ -237,17 +308,6 @@ export default function Layout() {
     return null
   }
 
-  const topMenuItems: MenuProps['items'] = [
-    {
-      key: '/console',
-      label: '控制台',
-    },
-    {
-      key: '/manage/posts',
-      label: '文章管理',
-    },
-  ]
-
   const headerHeight = 64
   const siderWidth = 200
 
@@ -274,7 +334,7 @@ export default function Layout() {
         <Menu
           mode="horizontal"
           selectedKeys={[selectedKey]}
-          items={topMenuItems}
+          items={headerMenuItems}
           style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
           onClick={handleMenuClick}
         />
