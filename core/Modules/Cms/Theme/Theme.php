@@ -1392,13 +1392,6 @@ class Anon_Cms_Theme_View
      * @param array $attributes
      * @return string
      */
-    /**
-     * 输出主题资源
-     * @param string $path 资源路径
-     * @param bool|string|null $forceNoCacheOrType 强制禁止缓存（true）或资源类型，不指定则根据文件后缀自动判断
-     * @param array $attributes 额外属性
-     * @return string
-     */
     public function assets(string $path, $forceNoCacheOrType = null, array $attributes = []): string
     {
         return Anon_Cms_Theme::assets($path, $forceNoCacheOrType, $attributes);
