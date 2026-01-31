@@ -62,9 +62,18 @@ class Anon_System_Plugin
      */
     public static function isEnabled(): bool
     {
+        $appMode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
+        
+        // CMS 模式
+        if ($appMode === 'cms') {
+            return true;
+        }
+        
+        // API 模式
         if (Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.plugins.enabled', true);
         }
+        
         return true;
     }
 
@@ -91,6 +100,10 @@ class Anon_System_Plugin
                 $pluginSlug = $pluginData['slug'];
                 
                 if (!self::isPluginActive($pluginSlug)) {
+                    continue;
+                }
+
+                if (!self::shouldLoadPlugin($pluginData['meta'])) {
                     continue;
                 }
 
@@ -150,6 +163,10 @@ class Anon_System_Plugin
                 ];
 
                 if (!self::isPluginActive($pluginSlug)) {
+                    continue;
+                }
+
+                if (!self::shouldLoadPlugin($meta)) {
                     continue;
                 }
 
@@ -243,7 +260,7 @@ class Anon_System_Plugin
      * @param string $pluginFile 插件文件
      * @return array|null
      */
-    private static function readPluginMeta(string $pluginFile): ?array
+    public static function readPluginMeta(string $pluginFile): ?array
     {
         try {
             $content = file_get_contents($pluginFile);
@@ -252,25 +269,41 @@ class Anon_System_Plugin
             }
 
             $meta = [];
-            
-            if (preg_match('/Plugin Name:\s*(.+)/i', $content, $matches)) {
+            if (preg_match('/^\s*\*\s*Name:\s*(.+)$/im', $content, $matches)) {
+                $meta['name'] = trim($matches[1]);
+            } elseif (preg_match('/^\s*\*\s*Plugin Name:\s*(.+)$/im', $content, $matches)) {
                 $meta['name'] = trim($matches[1]);
             }
             
-            if (preg_match('/Plugin Description:\s*(.+)/i', $content, $matches)) {
+            if (preg_match('/^\s*\*\s*Description:\s*(.+)$/im', $content, $matches)) {
+                $meta['description'] = trim($matches[1]);
+            } elseif (preg_match('/^\s*\*\s*Plugin Description:\s*(.+)$/im', $content, $matches)) {
                 $meta['description'] = trim($matches[1]);
             }
             
-            if (preg_match('/Version:\s*(.+)/i', $content, $matches)) {
+            if (preg_match('/^\s*\*\s*Version:\s*(.+)$/im', $content, $matches)) {
                 $meta['version'] = trim($matches[1]);
             }
             
-            if (preg_match('/Author:\s*(.+)/i', $content, $matches)) {
+            if (preg_match('/^\s*\*\s*Author:\s*(.+)$/im', $content, $matches)) {
                 $meta['author'] = trim($matches[1]);
             }
             
-            if (preg_match('/Plugin URI:\s*(.+)/i', $content, $matches)) {
+            if (preg_match('/^\s*\*\s*URI:\s*(.+)$/im', $content, $matches)) {
                 $meta['url'] = trim($matches[1]);
+            } elseif (preg_match('/^\s*\*\s*Plugin URI:\s*(.+)$/im', $content, $matches)) {
+                $meta['url'] = trim($matches[1]);
+            }
+            
+            if (preg_match('/^\s*\*\s*Mode:\s*(.+)$/im', $content, $matches)) {
+                $mode = strtolower(trim($matches[1]));
+                if (in_array($mode, ['api', 'cms', 'auto'], true)) {
+                    $meta['mode'] = $mode;
+                } else {
+                    $meta['mode'] = 'api'; // 默认值
+                }
+            } else {
+                $meta['mode'] = 'api'; // 默认值
             }
             
             if (empty($meta['name'])) {
@@ -346,6 +379,21 @@ class Anon_System_Plugin
      */
     private static function getActivePlugins(): array
     {
+        $appMode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
+        
+        // CMS 模式下从 options 表读取
+        if ($appMode === 'cms' && class_exists('Anon_Cms_Options')) {
+            $active = Anon_Cms_Options::get('plugins:active', []);
+            if (is_string($active)) {
+                $active = json_decode($active, true);
+                if (!is_array($active)) {
+                    $active = [];
+                }
+            }
+            return array_map('strtolower', $active);
+        }
+        
+        // API 模式下从 useApp.php 读取
         if (Anon_System_Env::isInitialized()) {
             $active = Anon_System_Env::get('app.plugins.active', []);
             if (empty($active)) {
@@ -353,6 +401,7 @@ class Anon_System_Plugin
             }
             return array_map('strtolower', $active);
         }
+        
         return [];
     }
 
@@ -367,6 +416,35 @@ class Anon_System_Plugin
             return true;
         }
         return in_array(strtolower($pluginSlug), self::$activePlugins, true);
+    }
+
+    /**
+     * 判断是否应该加载插件
+     * @param array $meta 插件元数据
+     * @return bool
+     */
+    private static function shouldLoadPlugin(array $meta): bool
+    {
+        $pluginMode = strtolower($meta['mode'] ?? 'api');
+        $appMode = Anon_System_Env::get('app.mode', 'api');
+
+        // auto 模式
+        if ($pluginMode === 'auto') {
+            return true; // auto 模式总是加载
+        }
+
+        // api 模式
+        if ($pluginMode === 'api') {
+            return $appMode === 'api';
+        }
+
+        // cms 模式
+        if ($pluginMode === 'cms') {
+            return $appMode === 'cms';
+        }
+
+        // 默认不加载
+        return false;
     }
 
     /**
@@ -581,5 +659,91 @@ class Anon_System_Plugin
         }
 
         return false;
+    }
+
+    /**
+     * 重新加载单个插件
+     * @param string $pluginSlug 插件标识符
+     * @return bool
+     */
+    public static function reloadPlugin(string $pluginSlug): bool
+    {
+        // 更新激活列表
+        self::$activePlugins = self::getActivePlugins();
+        
+        $pluginDir = self::PLUGIN_DIR;
+        $pluginPath = $pluginDir . $pluginSlug;
+        
+        if (!is_dir($pluginPath)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::warn("Plugin directory not found", ['slug' => $pluginSlug, 'path' => $pluginPath]);
+            }
+            return false;
+        }
+
+        $pluginFile = $pluginPath . '/Index.php';
+        if (!file_exists($pluginFile)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::warn("Plugin file not found", ['slug' => $pluginSlug, 'file' => $pluginFile]);
+            }
+            return false;
+        }
+
+        $meta = self::readPluginMeta($pluginFile);
+        if (!$meta || empty($meta['name'])) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::warn("Failed to read plugin meta", ['slug' => $pluginSlug]);
+            }
+            return false;
+        }
+
+        // 检查插件是否应该加载（模式匹配）
+        if (!self::shouldLoadPlugin($meta)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::debug("Plugin mode mismatch, skipping", ['slug' => $pluginSlug, 'mode' => $meta['mode'] ?? 'api']);
+            }
+            return false;
+        }
+
+        // 检查插件是否已激活
+        if (!self::isPluginActive($pluginSlug)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::debug("Plugin not active, skipping", ['slug' => $pluginSlug]);
+            }
+            return false;
+        }
+
+        // 加载插件
+        self::loadPlugin($pluginSlug, $pluginFile, $meta, $pluginSlug);
+
+        // 调用激活方法
+        return self::activatePlugin($pluginSlug);
+    }
+
+    /**
+     * 获取当前应用模式
+     * @return string 'api' 或 'cms'
+     */
+    public static function getAppMode(): string
+    {
+        return defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
+    }
+
+    /**
+     * 判断是否为 API 模式
+     * @return bool
+     */
+    public static function isApiMode(): bool
+    {
+        return self::getAppMode() === 'api';
+    }
+
+    /**
+     * 判断是否为 CMS 模式
+     * @return bool
+     */
+    public static function isCmsMode(): bool
+    {
+        return self::getAppMode() === 'cms';
     }
 }

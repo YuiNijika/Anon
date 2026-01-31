@@ -23,7 +23,7 @@ $widget->register('my_widget', '我的组件', function($args) {
 $output = $widget->render('my_widget', ['title' => '标题']);
 ```
 
-### JSON API模式（推荐）
+### JSON API 模式
 
 ```php
 $widget = Anon_System_Widget::getInstance();

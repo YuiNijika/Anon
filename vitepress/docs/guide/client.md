@@ -10,8 +10,8 @@ outline: deep
 
 - **Vue 3** - 使用 Pinia 状态管理
 - **React** - 使用 React Hooks
-- **Next.js** - 使用 React Hooks（支持 SSR）
-- **Nuxt 4** - 使用 Pinia 状态管理（支持 SSR）
+- **Next.js** - 使用 React Hooks，支持 SSR
+- **Nuxt 4** - 使用 Pinia 状态管理，支持 SSR
 
 ## 统一的认证流程
 
@@ -88,8 +88,8 @@ interface ApiResponse<T = any> {
 
 ```typescript
 interface LoginResponse {
-  token?: string    // Token（登录成功时返回）
-  user?: UserInfo   // 基本用户信息（可选）
+  token?: string    // Token，登录成功时返回
+  user?: UserInfo   // 基本用户信息
 }
 ```
 
@@ -116,7 +116,7 @@ interface TokenResponse {
 interface UserInfo {
   uid: number      // 用户ID
   name: string     // 用户名
-  email?: string   // 邮箱（可选）
+  email?: string   // 邮箱
   [key: string]: any  // 其他字段
 }
 ```
@@ -171,18 +171,18 @@ onMounted(async () => {
 const auth = useAuthStore()
 
 // 状态
-auth.user          // 用户信息（UserInfo | null）
+auth.user          // 用户信息，UserInfo 或 null
 auth.loading       // 加载状态
 auth.error         // 错误信息
 
 // 计算属性
-auth.isAuthenticated  // 是否已登录（boolean）
+auth.isAuthenticated  // 是否已登录，boolean
 
 // 方法
 auth.login(data)      // 登录
 auth.register(data)   // 注册
 auth.logout()         // 登出
-auth.checkLogin()     // 检查登录状态（返回 Promise<boolean>）
+auth.checkLogin()     // 检查登录状态，返回 Promise<boolean>
 ```
 
 ## React 使用
@@ -232,8 +232,8 @@ function LoginPage() {
 
 ```typescript
 const {
-  user,              // 用户信息（UserInfo | null）
-  isAuthenticated,   // 是否已登录（boolean）
+  user,              // 用户信息，UserInfo 或 null
+  isAuthenticated,   // 是否已登录，boolean
   loading,           // 加载状态
   error,             // 错误信息
   login,             // 登录方法
@@ -316,18 +316,18 @@ onMounted(async () => {
 const auth = useAuth()
 
 // 状态
-auth.user          // 用户信息（UserInfo | null）
+auth.user          // 用户信息，UserInfo 或 null
 auth.loading       // 加载状态
 auth.error         // 错误信息
 
 // 计算属性
-auth.isAuthenticated  // 是否已登录（boolean）
+auth.isAuthenticated  // 是否已登录，boolean
 
 // 方法
 auth.login(data)      // 登录
 auth.register(data)   // 注册
 auth.logout()         // 登出
-auth.checkLogin()     // 检查登录状态（返回 Promise<boolean>）
+auth.checkLogin()     // 检查登录状态，返回 Promise<boolean>
 ```
 
 ## 配置 API 地址
@@ -390,7 +390,7 @@ export default defineNuxtConfig({
 
 1. **发送 Token**：从 Cookie 或 localStorage 读取 Token，自动添加到请求头 `X-API-Token`
 2. **保存 Token**：登录接口返回 Token 时，自动保存到 Cookie 或 localStorage
-3. **刷新 Token**：如果后端返回新 Token（通过响应头 `X-New-Token`），自动更新本地 Token
+3. **刷新 Token**：如果后端返回新 Token，通过响应头 `X-New-Token`，自动更新本地 Token
 
 ### 手动管理
 
@@ -477,7 +477,7 @@ try {
 ### Q: Token 在哪里存储？
 
 - **Vue/React/Next.js**: `localStorage`
-- **Nuxt**: Cookie（使用 `useCookie`）
+- **Nuxt**: Cookie，使用 `useCookie`
 
 ### Q: 如何切换 API 地址？
 
@@ -494,7 +494,7 @@ try {
 
 ### Q: useApi 和 useApiAdmin 的区别？
 
-- **useApi**: 使用动态 API 前缀（从 `/anon/cms/api-prefix` 获取），适用于通用 API 调用
+- **useApi**: 使用动态 API 前缀，从 `/anon/cms/api-prefix` 获取，适用于通用 API 调用
 - **useApiAdmin**: 固定使用 `/anon/cms` 前缀，专门用于 CMS 管理后台，不受 API 前缀配置影响
 
 **注意**：CMS 管理后台的详细文档请参考 `server/dev_cms_admin/README.md`。

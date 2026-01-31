@@ -2,16 +2,17 @@ import { Navigate } from 'react-router-dom'
 import Layout from '@/layouts/Layout'
 import Login from '@/pages/Login'
 import Console from '@/pages/Console'
-import SettingsBasic from '@/pages/SettingsBasic'
-import SettingsPermission from '@/pages/SettingsPermission'
-import SettingsTheme from '@/pages/SettingsTheme'
+import SettingsBasic from '@/pages/Settings/Basic'
+import SettingsPermission from '@/pages/Settings/Permission'
 import Statistics from '@/pages/Statistics'
 import Write from '@/pages/Write'
-import ManageCategories from '@/pages/ManageCategories'
-import ManageTags from '@/pages/ManageTags'
-import ManageFiles from '@/pages/ManageFiles'
-import ManagePosts from '@/pages/ManagePosts'
-import ManageUsers from '@/pages/ManageUsers'
+import Themes from '@/pages/Themes'
+import Plugins from '@/pages/Plugins'
+import ManageCategories from '@/pages/Manage/Categories'
+import ManageTags from '@/pages/Manage/Tags'
+import ManageFiles from '@/pages/Manage/Files'
+import ManagePosts from '@/pages/Manage/Posts'
+import ManageUsers from '@/pages/Manage/Users'
 
 export const routes = [
   {
@@ -37,6 +38,14 @@ export const routes = [
       {
         path: 'write',
         element: <Write />,
+      },
+      {
+        path: 'plugins',
+        element: <Plugins />,
+      },
+      {
+        path: 'themes',
+        element: <Themes />,
       },
       {
         path: 'manage/categories',
@@ -65,10 +74,6 @@ export const routes = [
       {
         path: 'settings/permission',
         element: <SettingsPermission />,
-      },
-      {
-        path: 'settings/theme',
-        element: <SettingsTheme />,
       },
     ],
   },

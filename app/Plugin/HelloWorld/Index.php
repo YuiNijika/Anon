@@ -1,10 +1,11 @@
 <?php
 /**
- * Plugin Name: HelloWorld
- * Plugin Description: Hello World
+ * Name: HelloWorld
+ * Description: Hello World
+ * Mode: auto
  * Version: 1.0.0
  * Author: YuiNijika
- * Plugin URI: https://github.com/YuiNijika
+ * URI: https://github.com/YuiNijika
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
@@ -15,21 +16,40 @@ class Anon_Plugin_HelloWorld
      */
     public static function init()
     {
-        // 注册路由，配置元数据
-        Anon::route('/hello', function () {
-            Anon::success([
-                self::index()
-            ], 'Hello World from Plugin');
-        }, [
-            'header' => true,
-            'requireLogin' => false,
-            'method' => ['GET'],
-            'token' => false,
-            'cache' => [
-                'enabled' => true,
-                'time' => 3600, // 缓存1小时
-            ],
-        ]);
+        // 判断当前应用模式
+        if (Anon_System_Plugin::isApiMode()) {
+            // API 模式下的初始化逻辑
+            Anon::route('/hello', function () {
+                Anon::success([
+                    self::index()
+                ], 'Hello World from Plugin (API Mode)');
+            }, [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => ['GET'],
+                'token' => false,
+                'cache' => [
+                    'enabled' => true,
+                    'time' => 3600,
+                ],
+            ]);
+        } elseif (Anon_System_Plugin::isCmsMode()) {
+            // CMS 模式下的初始化逻辑
+            Anon::route('/hello', function () {
+                Anon::success([
+                    self::index()
+                ], 'Hello World from Plugin (CMS Mode)');
+            }, [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => ['GET'],
+                'token' => false,
+                'cache' => [
+                    'enabled' => true,
+                    'time' => 3600,
+                ],
+            ]);
+        }
     }
 
     /**

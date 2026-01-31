@@ -29,7 +29,7 @@ return [
         // 注意：mode 配置已移至 .env.php 中的 ANON_APP_MODE 常量
         // CMS 相关配置已移至数据库 options 表
         
-        'autoRouter' => true,  // 是否启用自动路由（推荐）
+        'autoRouter' => true,
         'debug' => [
             'global' => false,  // 全局调试
             'router' => false,  // 路由调试
@@ -51,7 +51,7 @@ return [
         ],
         'cache' => [
             'enabled' => true,  // 是否启用全局缓存
-            'time' => 3600,     // 全局缓存时间（秒）
+            'time' => 3600,
             'exclude' => [
                 '/auth/',           // 所有认证相关接口
                 '/anon/debug/',     // Debug 接口
@@ -61,7 +61,7 @@ return [
         'security' => [
             'csrf' => [
                 'enabled' => true,      // 是否启用 CSRF 防护
-                'stateless' => true,    // 是否使用无状态 Token（推荐）
+                'stateless' => true,
             ],
             'xss' => [
                 'enabled' => true,      // 是否启用 XSS 自动过滤
@@ -77,12 +77,12 @@ return [
                 'ip' => [
                     'enabled' => true,        // 是否启用IP限制
                     'maxAttempts' => 5,        // 每小时最大注册次数
-                    'windowSeconds' => 3600,   // 时间窗口（秒）
+                    'windowSeconds' => 3600,
                 ],
                 'device' => [
                     'enabled' => true,         // 是否启用设备指纹限制
                     'maxAttempts' => 3,        // 每小时最大注册次数
-                    'windowSeconds' => 3600,   // 时间窗口（秒）
+                    'windowSeconds' => 3600,
                 ],
             ],
         ],
@@ -111,7 +111,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 **CMS 配置项：**
 - `theme`: 主题名称，对应 `app/Theme/{themeName}/` 目录
 - `apiPrefix`: API 路由前缀，默认为 `/api`
-- `routes`: CMS 路由配置（JSON 格式）
+- `routes`: CMS 路由配置，JSON 格式
 - `title`: 网站标题
 - `description`: 网站描述
 - `keywords`: 网站关键词
@@ -164,7 +164,7 @@ return [
 ### Anon_System_Env
 
 ```php
-// 获取配置值（自动缓存，首次解析后存入内存）
+// 获取配置值，自动缓存，首次解析后存入内存
 $enabled = Anon_System_Env::get('app.token.enabled', false);
 $host = Anon_System_Env::get('system.db.host', 'localhost');
 $whitelist = Anon_System_Env::get('app.token.whitelist', []);

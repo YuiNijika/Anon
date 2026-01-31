@@ -802,6 +802,7 @@ class Anon_System_Install
                 '/post/{id}' => 'post',
                 '/{slug}' => 'page',
             ], JSON_UNESCAPED_UNICODE),
+            'plugins:active' => json_encode([], JSON_UNESCAPED_UNICODE),
         ];
 
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);

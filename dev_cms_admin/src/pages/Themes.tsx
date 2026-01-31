@@ -16,11 +16,13 @@ import {
   Tag,
   Spin,
   Divider,
+  Upload,
+  Modal,
 } from 'antd'
-import { useApiAdmin } from '@/hooks'
+import { useApiAdmin, useThemes } from '@/hooks'
 import { AdminApi, type ThemeOptionSchema, type ThemeInfo } from '@/services/admin'
 import { Typography } from 'antd'
-import { CheckOutlined, SwapOutlined } from '@ant-design/icons'
+import { CheckOutlined, SwapOutlined, UploadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { getApiBaseUrl } from '@/utils/api'
 
 const { TextArea } = Input
@@ -28,9 +30,11 @@ const { Text } = Typography
 
 export default function SettingsTheme() {
   const apiAdmin = useApiAdmin()
+  const { uploadTheme, deleteTheme, loading: themeUploading } = useThemes()
   const [form] = Form.useForm()
   const app = App.useApp()
   const message = app.message
+  const modal = app.modal
 
   const baseUrl = getApiBaseUrl()
   const nullSvgUrl = `${baseUrl}/anon/static/img/null`
@@ -205,12 +209,49 @@ export default function SettingsTheme() {
     }
   }
 
+  const handleUploadTheme = async (file: File) => {
+    try {
+      await uploadTheme(file)
+      await loadThemeList()
+    } finally {
+    }
+    return false
+  }
+
+  const handleDeleteTheme = (theme: ThemeInfo) => {
+    if (theme.name === currentTheme) {
+      message.warning('不能删除当前使用的主题')
+      return
+    }
+
+    modal.confirm({
+      title: '确认删除',
+      content: `确定要删除主题 "${theme.displayName}" 吗？此操作不可恢复。`,
+      onOk: async () => {
+        await deleteTheme(theme.name)
+        await loadThemeList()
+      },
+    })
+  }
+
   const tabItems = [
     {
       key: 'list',
       label: '主题列表',
       children: (
         <div>
+          <div style={{ marginBottom: 16, textAlign: 'right' }}>
+            <Upload
+              accept=".zip"
+              showUploadList={false}
+              beforeUpload={handleUploadTheme}
+              disabled={themeUploading}
+            >
+              <Button type="primary" icon={<UploadOutlined />} loading={themeUploading}>
+                上传主题
+              </Button>
+            </Upload>
+          </div>
           {themeListLoading ? (
             <Card>
               <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -253,6 +294,16 @@ export default function SettingsTheme() {
                         block
                       >
                         {theme.name === currentTheme ? '当前使用' : '切换主题'}
+                      </Button>,
+                      <Button
+                        key="delete"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDeleteTheme(theme)}
+                        disabled={theme.name === currentTheme}
+                        block
+                      >
+                        删除
                       </Button>,
                     ]}
                   >

@@ -2,7 +2,7 @@
 
 一句话：文件路径自动映射为路由，用常量配置路由元数据。
 
-## 自动路由（推荐）
+## 自动路由
 
 ### 启用方式
 
@@ -49,7 +49,7 @@ app/Router/Index.php              → /index 和 /
 ],
 ```
 
-### 配置路由（API 模式）
+### API 模式路由配置
 
 编辑 `server/app/useRouter.php`：
 
@@ -65,7 +65,7 @@ return [
 ];
 ```
 
-### 配置路由（CMS 模式）
+### CMS 模式路由配置
 
 在 `server/app/useApp.php` 的 `app.cms.routes` 中配置：
 
@@ -84,7 +84,7 @@ return [
 ```
 
 **CMS 路由说明：**
-- 路由路径映射到主题模板文件（不区分大小写）
+- 路由路径映射到主题模板文件，不区分大小写
 - 支持参数路由，如 `/post/{id}`，参数会传递给模板
 - 模板文件位于 `app/Theme/{themeName}/` 目录
 - 支持 `.php`、`.html`、`.htm` 扩展名
@@ -95,15 +95,15 @@ return [
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `header` | bool | `true` | 是否设置响应头（包含CORS、Content-Type） |
+| `header` | bool | `true` | 是否设置响应头，包含CORS和Content-Type |
 | `requireLogin` | bool\|string | `false` | 是否需要登录验证，`true` 使用默认消息或钩子，字符串则使用自定义消息 |
 | `method` | string\|array | `null` | 允许的HTTP方法，如 `'GET'` 或 `['GET', 'POST']` |
-| `cors` | bool | `true` | 是否设置CORS头（可选，不设置时使用默认值true） |
-| `response` | bool | `true` | 是否设置JSON响应头（可选，不设置时使用默认值true） |
-| `code` | int | `200` | HTTP状态码（可选，不设置时使用默认值200） |
-| `token` | bool | - | 是否启用Token验证（可选），`true` 表示启用，`false` 表示禁用，不设置时使用全局配置 |
+| `cors` | bool | `true` | 是否设置CORS头，不设置时使用默认值true |
+| `response` | bool | `true` | 是否设置JSON响应头，不设置时使用默认值true |
+| `code` | int | `200` | HTTP状态码，不设置时使用默认值200 |
+| `token` | bool | - | 是否启用Token验证，`true` 表示启用，`false` 表示禁用，不设置时使用全局配置 |
 | `middleware` | array | `[]` | 中间件列表 |
-| `cache` | array | `['enabled' => false, 'time' => 0]` | 缓存控制配置，`enabled` 为是否启用缓存，`time` 为缓存时间（秒），0 表示不缓存 |
+| `cache` | array | `['enabled' => false, 'time' => 0]` | 缓存控制配置，`enabled` 为是否启用缓存，`time` 为缓存时间，单位秒，0 表示不缓存 |
 
 ### 示例：需要登录的GET接口
 
@@ -281,7 +281,7 @@ const Anon_Http_RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
-    'token' => false,  // 禁用 Token 验证（即使全局启用了 Token）
+    'token' => false,
 ];
 
 try {
@@ -324,7 +324,7 @@ const Anon_Http_RouterMeta = [
     'method' => 'GET',
     'cache' => [
         'enabled' => true,  // 启用缓存
-        'time' => 3600,     // 缓存 1 小时（3600 秒）
+        'time' => 3600,
     ],
 ];
 
@@ -347,8 +347,8 @@ const Anon_Http_RouterMeta = [
     'requireLogin' => false,
     'method' => 'GET',
     'cache' => [
-        'enabled' => false, // 禁用缓存（默认值）
-        'time' => 0,        // 缓存时间为 0（默认值）
+        'enabled' => false,
+        'time' => 0,
     ],
 ];
 
@@ -394,7 +394,7 @@ Anon_System_Config::addStaticRoute(
     string $route,        // 路由路径
     string $filePath,     // 文件完整路径
     string $mimeType,     // MIME类型
-    int $cacheTime = 31536000,  // 缓存时间（秒），0表示不缓存，默认1年
+    int $cacheTime = 31536000,
     bool $compress = true       // 是否启用压缩，默认true
 )
 ```
@@ -418,7 +418,7 @@ Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css'
 在 URL 后添加 `?ver=版本号` 参数可以强制刷新缓存，返回最新文件内容：
 
 ```
-/anon/static/admin/js        → 使用缓存（根据 cacheTime 设置）
+/anon/static/admin/js        → 使用缓存
 /anon/static/admin/js?ver=1  → 强制刷新，返回最新数据
 /anon/static/admin/js?ver=2  → 更新版本号即可强制刷新
 ```
@@ -432,7 +432,7 @@ Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css'
 在 URL 后添加 `?nocache=1` 或 `?nocache=true` 参数可以禁用缓存：
 
 ```
-/anon/static/admin/css              → 使用缓存（根据 cacheTime 设置）
+/anon/static/admin/css              → 使用缓存
 /anon/static/admin/css?nocache=1   → 禁用缓存，每次请求最新数据
 ```
 
@@ -442,8 +442,8 @@ Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css'
 
 #### 参数优先级
 
-1. **`nocache=1` 或 `ver` 参数存在** → 强制不缓存，返回最新数据
-2. **无参数** → 使用注册时设置的缓存策略（根据 `cacheTime` 参数）
+1. `nocache=1` 或 `ver` 参数存在时强制不缓存，返回最新数据
+2. 无参数时使用注册时设置的缓存策略
 
 #### 组合使用示例
 
@@ -451,10 +451,10 @@ Anon_System_Config::addStaticRoute('/assets/style.css', $customDir . 'style.css'
 <!-- 正常使用缓存 -->
 <link rel="stylesheet" href="/anon/static/admin/css">
 
-<!-- 强制刷新缓存（更新版本号） -->
+<!-- 强制刷新缓存 -->
 <link rel="stylesheet" href="/anon/static/admin/css?ver=2">
 
-<!-- 禁用缓存（开发环境） -->
+<!-- 禁用缓存 -->
 <link rel="stylesheet" href="/anon/static/admin/css?nocache=1">
 
 <!-- 组合使用 -->

@@ -12,14 +12,14 @@ http://your-domain.com/anon/install
 
 安装向导会引导您完成：
 
-- 选择安装模式（API 或 CMS）
+- 选择安装模式，API 或 CMS
 - 配置数据库连接
 - 创建管理员账号
 - 初始化系统配置
 
 详细安装步骤请参考 [安装指南](./installation.md)。
 
-## 2. 手动配置（可选）
+## 2. 手动配置
 
 如果您需要手动配置，可以编辑 `server/.env.php`：
 
@@ -66,7 +66,7 @@ return [
         'security' => [
             'csrf' => [
                 'enabled' => true,      // 是否启用 CSRF 防护
-                'stateless' => true,    // 是否使用无状态 Token（推荐）
+                'stateless' => true,    // 是否使用无状态 Token，推荐
             ],
         ],
     ],
@@ -94,7 +94,7 @@ try {
 }
 ```
 
-访问：`GET /test/index` 或 `GET /test`（Index.php会同时注册两个路由）
+访问：`GET /test/index` 或 `GET /test`，Index.php 会同时注册两个路由
 
 ## 路由规则
 
@@ -102,7 +102,7 @@ try {
 - 文件路径：`app/Router/User/Profile/Index.php` → 路由路径：`/user/profile/index` 和 `/user/profile`
 - 所有路由路径自动转为小写，不区分文件大小写
 - **特殊处理**：
-  - 文件名和目录名中的下划线（`_`）会自动转换为连字符（`-`）
+  - 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
   - 文件路径：`app/Router/Aa_Bb/Cc_Dd.php` → 路由路径：`/aa-bb/cc-dd`
   - 文件路径：`app/Router/User_Profile/Index.php` → 路由路径：`/user-profile/index` 和 `/user-profile`
   - 根目录下的 `Index.php` 会注册 `/` 和 `/index`

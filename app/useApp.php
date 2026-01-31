@@ -75,9 +75,6 @@ return [
         'plugins' => [
             'enabled' => true,
             'active' => [],
-        ],
-        'install' => [
-            'mode' => 'cms',
-        ],
+        ]
     ]
 ];

@@ -21,42 +21,61 @@ server/app/Plugin/
 ```php
 <?php
 /**
- * Plugin Name: HelloWorld
- * Plugin Description: Hello World 插件
+ * Name: HelloWorld
+ * Description: Hello World 插件
+ * Mode: auto
  * Version: 1.0.0
  * Author: YuiNijika
- * Plugin URI: https://github.com/YuiNijika
+ * URI: https://github.com/YuiNijika
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-// 插件主类（类名不区分大小写）
-class Anon_System_Plugin_HelloWorld
+// 插件主类，类名不区分大小写
+class Anon_Plugin_HelloWorld
 {
     /**
-     * 插件初始化方法（必需）
-     * 在插件加载时自动调用
+     * 插件初始化方法
      */
     public static function init()
     {
-        // 注册路由
-        Anon::route('/hello', function () {
-            Anon::success([
-                self::index()
-            ], 'Hello World from Plugin');
-        }, [
-            'header' => true,
-            'requireLogin' => false,
-            'method' => ['GET'],
-            'token' => false,
-            'cache' => [
-                'enabled' => true,
-                'time' => 3600,
-            ],
-        ]);
+        // 判断当前应用模式
+        if (Anon_System_Plugin::isApiMode()) {
+            // API 模式下的初始化逻辑
+            Anon::route('/hello', function () {
+                Anon::success([
+                    self::index()
+                ], 'Hello World from Plugin (API Mode)');
+            }, [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => ['GET'],
+                'token' => false,
+                'cache' => [
+                    'enabled' => true,
+                    'time' => 3600,
+                ],
+            ]);
+        } elseif (Anon_System_Plugin::isCmsMode()) {
+            // CMS 模式下的初始化逻辑
+            Anon::route('/hello', function () {
+                Anon::success([
+                    self::index()
+                ], 'Hello World from Plugin (CMS Mode)');
+            }, [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => ['GET'],
+                'token' => false,
+                'cache' => [
+                    'enabled' => true,
+                    'time' => 3600,
+                ],
+            ]);
+        }
     }
 
     /**
-     * 插件激活时调用（可选）
+     * 插件激活时调用
      */
     public static function activate()
     {
@@ -64,7 +83,7 @@ class Anon_System_Plugin_HelloWorld
     }
 
     /**
-     * 插件停用时调用（可选）
+     * 插件停用时调用
      */
     public static function deactivate()
     {
@@ -83,23 +102,33 @@ class Anon_System_Plugin_HelloWorld
 
 ## 插件元数据
 
-插件元数据通过文件头注释（PHPDoc 风格）定义，包含以下字段：
+插件元数据通过文件头注释定义，包含以下字段：
 
-- `Plugin Name`: 插件名称（必需）
-- `Plugin Description`: 插件描述
+- `Name`: 插件名称，必需
+- `Description`: 插件描述
 - `Version`: 插件版本
 - `Author`: 作者名称
-- `Plugin URI`: 插件主页或作者主页
+- `URI`: 插件主页或作者主页
+- `Mode`: 插件模式，默认为 `api`
+
+系统同时支持新格式和旧格式，优先使用新格式。新格式更简洁，建议使用新格式。
+
+**Mode 模式说明：**
+
+- `api`: 仅在 API 模式下加载
+- `cms`: 仅在 CMS 模式下加载
+- `auto`: 在所有模式下都加载
 
 **示例：**
 
 ```php
 /**
- * Plugin Name: HelloWorld
- * Plugin Description: Hello World 插件
+ * Name: HelloWorld
+ * Description: Hello World 插件
+ * Mode: auto
  * Version: 1.0.0
  * Author: YuiNijika
- * Plugin URI: https://github.com/YuiNijika
+ * URI: https://github.com/YuiNijika
  */
 ```
 
@@ -107,9 +136,7 @@ class Anon_System_Plugin_HelloWorld
 
 插件类名格式：`Anon_Plugin_{插件名称}`
 
-- 插件名称从目录名获取
-- 类名不区分大小写（系统会自动匹配）
-- 例如：目录 `HelloWorld` → 类名 `Anon_Plugin_HelloWorld`
+插件名称从目录名获取，类名不区分大小写，系统会自动匹配。例如目录 `HelloWorld` 对应类名 `Anon_Plugin_HelloWorld`。
 
 ## 配置插件系统
 
@@ -119,8 +146,8 @@ class Anon_System_Plugin_HelloWorld
 return [
     'app' => [
         'plugins' => [
-            'enabled' => true, // 是否启用插件系统
-            'active' => [],     // 激活的插件列表，空数组表示激活所有插件
+            'enabled' => true,
+            'active' => [],
         ],
         // ... 其他配置
     ]
@@ -156,11 +183,11 @@ return [
 Anon::route('/hello', function () {
     // 路由处理逻辑
 }, [
-    'header' => true,           // 是否设置响应头
-    'requireLogin' => false,    // 是否需要登录
-    'method' => ['GET'],        // 允许的 HTTP 方法
-    'token' => false,          // 是否需要 Token 验证
-    'cache' => [               // 缓存配置
+    'header' => true,
+    'requireLogin' => false,
+    'method' => ['GET'],
+    'token' => false,
+    'cache' => [
         'enabled' => true,
         'time' => 3600,
     ],
@@ -169,13 +196,13 @@ Anon::route('/hello', function () {
 
 ### 路由元数据说明
 
-- `header`: 是否设置响应头（默认 `true`）
-- `requireLogin`: 是否需要登录（默认 `false`）
-- `method`: 允许的 HTTP 方法，字符串或数组（如 `['GET', 'POST']`）
-- `token`: 是否需要 Token 验证（`true`/`false`/`null`，`null` 使用全局配置）
+- `header`: 是否设置响应头，默认 `true`
+- `requireLogin`: 是否需要登录，默认 `false`
+- `method`: 允许的 HTTP 方法，字符串或数组
+- `token`: 是否需要 Token 验证，`null` 时使用全局配置
 - `cache`: 缓存配置
   - `enabled`: 是否启用缓存
-  - `time`: 缓存时间（秒）
+  - `time`: 缓存时间，单位秒
 
 ## 插件生命周期
 
@@ -185,13 +212,14 @@ Anon::route('/hello', function () {
 
 ### 2. 加载阶段
 
-- 读取插件元数据（`Anon_PluginMeta`）
-- 查找插件主类（`Anon_Plugin_{插件名}`）
-- 检查插件是否在激活列表中（如果配置了激活列表）
+- 读取插件元数据
+- 查找插件主类
+- 检查插件是否在激活列表中
 
 ### 3. 初始化阶段
 
 - 调用插件的 `init()` 方法
+- 在 `init()` 方法内可通过 `Anon_System_Plugin::isApiMode()` 或 `Anon_System_Plugin::isCmsMode()` 判断当前模式
 - 执行插件注册的路由和钩子
 
 ### 4. 激活/停用
@@ -228,14 +256,73 @@ public static function init()
 - `plugin_after_scan`: 插件扫描后
 - `plugin_before_load`: 插件加载前
 - `plugin_after_load`: 插件加载后
+- `plugin_load_error`: 插件加载错误时触发
+
+## 插件管理
+
+### 管理后台
+
+在 CMS 模式下，可以通过管理后台的插件管理页面管理插件：
+
+- **插件列表**：查看所有已安装的插件
+- **上传插件**：上传 ZIP 格式的插件包
+- **启用/停用**：切换插件的激活状态
+- **删除插件**：删除不需要的插件，需先停用
+
+### 插件上传
+
+插件必须以 ZIP 格式上传，ZIP 文件结构：
+
+```
+plugin-name.zip
+└── PluginName/
+    └── Index.php
+```
+
+上传后系统自动执行：
+
+1. 解压 ZIP 文件
+2. 验证插件结构，必须包含 `Index.php`
+3. 读取插件元数据
+4. 移动到插件目录
+
+## 插件初始化方法
+
+插件必须实现 `init()` 方法，在方法内可通过以下辅助方法判断当前应用模式：
+
+### 判断应用模式
+
+```php
+public static function init()
+{
+    // 判断是否为 API 模式
+    if (Anon_System_Plugin::isApiMode()) {
+        // API 模式下的初始化逻辑
+    }
+    
+    // 判断是否为 CMS 模式
+    if (Anon_System_Plugin::isCmsMode()) {
+        // CMS 模式下的初始化逻辑
+    }
+    
+    // 获取当前模式字符串
+    $mode = Anon_System_Plugin::getAppMode(); // 返回 'api' 或 'cms'
+}
+```
+
+### 辅助方法说明
+
+- `Anon_System_Plugin::isApiMode()`: 判断是否为 API 模式，返回 `bool`
+- `Anon_System_Plugin::isCmsMode()`: 判断是否为 CMS 模式，返回 `bool`
+- `Anon_System_Plugin::getAppMode()`: 获取当前应用模式，返回 `'api'` 或 `'cms'`
 
 ## 注意事项
 
-1. **类名不区分大小写**：系统会自动匹配类名，但建议使用正确的命名规范
-2. **必需方法**：`init()` 方法是必需的，插件加载时会自动调用
-3. **目录结构**：插件必须放在 `server/app/Plugin/` 目录下
-4. **文件命名**：插件主文件建议命名为 `Index.php`
-5. **安全检查**：所有插件文件必须包含 `if (!defined('ANON_ALLOWED_ACCESS')) exit;`
+1. 类名不区分大小写，系统会自动匹配，建议使用正确的命名规范
+2. 插件必须定义至少一个初始化方法：`apiPlugin()`、`cmsPlugin()` 或 `init()`
+3. 插件必须放在 `server/app/Plugin/` 目录下
+4. 插件主文件建议命名为 `Index.php`
+5. 所有插件文件必须包含 `if (!defined('ANON_ALLOWED_ACCESS')) exit;`
 
 ## 调试
 
@@ -250,15 +337,16 @@ public static function init()
 ```php
 <?php
 /**
- * Plugin Name: UserStats
- * Plugin Description: 用户统计插件
+ * Name: UserStats
+ * Description: 用户统计插件
+ * Mode: auto
  * Version: 1.0.0
  * Author: Your Name
- * Plugin URI: https://example.com
+ * URI: https://example.com
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_System_Plugin_UserStats
+class Anon_Plugin_UserStats
 {
     public static function init()
     {

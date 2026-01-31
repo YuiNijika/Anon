@@ -9,7 +9,7 @@
 ### 基本格式
 
 - **缩进**：使用 4 个空格，不使用 Tab
-- **换行**：Unix 风格（LF），不使用 Windows 风格（CRLF）
+- **换行**：Unix 风格 LF，不使用 Windows 风格 CRLF
 - **编码**：UTF-8 without BOM
 - **行尾空格**：删除所有行尾空格
 
@@ -42,7 +42,7 @@ try {
 
 ### 类名
 
-- 使用 `PascalCase`（大驼峰）
+- 使用 `PascalCase`，大驼峰
 - 示例：`Anon_System_Config`、`Anon_Http_Request`、`Anon_Database_UserRepository`
 
 ```php
@@ -59,7 +59,7 @@ class Anon_Database_UserRepository
 
 ### 方法名
 
-- 使用 `camelCase`（小驼峰）
+- 使用 `camelCase`，小驼峰
 - 示例：`getUserInfo()`、`addRoute()`、`requireAuth()`
 
 ```php
@@ -76,7 +76,7 @@ public function addRoute(string $path, callable $handler)
 
 ### 常量名
 
-- 使用 `UPPER_SNAKE_CASE`（全大写下划线）
+- 使用 `UPPER_SNAKE_CASE`，全大写下划线
 - 示例：`ANON_ALLOWED_ACCESS`、`ANON_DB_HOST`、`Anon_RouterMeta`
 
 ```php
@@ -90,7 +90,7 @@ const Anon_Http_RouterMeta = [
 
 ### 变量名
 
-- 使用 `camelCase`（小驼峰）
+- 使用 `camelCase`，小驼峰
 - 示例：`$userInfo`、`$requestPath`、`$userId`
 
 ```php
@@ -427,9 +427,9 @@ server/
 
 ### 配置管理
 
-- **系统配置**：`env.php`（数据库、安装状态等）
-- **应用配置**：`useApp.php`（路由、Token、验证码等）
-- **SQL 配置**：`useSQL.php`（数据库表结构）
+- **系统配置**：`env.php`，数据库、安装状态等
+- **应用配置**：`useApp.php`，路由、Token、验证码等
+- **SQL 配置**：`useSQL.php`，数据库表结构
 - **使用方式**：`Anon_System_Env::get()` 获取配置值
 
 ```php
@@ -457,13 +457,13 @@ $host = Anon_System_Env::get('system.db.host', 'localhost');
 - `feat`: 新功能
 - `fix`: 修复 Bug
 - `docs`: 文档更新
-- `style`: 代码格式调整（不影响功能）
+- `style`: 代码格式调整，不影响功能
 - `refactor`: 代码重构
 - `perf`: 性能优化
 - `test`: 测试相关
 - `chore`: 构建/工具相关
 
-### Scope 范围（可选）
+### Scope 范围
 
 - `auth`: 认证相关
 - `router`: 路由相关

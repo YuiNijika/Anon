@@ -150,7 +150,7 @@ Anon_System_Hook::add_filter('anon_auth_capabilities_remove', function($removeLi
     // 从 editor 角色移除多个权限
     $removeList['editor'] = ['delete_posts', 'publish_posts'];
     
-    // 从 editor 角色移除单个权限（也可以使用字符串）
+    // 从 editor 角色移除单个权限，也可以使用字符串
     $removeList['editor'] = 'publish_own_posts';
     
     return $removeList;
@@ -161,7 +161,7 @@ Anon_System_Hook::add_filter('anon_auth_capabilities_remove', function($removeLi
 
 - **简单权限**：`'manage_options'`、`'edit_posts'`
 - **资源级权限**：`'post:create'`、`'user:read'`、`'comment:delete'`
-- **通配符权限**：`'post:*'`（所有 post 操作）、`'*:read'`（所有资源的读取操作）、`'*:*'`（所有权限）
+- **通配符权限**：`'post:*'` 表示所有 post 操作，`'*:read'` 表示所有资源的读取操作，`'*:*'` 表示所有权限
 
 ### 示例：为自定义模块添加权限
 

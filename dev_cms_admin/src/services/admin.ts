@@ -272,5 +272,55 @@ export const AdminApi = {
   deleteAttachment: (api: ApiClient, id: number) => {
     return api.admin.delete<{ id: number }>('/attachments', { id })
   },
+
+  // 插件管理
+  getPlugins: (api: ApiClient) => {
+    return api.admin.get<PluginListResponse>('/plugins')
+  },
+
+  uploadPlugin: (api: ApiClient, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.admin.post<{ slug: string }>('/plugins', formData)
+  },
+
+  activatePlugin: (api: ApiClient, slug: string) => {
+    return api.admin.put<{ slug: string }>('/plugins', { slug, action: 'activate' })
+  },
+
+  deactivatePlugin: (api: ApiClient, slug: string) => {
+    return api.admin.put<{ slug: string }>('/plugins', { slug, action: 'deactivate' })
+  },
+
+  deletePlugin: (api: ApiClient, slug: string) => {
+    return api.admin.delete<{ slug: string }>('/plugins', { slug })
+  },
+
+  // 主题管理
+  uploadTheme: (api: ApiClient, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.admin.post<{ name: string }>('/themes', formData)
+  },
+
+  deleteTheme: (api: ApiClient, name: string) => {
+    return api.admin.delete<{ name: string }>('/themes', { name })
+  },
+}
+
+export interface Plugin {
+  slug: string
+  dir: string
+  name: string
+  description: string
+  version: string
+  author: string
+  url: string
+  mode: 'api' | 'cms' | 'auto'
+  active: boolean
+}
+
+export interface PluginListResponse {
+  list: Plugin[]
 }
 

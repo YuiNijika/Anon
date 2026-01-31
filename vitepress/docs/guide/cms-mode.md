@@ -101,10 +101,10 @@ app/Theme/
     ├── index.php         # 首页模板
     ├── about.php         # 关于页模板
     ├── post.php          # 文章模板
-    ├── partials/         # 模板片段目录（可选）
+    ├── partials/         # 模板片段目录
     │   ├── header.php
     │   └── footer.php
-    └── assets/           # 静态资源（可选）
+    └── assets/           # 静态资源
         ├── css/
         └── js/
 ```
@@ -197,7 +197,7 @@ Anon_Cms_Theme::render('index', [
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 const Anon_RouterMeta = [
-    'header' => true,        // 设置响应头（CMS 模式下为 HTML）
+    'header' => true,        // 设置响应头，CMS 模式下为 HTML
     'requireLogin' => false, // 是否需要登录
     'method' => 'GET',       // 允许的 HTTP 方法
     'cache' => [             // 缓存配置
@@ -245,7 +245,7 @@ Anon_System_Hook::add_action('router_no_match', function($path) {
 
 ### 1. 主题组织
 
-- 将公共部分提取为模板片段（`partials/`）
+- 将公共部分提取为模板片段 `partials/`
 - 使用布局模板减少重复代码
 - 将静态资源放在 `assets/` 目录
 
@@ -257,7 +257,7 @@ Anon_System_Hook::add_action('router_no_match', function($path) {
 
 ### 3. 性能优化
 
-- 启用模板缓存（如果实现）
+- 启用模板缓存
 - 使用 CDN 托管静态资源
 - 合理使用路由缓存配置
 
@@ -295,10 +295,10 @@ Anon Framework 支持在 CMS 模式下同时使用 API 功能：
 
 - API 路由：通过 `app/Router/` 目录或 `useRouter.php` 配置
 - CMS 路由：通过 `options` 表中的 `routes` 配置
-- API 路由前缀：通过 `options` 表中的 `apiPrefix` 配置（默认为 `/api`）
+- API 路由前缀：通过 `options` 表中的 `apiPrefix` 配置，默认为 `/api`
 - 系统会根据请求路径自动匹配对应的路由
 
-**注意**：当 `ANON_APP_MODE` 设置为 `cms` 时，CMS 路由优先，API 路由需要添加前缀（如 `/api`）。
+**注意**：当 `ANON_APP_MODE` 设置为 `cms` 时，CMS 路由优先，API 路由需要添加前缀，如 `/api`。
 
 ## 管理后台
 
@@ -309,9 +309,9 @@ CMS 模式提供了完整的管理后台功能，通过 `/anon/cms/admin` 路由
 管理路由通过 `Anon_Cms_Admin` 类注册，支持以下功能：
 
 - **认证相关**：Token 获取、登录状态检查、用户信息获取
-- **配置管理**：获取全局配置信息（支持钩子扩展）
-- **数据统计**：获取 CMS 统计数据（文章、评论、附件等）
-- **设置管理**：基本设置（站点名称、描述、关键词等）的获取和更新
+- **配置管理**：获取全局配置信息，支持钩子扩展
+- **数据统计**：获取 CMS 统计数据，文章、评论、附件等
+- **设置管理**：基本设置的获取和更新，站点名称、描述、关键词等
 - **附件管理**：附件上传、查询、删除，支持按类型分类存储和图片格式转换
 - **分类管理**：分类的增删改查
 - **标签管理**：标签的增删改查
@@ -336,10 +336,10 @@ Anon_Cms_Admin::addRoute('/statistics', function () {
 
 管理路由支持以下元数据：
 
-- `requireLogin`: 是否需要登录（布尔值或错误消息字符串）
-- `requireAdmin`: 是否需要管理员权限（布尔值或错误消息字符串）
-- `method`: 允许的 HTTP 方法（字符串或数组）
-- `token`: 是否需要 Token 验证（布尔值）
+- `requireLogin`: 是否需要登录，布尔值或错误消息字符串
+- `requireAdmin`: 是否需要管理员权限，布尔值或错误消息字符串
+- `method`: 允许的 HTTP 方法，字符串或数组
+- `token`: 是否需要 Token 验证，布尔值
 
 ### 全局配置方法
 
@@ -381,8 +381,8 @@ Upload/
 
 **附件 URL 规则：**
 
-- 原始文件：`/anon/static/upload/{filetype}/{baseName}`（不包含后缀）
-- 图片转换：`/anon/static/upload/{filetype}/{baseName}/{format}`（支持 webp, jpg, jpeg, png）
+- 原始文件：`/anon/static/upload/{filetype}/{baseName}`，不包含后缀
+- 图片转换：`/anon/static/upload/{filetype}/{baseName}/{format}`，支持 webp、jpg、jpeg、png
 
 **图片格式转换：**
 

@@ -10,6 +10,8 @@ require_once __DIR__ . '/Tags.php';
 require_once __DIR__ . '/Attachments.php';
 require_once __DIR__ . '/Posts.php';
 require_once __DIR__ . '/Users.php';
+require_once __DIR__ . '/Plugins.php';
+require_once __DIR__ . '/Themes.php';
 
 class Anon_Cms_Admin
 {
@@ -266,6 +268,46 @@ class Anon_Cms_Admin
             }
         }, [
             'method' => ['GET', 'POST', 'PUT', 'DELETE'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/plugins', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_Plugins::get();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_Plugins::upload();
+            } elseif ($requestMethod === 'PUT') {
+                $data = Anon_Http_Request::getInput();
+                $action = isset($data['action']) ? $data['action'] : '';
+                if ($action === 'activate') {
+                    Anon_Cms_Admin_Plugins::activate();
+                } elseif ($action === 'deactivate') {
+                    Anon_Cms_Admin_Plugins::deactivate();
+                } else {
+                    Anon_Http_Response::error('无效的操作', 400);
+                }
+            } elseif ($requestMethod === 'DELETE') {
+                Anon_Cms_Admin_Plugins::delete();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST', 'PUT', 'DELETE'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/themes', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'POST') {
+                Anon_Cms_Admin_Themes::upload();
+            } elseif ($requestMethod === 'DELETE') {
+                Anon_Cms_Admin_Themes::delete();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['POST', 'DELETE'],
             'token' => true,
         ]);
     }

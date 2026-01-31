@@ -46,6 +46,16 @@ const sideMenuItems: MenuProps['items'] = [
     label: '撰写',
   },
   {
+    key: '/themes',
+    icon: React.createElement(BgColorsOutlined),
+    label: '主题',
+  },
+  {
+    key: '/plugins',
+    icon: React.createElement(AppstoreOutlined),
+    label: '插件',
+  },
+  {
     key: 'manage',
     icon: React.createElement(FolderOutlined),
     label: '管理',
@@ -91,11 +101,6 @@ const sideMenuItems: MenuProps['items'] = [
         key: '/settings/permission',
         icon: React.createElement(SettingOutlined),
         label: '权限设置',
-      },
-      {
-        key: '/settings/theme',
-        icon: React.createElement(BgColorsOutlined),
-        label: '主题设置',
       },
     ],
   },
@@ -238,12 +243,8 @@ export default function Layout() {
       label: '控制台',
     },
     {
-      key: '/statistics',
-      label: '统计',
-    },
-    {
-      key: '/write',
-      label: '撰写',
+      key: '/manage/posts',
+      label: '文章管理',
     },
   ]
 
