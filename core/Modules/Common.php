@@ -14,7 +14,7 @@ if (!Anon_System_Config::isInstalled() && !$isInstallPath && !$isStaticPath) {
 class Anon_Common
 {
     const NAME = 'Anon Framework';
-    const VERSION = '2.2.0';
+    const VERSION = '3.0.0';
     const AUTHOR = '鼠子(YuiNijika)';
     const AUTHOR_URL = 'https://github.com/YuiNijika';
     const GITHUB = 'https://github.com/YuiNijika/Anon';

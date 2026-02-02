@@ -5,18 +5,8 @@ class Anon_Cms
 {
     private const TEMPLATE_EXTENSIONS = ['php', 'html', 'htm'];
     private static $pageStartTime = null;
-    
-    /**
-     * 文章/页面数据缓存
-     * @var array
-     */
     private static $postCache = [];
     private static $pageCache = [];
-    
-    /**
-     * 文件系统操作缓存
-     * @var array
-     */
     private static $fileSystemCache = [
         'scandir' => [],
         'file_exists' => [],
@@ -28,7 +18,7 @@ class Anon_Cms
 
     /**
      * 获取页面类型
-     * @param string $templateName 模板名称
+     * @param string $templateName 模板名
      * @return string
      */
     public static function getPageType(string $templateName): string
@@ -53,7 +43,7 @@ class Anon_Cms
     }
 
     /**
-     * 获取支持的模板文件扩展名
+     * 获取模板扩展名
      * @return array
      */
     public static function getTemplateExtensions(): array
@@ -62,9 +52,9 @@ class Anon_Cms
     }
 
     /**
-     * 查找目录
+     * 查找目录不区分大小写
      * @param string $baseDir 基础目录
-     * @param string $dirName 目录名称
+     * @param string $dirName 目录名
      * @return string|null
      */
     public static function findDirectoryCaseInsensitive(string $baseDir, string $dirName): ?string
@@ -102,10 +92,10 @@ class Anon_Cms
     }
 
     /**
-     * 查找文件
+     * 查找文件不区分大小写
      * @param string $baseDir 基础目录
      * @param string $fileName 文件名
-     * @param array|null $extensions 扩展名数组
+     * @param array|null $extensions 扩展名
      * @return string|null
      */
     public static function findFileCaseInsensitive(string $baseDir, string $fileName, ?array $extensions = null): ?string
@@ -289,11 +279,11 @@ class Anon_Cms
     private static $viewedPosts = [];
 
     /**
-     * 获取文章数据，如果不存在则返回错误页面
-     * @param int|null $id 文章 ID，如果为 null 则从作用域变量获取
-     * @return array|null 文章数据，如果不存在则返回 null（已渲染错误页面）
+     * 获取文章数据仅查询不存在不渲染错误页
+     * @param int|null $id 文章 ID
+     * @return array|null
      */
-    public static function getPost(?int $id = null): ?array
+    public static function getPostIfExists(?int $id = null): ?array
     {
         if ($id === null) {
             $id = $GLOBALS['id'] ?? $_GET['id'] ?? null;
@@ -305,7 +295,6 @@ class Anon_Cms
         }
 
         if (!$id) {
-            self::renderError(404, '文章不存在或已被删除');
             return null;
         }
 
@@ -323,7 +312,6 @@ class Anon_Cms
             ->first();
 
         if (!$post) {
-            self::renderError(404, '文章不存在或已被删除');
             return null;
         }
 
@@ -353,18 +341,32 @@ class Anon_Cms
     }
 
     /**
-     * 获取页面数据，如果不存在则返回错误页面
-     * @param string|null $slug 页面 slug，如果为 null 则从作用域变量获取
-     * @return array|null 页面数据，如果不存在则返回 null
+     * 获取文章数据不存在则渲染错误页并 exit
+     * @param int|null $id 文章 ID
+     * @return array|null
      */
-    public static function getPage(?string $slug = null): ?array
+    public static function getPost(?int $id = null): ?array
+    {
+        $post = self::getPostIfExists($id);
+        if ($post === null) {
+            self::renderError(404, '文章不存在或已被删除');
+            return null;
+        }
+        return $post;
+    }
+
+    /**
+     * 获取页面数据仅查询不存在不渲染错误页
+     * @param string|null $slug 页面 slug
+     * @return array|null
+     */
+    public static function getPageIfExists(?string $slug = null): ?array
     {
         if ($slug === null) {
             $slug = $GLOBALS['slug'] ?? $_GET['slug'] ?? '';
         }
 
         if (empty($slug)) {
-            self::renderError(404, '页面不存在或已被删除');
             return null;
         }
 
@@ -382,7 +384,6 @@ class Anon_Cms
             ->first();
 
         if (!$page) {
-            self::renderError(404, '页面不存在或已被删除');
             return null;
         }
 
@@ -392,9 +393,24 @@ class Anon_Cms
     }
 
     /**
-     * 渲染错误页面
-     * @param int $code 错误代码
-     * @param string $message 错误消息
+     * 获取页面数据不存在则渲染错误页并 exit
+     * @param string|null $slug 页面 slug
+     * @return array|null
+     */
+    public static function getPage(?string $slug = null): ?array
+    {
+        $page = self::getPageIfExists($slug);
+        if ($page === null) {
+            self::renderError(404, '页面不存在或已被删除');
+            return null;
+        }
+        return $page;
+    }
+
+    /**
+     * 渲染错误页并 exit
+     * @param int $code 错误码
+     * @param string $message 错误信息
      * @return void
      */
     private static function renderError(int $code, string $message): void

@@ -9,6 +9,7 @@ class Anon_Cms_AccessLog
     private static $excludedPaths = [
         '/anon-dev-server',
         '/anon/cms/admin',
+        '/anon/install',
         '/anon/static',
         '/assets',
         '/static',
@@ -264,16 +265,58 @@ class Anon_Cms_AccessLog
             $query->where('created_at', '<=', $options['end_date']);
         }
         if (isset($options['ip'])) {
-            $query->where('ip', '=', $options['ip']);
+            $query->where('ip', 'LIKE', '%' . $options['ip'] . '%');
         }
         if (isset($options['path'])) {
-            $query->where('path', 'LIKE', $options['path'] . '%');
+            $query->where('path', 'LIKE', '%' . $options['path'] . '%');
         }
         if (isset($options['type'])) {
             $query->where('type', '=', $options['type']);
         }
+        if (isset($options['user_agent'])) {
+            $query->where('user_agent', 'LIKE', '%' . $options['user_agent'] . '%');
+        }
+        if (isset($options['status_code'])) {
+            $query->where('status_code', '=', $options['status_code']);
+        }
         
         return $query;
+    }
+
+    /**
+     * 获取访问日志列表
+     * @param array $options 查询选项
+     * @return array 包含列表和总数的数组
+     */
+    public static function getLogs(array $options = []): array
+    {
+        $db = Anon_Database::getInstance();
+        
+        // 分页参数
+        $page = isset($options['page']) ? max(1, (int)$options['page']) : 1;
+        $pageSize = isset($options['page_size']) ? max(1, min(100, (int)$options['page_size'])) : 20;
+        $offset = ($page - 1) * $pageSize;
+        
+        // 构建查询
+        $query = self::buildQueryWithOptions($db, $options);
+        
+        // 获取总数
+        $total = $query->count();
+        
+        // 获取列表数据
+        $listQuery = self::buildQueryWithOptions($db, $options);
+        $list = $listQuery
+            ->orderBy('created_at', 'DESC')
+            ->limit($pageSize)
+            ->offset($offset)
+            ->get();
+        
+        return [
+            'list' => $list,
+            'total' => $total,
+            'page' => $page,
+            'page_size' => $pageSize,
+        ];
     }
 
     /**

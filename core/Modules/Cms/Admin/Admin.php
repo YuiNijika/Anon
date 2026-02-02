@@ -101,8 +101,105 @@ class Anon_Cms_Admin
                 $statistics = Anon_Cms_Statistics::getAll();
                 $statistics['attachments_size'] = Anon_Cms_Statistics::getAttachmentsSize();
                 $statistics['total_views'] = Anon_Cms_Statistics::getTotalViews();
+                $statistics['views_trend'] = Anon_Cms_Statistics::getViewsTrend(7);
                 
                 Anon_Http_Response::success($statistics, '获取统计数据成功');
+            } catch (Exception $e) {
+                Anon_Http_Response::handleException($e);
+            }
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
+        self::addRoute('/statistics/views-trend', function () {
+            try {
+                $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
+                if (!in_array($days, [7, 14, 30])) {
+                    $days = 7;
+                }
+                
+                $trend = Anon_Cms_Statistics::getViewsTrend($days);
+                
+                Anon_Http_Response::success($trend, '获取访问趋势数据成功');
+            } catch (Exception $e) {
+                Anon_Http_Response::handleException($e);
+            }
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
+        self::addRoute('/statistics/access-logs', function () {
+            try {
+                $options = [];
+                
+                // 分页参数
+                if (isset($_GET['page'])) {
+                    $options['page'] = (int)$_GET['page'];
+                }
+                if (isset($_GET['page_size'])) {
+                    $options['page_size'] = (int)$_GET['page_size'];
+                }
+                
+                // 筛选参数
+                if (isset($_GET['ip']) && !empty($_GET['ip'])) {
+                    $options['ip'] = trim($_GET['ip']);
+                }
+                if (isset($_GET['path']) && !empty($_GET['path'])) {
+                    $options['path'] = trim($_GET['path']);
+                }
+                if (isset($_GET['type']) && !empty($_GET['type'])) {
+                    $options['type'] = trim($_GET['type']);
+                }
+                if (isset($_GET['user_agent']) && !empty($_GET['user_agent'])) {
+                    $options['user_agent'] = trim($_GET['user_agent']);
+                }
+                if (isset($_GET['status_code']) && !empty($_GET['status_code'])) {
+                    $options['status_code'] = (int)$_GET['status_code'];
+                }
+                if (isset($_GET['start_date']) && !empty($_GET['start_date'])) {
+                    $options['start_date'] = trim($_GET['start_date']);
+                }
+                if (isset($_GET['end_date']) && !empty($_GET['end_date'])) {
+                    $options['end_date'] = trim($_GET['end_date']);
+                }
+                
+                $result = Anon_Cms_AccessLog::getLogs($options);
+                
+                Anon_Http_Response::success($result, '获取访问日志成功');
+            } catch (Exception $e) {
+                Anon_Http_Response::handleException($e);
+            }
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
+        self::addRoute('/statistics/access-stats', function () {
+            try {
+                $options = [];
+                
+                // 筛选参数
+                if (isset($_GET['start_date']) && !empty($_GET['start_date'])) {
+                    $options['start_date'] = trim($_GET['start_date']);
+                }
+                if (isset($_GET['end_date']) && !empty($_GET['end_date'])) {
+                    $options['end_date'] = trim($_GET['end_date']);
+                }
+                if (isset($_GET['ip']) && !empty($_GET['ip'])) {
+                    $options['ip'] = trim($_GET['ip']);
+                }
+                if (isset($_GET['path']) && !empty($_GET['path'])) {
+                    $options['path'] = trim($_GET['path']);
+                }
+                if (isset($_GET['type']) && !empty($_GET['type'])) {
+                    $options['type'] = trim($_GET['type']);
+                }
+                
+                $stats = Anon_Cms_AccessLog::getStatistics($options);
+                
+                Anon_Http_Response::success($stats, '获取访问统计成功');
             } catch (Exception $e) {
                 Anon_Http_Response::handleException($e);
             }

@@ -4,11 +4,8 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 $code = $this->get('code', 404);
 $message = $this->get('message', '页面未找到');
 
-const Anon_PageMeta = [
-    'title' => '页面未找到',
-    'description' => '页面未找到',
-    'robots' => 'noindex, nofollow',
-];
+$GLOBALS['code'] = $code;
+$GLOBALS['message'] = $message;
 
 $statusText = [
     400 => 'Bad Request',

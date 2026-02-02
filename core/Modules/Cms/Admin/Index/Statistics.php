@@ -125,22 +125,14 @@ class Anon_Cms_Statistics
     }
 
     /**
-     * 获取附件总大小（字节）
+     * 获取附件总大小
      * @return int
      */
     public static function getAttachmentsSize(): int
     {
         return self::safeQuery(function () {
-            $attachments = Anon_Database_QueryBuilder::table('attachments')
-                ->select(['file_size'])
-                ->get();
-            
-            $totalSize = 0;
-            foreach ($attachments as $attachment) {
-                $totalSize += (int)($attachment['file_size'] ?? 0);
-            }
-            
-            return $totalSize;
+            return Anon_Database_QueryBuilder::table('attachments')
+                ->sum('file_size');
         });
     }
 
@@ -188,17 +180,204 @@ class Anon_Cms_Statistics
     public static function getTotalViews(): int
     {
         return self::safeQuery(function () {
-            $posts = Anon_Database_QueryBuilder::table('posts')
-                ->select(['views'])
-                ->get();
+            return Anon_Database_QueryBuilder::table('posts')
+                ->where('type', 'post')
+                ->where('status', 'publish')
+                ->sum('views');
+        });
+    }
+
+    /**
+     * 获取访问量趋势数据
+     * @param int $days 天数，默认7天
+     * @return array
+     */
+    public static function getViewsTrend(int $days = 7): array
+    {
+        try {
+            $db = Anon_Database::getInstance();
             
-            $totalViews = 0;
-            foreach ($posts as $post) {
-                $totalViews += (int)($post['views'] ?? 0);
+            $firstLog = $db->db('access_logs')
+                ->select(['created_at'])
+                ->where('type', 'page')
+                ->orderBy('created_at', 'ASC')
+                ->first();
+            
+            if (!$firstLog || !isset($firstLog['created_at'])) {
+                return [];
             }
             
-            return $totalViews;
-        });
+            $firstDate = date('Y-m-d', strtotime($firstLog['created_at']));
+            $endDate = date('Y-m-d');
+            $startDate = date('Y-m-d', strtotime("-{$days} days"));
+            
+            $daysDiff = (strtotime($endDate) - strtotime($firstDate)) / 86400;
+            
+            if ($daysDiff < $days) {
+                $startDate = $firstDate;
+            }
+            
+            $logs = $db->db('access_logs')
+                ->select(['created_at'])
+                ->where('created_at', '>=', $startDate . ' 00:00:00')
+                ->where('created_at', '<=', $endDate . ' 23:59:59')
+                ->where('type', 'page')
+                ->get();
+            
+            $dateMap = [];
+            foreach ($logs as $log) {
+                $date = date('Y-m-d', strtotime($log['created_at']));
+                if (!isset($dateMap[$date])) {
+                    $dateMap[$date] = 0;
+                }
+                $dateMap[$date]++;
+            }
+            
+            $result = [];
+            $currentDate = strtotime($startDate);
+            $endTimestamp = strtotime($endDate);
+            
+            while ($currentDate <= $endTimestamp) {
+                $date = date('Y-m-d', $currentDate);
+                $result[] = [
+                    'date' => $date,
+                    'count' => $dateMap[$date] ?? 0
+                ];
+                $currentDate = strtotime('+1 day', $currentDate);
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * 获取最近30天文章发布趋势数据
+     * @return array
+     */
+    public static function getPostsTrend(): array
+    {
+        try {
+            $db = Anon_Database::getInstance();
+            $endDate = date('Y-m-d');
+            $startDate = date('Y-m-d', strtotime('-29 days'));
+            
+            $posts = $db->db('posts')
+                ->select(['created_at'])
+                ->where('type', 'post')
+                ->where('created_at', '>=', $startDate . ' 00:00:00')
+                ->where('created_at', '<=', $endDate . ' 23:59:59')
+                ->get();
+            
+            $dateMap = [];
+            foreach ($posts as $post) {
+                $date = date('Y-m-d', strtotime($post['created_at']));
+                if (!isset($dateMap[$date])) {
+                    $dateMap[$date] = 0;
+                }
+                $dateMap[$date]++;
+            }
+            
+            $result = [];
+            for ($i = 29; $i >= 0; $i--) {
+                $date = date('Y-m-d', strtotime("-{$i} days"));
+                $result[] = [
+                    'date' => $date,
+                    'count' => $dateMap[$date] ?? 0
+                ];
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * 获取文章状态分布数据
+     * @return array
+     */
+    public static function getPostsStatusDistribution(): array
+    {
+        try {
+            $db = Anon_Database::getInstance();
+            $allPosts = $db->db('posts')
+                ->select(['status'])
+                ->where('type', 'post')
+                ->get();
+            
+            $statusCounts = [];
+            foreach ($allPosts as $post) {
+                $status = $post['status'] ?? 'draft';
+                if (!isset($statusCounts[$status])) {
+                    $statusCounts[$status] = 0;
+                }
+                $statusCounts[$status]++;
+            }
+            
+            $result = [];
+            $statusMap = [
+                'publish' => '已发布',
+                'draft' => '草稿',
+                'private' => '私有'
+            ];
+            
+            foreach ($statusCounts as $status => $count) {
+                $label = $statusMap[$status] ?? $status;
+                $result[] = [
+                    'type' => $label,
+                    'value' => $count
+                ];
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * 获取评论状态分布数据
+     * @return array
+     */
+    public static function getCommentsStatusDistribution(): array
+    {
+        try {
+            $db = Anon_Database::getInstance();
+            $allComments = $db->db('comments')
+                ->select(['status'])
+                ->get();
+            
+            $statusCounts = [];
+            foreach ($allComments as $comment) {
+                $status = $comment['status'] ?? 'pending';
+                if (!isset($statusCounts[$status])) {
+                    $statusCounts[$status] = 0;
+                }
+                $statusCounts[$status]++;
+            }
+            
+            $result = [];
+            $statusMap = [
+                'pending' => '待审核',
+                'approved' => '已通过',
+                'spam' => '垃圾评论',
+                'trash' => '已删除'
+            ];
+            
+            foreach ($statusCounts as $status => $count) {
+                $label = $statusMap[$status] ?? $status;
+                $result[] = [
+                    'type' => $label,
+                    'value' => $count
+                ];
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
     }
 }
 

@@ -36,7 +36,6 @@ class Anon_Loader
         
         Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;
-        
         Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputCopyright']);
         Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputPageLoadTimeScript']);
     }
@@ -95,7 +94,7 @@ class Anon_Loader
 
     /**
      * 加载可选模块
-     * @param string|null $module 模块名称
+     * @param string|null $module 模块名 null 时加载全部
      * @return void
      */
     public static function loadOptionalModules(?string $module = null)
@@ -128,7 +127,7 @@ class Anon_Loader
     }
 
     /**
-     * 加载配置相关模块
+     * 加载配置相关模块 Token/Captcha/Csrf
      * @return void
      */
     public static function loadConfigModules(): void
@@ -142,7 +141,7 @@ class Anon_Loader
      * 加载调试模块
      * @return void
      */
-    public static function loadDebug()
+    public static function loadDebug(): void
     {
         if (isset(self::$loadedModules['debug'])) {
             return;
@@ -155,10 +154,10 @@ class Anon_Loader
     }
 
     /**
-     * 加载扩展和插件支持
+     * 加载扩展与插件支持
      * @return void
      */
-    public static function loadExtensions()
+    public static function loadExtensions(): void
     {
         if (isset(self::$loadedModules['extensions'])) {
             return;

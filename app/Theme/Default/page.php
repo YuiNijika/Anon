@@ -1,8 +1,12 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
+$page = $this->pageIfExists();
+if (!$page) {
+    Anon_Cms_Theme::render('error', ['code' => 404, 'message' => '页面不存在或已被删除']);
+    return;
+}
 $this->components('head');
-$page = $this->page();
 ?>
 
 <div class="card bg-base-100 shadow-md">

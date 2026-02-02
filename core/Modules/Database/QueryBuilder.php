@@ -731,6 +731,26 @@ class Anon_Database_QueryBuilder
     }
 
     /**
+     * 求和
+     * @param string $column 字段名
+     * @return int|float
+     */
+    public function sum(string $column)
+    {
+        // 验证列名安全性
+        if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
+            throw new InvalidArgumentException("无效的列名: {$column}");
+        }
+        
+        $this->selects = ["COALESCE(SUM({$column}), 0) as sum"];
+        $result = $this->first();
+        $value = $result['sum'] ?? 0;
+        
+        // 判断返回整数还是浮点数
+        return is_float($value) ? (float)$value : (int)$value;
+    }
+
+    /**
      * 检查是否存在
      * @return bool
      */

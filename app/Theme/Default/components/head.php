@@ -15,9 +15,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
       if (saved === 'light' || saved === 'dark') {
         document.documentElement.setAttribute('data-theme', saved);
       }
-    } catch (e) {
-      // localStorage 不可用时忽略
-    }
+    } catch (e) {}
   })();
 </script>
 </head>

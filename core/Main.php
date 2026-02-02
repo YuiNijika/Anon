@@ -8,31 +8,13 @@ if (version_compare(phpversion(), '7.4.0', '<')) {
 
 class Anon_Main
 {
-    /**
-     * 应用目录路径
-     */
     const APP_DIR = __DIR__ . '/../app/';
-
-    /**
-     * 工具类目录路径
-     */
     const WIDGETS_DIR = __DIR__ . '/Widgets/';
-
-    /**
-     * 模块目录路径
-     */
     const MODULES_DIR = __DIR__ . '/Modules/';
-
-    /**
-     * 根目录路径
-     */
     const ROOT_DIR = __DIR__ . '/../';
 
     /**
      * 初始化框架环境
-     *
-     * 加载环境配置、初始化核心模块、加载依赖文件。
-     *
      * @return void
      */
     public static function init()
@@ -57,8 +39,6 @@ class Anon_Main
             ],
         ];
         $envConfig = array_merge_recursive($envConfig, $appConfig);
-        
-        // 核心模块
         require_once self::MODULES_DIR . 'System/Env.php';
         Anon_System_Env::init($envConfig);
         require_once self::MODULES_DIR . 'System/Config.php';
@@ -68,16 +48,12 @@ class Anon_Main
         
         require_once __DIR__ . '/Loader.php';
         Anon_Loader::loadAll();
-        
-        // 只有在系统已安装时才加载 CMS 模块
         if (Anon_System_Config::isInstalled()) {
             $mode = Anon_System_Env::get('app.mode', 'api');
             if ($mode === 'cms') {
                 Anon_Loader::loadCmsModules();
             }
         }
-        
-        // 根据配置加载可选模块
         if (Anon_System_Env::get('app.token.enabled', false)) {
             Anon_Loader::loadOptionalModules('token');
         }
@@ -114,12 +90,8 @@ class Anon_Main
     public static function runFpm()
     {
         self::init();
-
-        // 注册系统和应用路由
         Anon_System_Config::initSystemRoutes();
         Anon_System_Config::initAppRoutes();
-        
-        // 初始化路由系统并分发请求
         Anon_Http_Router::init();
 
         if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
@@ -139,17 +111,11 @@ class Anon_Main
     public static function runSwoole($argv)
     {
         self::init();
-        
-        // 加载 Swoole 管理器
         require_once self::MODULES_DIR . 'Server/Manager.php';
-
-        // 解析命令行参数
         $type = $argv[2] ?? 'http';
         $action = $argv[3] ?? 'start';
         $host = '0.0.0.0';
         $port = 9501;
-
-        // 简单的参数解析，用于覆盖默认端口和主机
         foreach ($argv as $arg) {
             if (strpos($arg, '--port=') === 0) {
                 $port = (int) substr($arg, 7);
@@ -158,8 +124,6 @@ class Anon_Main
                 $host = substr($arg, 7);
             }
         }
-
-        // 根据服务类型调整默认端口
         if (!in_array('--port=', $argv)) {
             switch ($type) {
                 case 'tcp': $port = 9502; break;
@@ -170,7 +134,6 @@ class Anon_Main
         $manager = new Anon_Server_Manager('swoole');
 
         try {
-            // 创建并运行服务实例
             $server = $manager->create($type, [
                 'host' => $host,
                 'port' => $port

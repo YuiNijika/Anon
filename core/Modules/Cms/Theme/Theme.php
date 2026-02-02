@@ -42,7 +42,7 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 获取文件类型到目录的映射
+     * 获取文件类型到目录映射
      * @return array
      */
     private static function getTypeDirs(): array
@@ -74,7 +74,7 @@ class Anon_Cms_Theme
 
     /**
      * 初始化主题系统
-     * @param string|null $themeName 主题名称
+     * @param string|null $themeName 主题名
      * @return void
      */
     public static function init(?string $themeName = null): void
@@ -108,9 +108,9 @@ class Anon_Cms_Theme
             }
         }
     }
-    
+
     /**
-     * 加载主题 functions.php 文件
+     * 加载主题 functions.php
      * @return void
      */
     private static function loadThemeFunctions(): void
@@ -133,7 +133,7 @@ class Anon_Cms_Theme
 
     /**
      * 查找主题目录
-     * @param string $themeName 主题名称
+     * @param string $themeName 主题名
      * @return string|null
      */
     private static function findThemeDirectory(string $themeName): ?string
@@ -165,8 +165,8 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 渲染模板文件
-     * @param string $templateName 模板名称
+     * 渲染模板
+     * @param string $templateName 模板名
      * @param array $data 数据
      * @return void
      */
@@ -182,7 +182,7 @@ class Anon_Cms_Theme
             }
             
             Anon_Cms::startPageLoad();
-            
+
             $templatePath = self::findTemplate($templateName);
             
             if ($templatePath === null) {
@@ -197,14 +197,24 @@ class Anon_Cms_Theme
             }
             $view = new Anon_Cms_Theme_View($data);
 
+            $isErrorTemplate = (strtolower($templateName) === 'error');
+            if ($isErrorTemplate) {
+                $GLOBALS['_anon_rendering_error_page'] = true;
+            }
             ob_start();
             try {
                 $view->render($templatePath);
             } catch (Error $e) {
                 ob_end_clean();
+                if ($isErrorTemplate) {
+                    $GLOBALS['_anon_rendering_error_page'] = false;
+                }
                 self::handleFatalError($e);
             } catch (Throwable $e) {
                 ob_end_clean();
+                if ($isErrorTemplate) {
+                    $GLOBALS['_anon_rendering_error_page'] = false;
+                }
                 if (self::isFatalError($e)) {
                     self::handleFatalError($e);
                 } else {
@@ -212,6 +222,9 @@ class Anon_Cms_Theme
                 }
             }
             $content = ob_get_clean();
+            if ($isErrorTemplate) {
+                $GLOBALS['_anon_rendering_error_page'] = false;
+            }
 
             echo $content;
         } catch (Error $e) {
@@ -227,7 +240,7 @@ class Anon_Cms_Theme
 
     /**
      * 查找模板文件
-     * @param string $templateName 模板名称
+     * @param string $templateName 模板名
      * @return string|null
      */
     public static function findTemplate(string $templateName): ?string
@@ -298,8 +311,12 @@ class Anon_Cms_Theme
         // 添加缓存参数
         $cacheParam = self::getAssetCacheParam();
         if ($forceNoCache) {
-            // 强制禁止缓存：同时添加版本号和 nocache 参数
-            $cacheParam .= '&nocache=1';
+            // 强制禁止缓存
+            if ($cacheParam === '') {
+                $cacheParam = '?nocache=1';
+            } else {
+                $cacheParam .= '&nocache=1';
+            }
         }
         $urlWithCache = $url . $cacheParam;
 
@@ -374,23 +391,10 @@ class Anon_Cms_Theme
             return '?nocache=1';
         }
 
-        // 获取版本号
         if (self::$assetCacheVersion === null) {
-            // 从主题配置文件中读取版本号
             $themeVersion = self::info('version');
-            if ($themeVersion !== null && $themeVersion !== '') {
-                self::$assetCacheVersion = (string)$themeVersion;
-            } else {
-                // 如果主题配置文件中没有版本号，设置为空字符串，不添加版本号参数
-                self::$assetCacheVersion = '';
-            }
+            self::$assetCacheVersion = ($themeVersion !== null && $themeVersion !== '') ? (string)$themeVersion : '1';
         }
-
-        // 如果没有版本号，返回空字符串，不添加 ver 参数
-        if (self::$assetCacheVersion === '') {
-            return '';
-        }
-
         return '?ver=' . self::$assetCacheVersion;
     }
 
@@ -869,15 +873,6 @@ class Anon_Cms_Theme
                 }
             }
 
-            if ($infoFile === null && $themeItems !== null) {
-                foreach ($themeItems as $themeItem) {
-                    if (strtolower($themeItem) === 'info.json') {
-                        $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
-                        break;
-                    }
-                }
-            }
-            
             $themeInfo = [];
             if ($infoFile && Anon_Cms::fileExists($infoFile)) {
                 $jsonContent = file_get_contents($infoFile);
@@ -931,10 +926,7 @@ class Anon_Cms_Theme
         
         if (!isset(self::$themeInfoCache[$cacheKey])) {
             $themeDir = self::getThemeDir();
-            $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package');
-            if ($infoFile === null) {
-                $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'info');
-            }
+            $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package', ['json', 'php', 'html', 'htm']);
             
             $themeInfo = [];
             if ($infoFile !== null && Anon_Cms::fileExists($infoFile)) {
@@ -1065,7 +1057,7 @@ class Anon_Cms_Theme
             $settings[$key] = $args['default'];
         }
         
-        // 保存设置项定义（用于后续验证和显示）
+        // 保存设置项定义
         $registeredSettings = Anon_Cms_Options::get("theme:{$themeName}:settings", []);
         if (!is_array($registeredSettings)) {
             $registeredSettings = [];
@@ -1277,6 +1269,14 @@ class Anon_Cms_Theme_View
     private static $renderedComponents = [];
 
     /**
+     * 清空已渲染组件记录，每次 Theme::render() 开始时调用，避免重复引入或跨页误判
+     */
+    public static function clearRenderedComponents(): void
+    {
+        self::$renderedComponents = [];
+    }
+
+    /**
      * @param array $data
      */
     public function __construct(array $data = [])
@@ -1442,9 +1442,31 @@ class Anon_Cms_Theme_View
      * 获取文章数据对象
      * @return Anon_Cms_Post|null
      */
+    /**
+     * 获取文章数据对象（仅查询，不存在时不渲染错误页）
+     * 用于在输出 head 前判断文章是否存在
+     * @return Anon_Cms_Post|null
+     */
+    public function postIfExists(): ?Anon_Cms_Post
+    {
+        $data = Anon_Cms::getPostIfExists();
+        return $data ? new Anon_Cms_Post($data) : null;
+    }
+
     public function post(): ?Anon_Cms_Post
     {
         $data = Anon_Cms::getPost();
+        return $data ? new Anon_Cms_Post($data) : null;
+    }
+
+    /**
+     * 获取页面数据对象（仅查询，不存在时不渲染错误页）
+     * 用于在输出 head 前判断页面是否存在，避免先输出 head 再触发错误页导致两套 head/foot
+     * @return Anon_Cms_Post|null
+     */
+    public function pageIfExists(): ?Anon_Cms_Post
+    {
+        $data = Anon_Cms::getPageIfExists();
         return $data ? new Anon_Cms_Post($data) : null;
     }
 

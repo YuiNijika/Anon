@@ -1378,14 +1378,14 @@ class Anon_Http_Router
         $mode = Anon_System_Env::get('app.mode', 'api');
         
         if ($mode === 'cms' && !Anon_Http_Request::wantsJson()) {
-            // CMS 模式：使用主题错误页面模板
+            // CMS 模式
             try {
                 Anon_Cms_Theme::render('Error', [
                     'code' => $statusCode,
                     'message' => null
                 ]);
             } catch (Error $e) {
-                // 严重错误：使用系统级错误页面
+                // 严重错误
                 if (class_exists('Anon_Cms_Theme_FatalError')) {
                     Anon_Cms_Theme_FatalError::render(
                         $e->getMessage(),
@@ -1418,7 +1418,7 @@ class Anon_Http_Router
             return;
         }
 
-        // API 模式：设置 JSON 响应头
+        // API 模式
         Anon_Common::Header($statusCode);
 
         $messages = [

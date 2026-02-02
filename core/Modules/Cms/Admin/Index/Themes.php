@@ -378,15 +378,6 @@ class Anon_Cms_Admin_Themes
                 }
             }
             
-            if ($infoFile === null && $themeItems !== null) {
-                foreach ($themeItems as $themeItem) {
-                    if (strtolower($themeItem) === 'info.json') {
-                        $infoFile = $themePath . DIRECTORY_SEPARATOR . $themeItem;
-                        break;
-                    }
-                }
-            }
-            
             if (!$infoFile || !file_exists($infoFile)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
