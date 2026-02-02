@@ -2,7 +2,7 @@
 
 **本节说明**：CMS 模式下路由的配置方式、基本/参数/嵌套路由及与模板的对应关系。**适用**：仅 CMS 模式。
 
-CMS 路由决定 URL 与主题模板的映射，配置存储在数据库 `options` 表的 `routes` 字段（或安装/初始化时的默认配置），格式为 JSON。
+CMS 路由决定 URL 与主题模板的映射，配置存储在数据库 options 表的 routes 字段，或使用安装、初始化时的默认配置，格式为 JSON。
 
 ## 配置存储
 
@@ -20,7 +20,7 @@ Anon_Cms_Options::set('routes', json_encode([
 ], JSON_UNESCAPED_UNICODE));
 ```
 
-路径对应主题下的模板文件名（如 `index.php`、`about.php`）。
+路径对应主题下的模板文件名，例如 index.php、about.php。
 
 ## 参数路由
 

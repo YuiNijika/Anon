@@ -10,10 +10,13 @@
 
 ### 基本结构
 
+插件目录与主入口文件名不区分大小写，系统按 slug 解析实际目录名，并查找 Index.php 或 index.php 等。
+
 ```text
 server/app/Plugin/
 └── HelloWorld/
-    └── Index.php
+    ├── Index.php       # 主入口，必须，文件名不区分大小写
+    └── package.json    # 可选，用于元数据，无则从 Index.php 头部注释读取
 ```
 
 ### 插件文件示例
@@ -102,7 +105,32 @@ class Anon_Plugin_HelloWorld
 
 ## 插件元数据
 
-插件元数据通过文件头注释定义，包含以下字段：
+插件元数据可来自 **package.json** 或 **主入口文件头部注释**，优先读取 `package.json`。
+
+### 使用 package.json
+
+在插件目录下放置 `package.json`，字段与 Node 惯例一致，模式与扩展配置放在 `anon` 下：
+
+```json
+{
+  "name": "HelloWorld",
+  "description": "Hello World",
+  "version": "1.0.0",
+  "author": "YuiNijika",
+  "url": "https://github.com/YuiNijika",
+  "anon": {
+    "mode": "auto"
+  }
+}
+```
+
+- `name`：插件名称，必需
+- `description`、`version`、`author`、`url` 或 `homepage`：选填
+- `anon.mode`：api、cms 或 auto，默认 api
+
+### 使用文件头注释
+
+在 `Index.php` 顶部用注释定义元数据：
 
 - `Name`: 插件名称，必需
 - `Description`: 插件描述
@@ -110,8 +138,6 @@ class Anon_Plugin_HelloWorld
 - `Author`: 作者名称
 - `URI`: 插件主页或作者主页
 - `Mode`: 插件模式，默认为 `api`
-
-系统同时支持新格式和旧格式，优先使用新格式。新格式更简洁，建议使用新格式。
 
 **Mode 模式说明：**
 
@@ -136,7 +162,7 @@ class Anon_Plugin_HelloWorld
 
 插件类名格式：`Anon_Plugin_{插件名称}`
 
-插件名称从目录名获取，类名不区分大小写，系统会自动匹配。例如目录 `HelloWorld` 对应类名 `Anon_Plugin_HelloWorld`。
+插件名称从目录名获取，类名不区分大小写，系统自动匹配。目录 HelloWorld、helloworld 均对应类名 Anon_Plugin_HelloWorld。主入口文件名 Index.php 或 index.php 等均可识别。
 
 ## 配置插件系统
 
@@ -258,6 +284,54 @@ public static function init()
 - `plugin_after_load`: 插件加载后
 - `plugin_load_error`: 插件加载错误时触发
 
+## 插件设置
+
+插件可提供“设置页”，供用户在管理后台配置选项。设置项**在插件入口文件中**通过静态方法 `getSettingsSchema()` 定义，不放在 package.json 中。
+
+### 定义设置 schema
+
+在插件主类中实现 getSettingsSchema，返回字段名到定义的映射，含类型、标签、默认值等：
+
+```php
+/**
+ * 设置页 schema，键为字段名，值为 type/label/default 等
+ * @return array
+ */
+public static function getSettingsSchema(): array
+{
+    return [
+        'greeting' => [
+            'type' => 'text',
+            'label' => '问候语',
+            'default' => 'Hello World',
+        ],
+        'show_count' => [
+            'type' => 'checkbox',
+            'label' => '显示计数',
+            'default' => false,
+        ],
+    ];
+}
+```
+
+支持的 `type`：`text`、`textarea`、`select`、`checkbox`、`number`、`color`。`select` 需提供 `options` 数组。
+
+### 存储方式
+
+- 设置值存储在 **options 表**
+- 键名为 plugin:插件名，小写，例如 plugin:helloworld
+- 值为 **JSON 对象**
+
+### 管理后台
+
+- 插件列表操作菜单中有 **「设置」**，点击后进入 `/plugins?options=插件名` 的设置页
+- 设置页仅显示表单与保存/重置按钮，不显示下方插件列表
+- 后端接口：`GET /anon/cms/admin/plugins/options?slug=xxx` 获取 schema 与当前值，`POST /anon/cms/admin/plugins/options` 提交 `{ slug, values }` 保存
+
+### 在代码中读取设置
+
+若需在插件或主题中读取某插件的设置，可从 options 表读取 plugin:插件名 的 JSON 值，或通过 CMS Options 封装获取。
+
 ## 插件管理
 
 ### 管理后台
@@ -267,6 +341,7 @@ public static function init()
 - **插件列表**：查看所有已安装的插件
 - **上传插件**：上传 ZIP 格式的插件包
 - **启用/停用**：切换插件的激活状态
+- **设置**：进入插件设置页，仅当插件实现 getSettingsSchema 时有表单
 - **删除插件**：删除不需要的插件，需先停用
 
 ### 插件上传
@@ -318,11 +393,12 @@ public static function init()
 
 ## 注意事项
 
-1. 类名不区分大小写，系统会自动匹配，建议使用正确的命名规范
-2. 插件必须定义至少一个初始化方法：`apiPlugin()`、`cmsPlugin()` 或 `init()`
+1. 插件目录名与主入口文件名 Index.php 不区分大小写，类名也不区分大小写，系统自动匹配
+2. 插件必须实现 `init()` 方法
 3. 插件必须放在 `server/app/Plugin/` 目录下
-4. 插件主文件建议命名为 `Index.php`
+4. 主入口文件名为 `Index.php` 或 `index.php` 等均可，系统按不区分大小写查找
 5. 所有插件文件必须包含 `if (!defined('ANON_ALLOWED_ACCESS')) exit;`
+6. 插件设置 schema 在入口文件中通过 `getSettingsSchema()` 定义，不写在 package.json
 
 ## 调试
 

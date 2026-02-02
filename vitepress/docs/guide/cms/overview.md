@@ -32,7 +32,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 - 系统按请求路径分别匹配 CMS 路由与 API 路由  
 
 ::: tip 适用模式：CMS 模式  
-当 `ANON_APP_MODE` 为 `cms` 时，CMS 路由优先；API 路由需带前缀（如 `/api`）以避免与页面路由冲突。  
+当 ANON_APP_MODE 为 cms 时，CMS 路由优先；API 路由需带前缀如 /api，以避免与页面路由冲突。  
 :::
 
 ## 下一步

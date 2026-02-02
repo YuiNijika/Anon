@@ -14,8 +14,8 @@ Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支�
 app/Theme/
 └── default/
     ├── app/
-    │   ├── code.php      # 主题自定义代码（钩子、路由等）
-    │   └── setup.php     # 主题设置项（return 数组）
+    │   ├── code.php      # 主题自定义代码，钩子、路由等
+    │   └── setup.php     # 主题设置项，return 数组
     ├── index.php         # 首页模板
     ├── about.php         # 关于页模板
     ├── post.php          # 文章模板
@@ -98,13 +98,14 @@ Anon_System_Config::addRoute('/theme/custom', function () {
 
 ### 存储方式
 
-- 设置值存储在 `options` 表
-- 键名为 `theme:主题名`
+- 设置值存储在 options 表
+- 键名为 theme:主题名，小写，例如 theme:default
 - 值为 JSON 对象
+- 写入逻辑：有该 name 则更新 value，无则插入，与 Anon_Cms_Options::set 同款。主题层封装了 Anon_Theme_Options::setStorage，单键设置用 set 或 setMany 时内部会调用 setStorage 保证持久化。
 
 ### 注册设置项
 
-在主题 `app/code.php` 中也可单条注册设置项（推荐使用 app/setup.php 统一定义）：
+在主题 app/code.php 中也可单条注册设置项，推荐使用 app/setup.php 统一定义：
 
 ```php
 <?php
@@ -126,7 +127,7 @@ Anon_Theme_Options::register('site_title', [
 
 **app/setup.php 定义设置项**
 
-在主题目录下创建 `app/setup.php`，**return 一个数组**（按 tab 分组），加载主题或管理端拉取设置项时会自动注册，无需再写其它代码：
+在主题目录下创建 app/setup.php，return 一个数组，按 tab 分组。加载主题或管理端拉取设置项时会自动注册，无需再写其它代码：
 
 ```php
 <?php
@@ -166,7 +167,7 @@ return [
 
 - `text`: 文本输入框
 - `textarea`: 多行文本域
-- `select`: 下拉选择框，需要提供 `options` 数组
+- `select`: 下拉选择框，需提供 options 数组
 - `checkbox`: 复选框，布尔值
 
 **参数说明：**
@@ -177,7 +178,7 @@ return [
 - `default`: 默认值
 - `sanitize_callback`: 数据清理回调函数
 - `validate_callback`: 数据验证回调函数
-- `options`: 选择项数组，仅 `select` 类型需要
+- `options`: 选择项数组，仅 select 类型需要
 
 ### 读取设置
 
@@ -226,6 +227,19 @@ $ok = Anon_Theme_Options::setMany([
     'site_description' => '新描述',
 ]);
 ```
+
+### 整表写入 setStorage
+
+若需将主题选项整体写入 options 表，有则更新、无则插入，可直接调用：
+
+```php
+$ok = Anon_Theme_Options::setStorage([
+    'site_title' => '新标题',
+    'site_description' => '新描述',
+], $themeName);
+```
+
+set 与 setMany 内部会调用 setStorage，一般无需直接使用。
 
 ### 获取所有设置
 
