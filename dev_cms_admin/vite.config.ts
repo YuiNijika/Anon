@@ -28,6 +28,7 @@ export default defineConfig({
   build: {
     outDir: '../core/Static/admin',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 3000,
     rollupOptions: {
       input: path.resolve(__dirname, 'src/main.tsx'),
       output: {
@@ -39,6 +40,8 @@ export default defineConfig({
           }
           return assetInfo.name || 'assets/[name].[ext]'
         },
+        inlineDynamicImports: true,
+        manualChunks: undefined,
       },
     },
     copyPublicDir: false,
