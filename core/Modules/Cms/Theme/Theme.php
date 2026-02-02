@@ -97,7 +97,7 @@ class Anon_Cms_Theme
             self::$themeDir = $actualThemeDir;
             self::$initialized = true;
             
-            self::loadThemeFunctions();
+            self::loadThemeCode();
         } catch (Error $e) {
             self::handleFatalError($e);
         } catch (Throwable $e) {
@@ -110,16 +110,17 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 加载主题 functions.php
+     * 加载主题 app/code.php（自定义代码）与 app/setup.php（主题设置项）
      * @return void
      */
-    private static function loadThemeFunctions(): void
+    private static function loadThemeCode(): void
     {
         try {
-            $functionsFile = self::$themeDir . DIRECTORY_SEPARATOR . 'functions.php';
-            if (Anon_Cms::fileExists($functionsFile)) {
-                require_once $functionsFile;
+            $codeFile = self::$themeDir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'code.php';
+            if (Anon_Cms::fileExists($codeFile)) {
+                require_once $codeFile;
             }
+            self::loadThemeSetupFile(self::$themeDir);
         } catch (Error $e) {
             self::handleFatalError($e);
         } catch (Throwable $e) {
@@ -132,14 +133,167 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 查找主题目录
+     * 从主题目录 app/setup.php 读取设置定义，按分组树形返回
+     *
      * @param string $themeName 主题名
-     * @return string|null
+     * @return array 树形 [ 分组名 => [ 选项名 => [ type, label, default, ... ] ], ... ]，无文件或非数组时返回空数组
+     */
+    public static function getSchemaFromSetupFile(string $themeName): array
+    {
+        $themeDir = self::findThemeDirectory($themeName);
+        if ($themeDir === null) {
+            return [];
+        }
+        $setupFile = rtrim($themeDir, '/\\') . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'setup.php';
+        if (!file_exists($setupFile)) {
+            return [];
+        }
+        if (!defined('ANON_ALLOWED_ACCESS')) {
+            define('ANON_ALLOWED_ACCESS', true);
+        }
+        $raw = include $setupFile;
+        if (!is_array($raw)) {
+            return [];
+        }
+        $defaultArgs = ['type' => 'text', 'label' => '', 'description' => '', 'default' => null];
+        $tree = [];
+        foreach ($raw as $group => $items) {
+            if (!is_array($items)) {
+                continue;
+            }
+            $tree[$group] = [];
+            foreach ($items as $key => $args) {
+                $args = is_array($args) ? $args : [];
+                $tree[$group][(string) $key] = array_merge($defaultArgs, $args);
+            }
+        }
+        return $tree;
+    }
+
+    /**
+     * 从主题目录 app/setup.php 加载设置项并写入数据库
+     *
+     * setup.php 需 return 数组，格式为 tab => [ 选项名 => 参数 ]。用于兼容旧逻辑或预填默认值。
+     *
+     * @param string $themeDir 主题根目录
+     * @param string|null $themeName 主题名，空则用目录名
+     * @return void
+     */
+    private static function loadThemeSetupFile(string $themeDir, ?string $themeName = null): void
+    {
+        $themeDirResolved = realpath(rtrim($themeDir, '/\\'));
+        if ($themeDirResolved === false) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Theme] loadThemeSetupFile: themeDir not found: ' . $themeDir);
+            }
+            return;
+        }
+        $setupFile = $themeDirResolved . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'setup.php';
+        if (!file_exists($setupFile)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Theme] loadThemeSetupFile: setup.php not found: ' . $setupFile);
+            }
+            return;
+        }
+        if (!defined('ANON_ALLOWED_ACCESS')) {
+            define('ANON_ALLOWED_ACCESS', true);
+        }
+        $schema = include $setupFile;
+        if (!is_array($schema)) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Theme] loadThemeSetupFile: setup.php did not return array, got: ' . gettype($schema));
+            }
+            return;
+        }
+        $name = $themeName !== null && $themeName !== '' ? $themeName : basename($themeDirResolved);
+        Anon_Theme_Options::registerFromSchema($schema, strtolower($name));
+        Anon_Cms_Options::clearCache();
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            error_log('[Theme] loadThemeSetupFile: registered schema for theme ' . $name . ', keys: ' . count($schema));
+        }
+    }
+
+    /**
+     * 获取 app 目录绝对路径（不依赖 CWD，基于当前文件位置）
+     *
+     * Theme.php 在 server/core/Modules/Cms/Theme/，上溯 4 级为 server，app 为 server/app。
+     *
+     * @return string
+     */
+    private static function getAppDirAbsolute(): string
+    {
+        $serverDir = dirname(__DIR__, 4);
+        $appDir = $serverDir . DIRECTORY_SEPARATOR . 'app';
+        $resolved = realpath($appDir);
+        return $resolved !== false ? $resolved : rtrim($appDir, DIRECTORY_SEPARATOR);
+    }
+
+    /**
+     * 查找主题目录并解析为绝对路径
+     *
+     * 使用基于 Theme 文件位置的 app 绝对路径，避免 CWD 导致找不到主题目录。
+     *
+     * @param string $themeName 主题名
+     * @return string|null 主题目录绝对路径，未找到为 null
      */
     private static function findThemeDirectory(string $themeName): ?string
     {
-        $themesDir = Anon_Main::APP_DIR . 'Theme/';
-        return Anon_Cms::findDirectoryCaseInsensitive($themesDir, $themeName);
+        $themesBase = self::getAppDirAbsolute() . DIRECTORY_SEPARATOR . 'Theme';
+        $found = Anon_Cms::findDirectoryCaseInsensitive($themesBase . DIRECTORY_SEPARATOR, $themeName);
+        if ($found === null) {
+            return null;
+        }
+        $resolved = realpath(rtrim($found, '/\\'));
+        return $resolved !== false ? $resolved . DIRECTORY_SEPARATOR : null;
+    }
+
+    /**
+     * 确保指定主题的设置项已加载
+     *
+     * 从主题目录 app/setup.php 读取并注册；存储 key 为主题名小写，主题名不区分大小写。
+     *
+     * @param string $themeName 主题名，任意大小写
+     * @return void
+     */
+    public static function ensureThemeOptionsLoaded(string $themeName): void
+    {
+        if ($themeName === '' || $themeName === null) {
+            return;
+        }
+        $themeDir = self::findThemeDirectory($themeName);
+        if ($themeDir === null) {
+            return;
+        }
+        $keyName = strtolower(basename(rtrim($themeDir, '/\\')));
+        
+        // 检查 options 表中是否存在该主题的值
+        // 使用一个特殊对象作为默认值来判断是否存在
+        $missing = new stdClass();
+        $val = Anon_Cms_Options::get("theme:{$keyName}", $missing);
+        
+        if ($val !== $missing) {
+            return;
+        }
+        
+        self::loadThemeSetupFile($themeDir, $keyName);
+    }
+
+    /**
+     * 获取用于接口的主题名（小写，与 options 存储一致，主题名不区分大小写）
+     *
+     * @param string $themeName 请求或配置中的主题名，任意大小写
+     * @return string 小写主题名，未找到目录则返回原值小写
+     */
+    public static function getCanonicalThemeName(string $themeName): string
+    {
+        if ($themeName === '' || $themeName === null) {
+            return strtolower((string) $themeName);
+        }
+        $themeDir = self::findThemeDirectory($themeName);
+        if ($themeDir === null) {
+            return strtolower($themeName);
+        }
+        return strtolower(basename(rtrim($themeDir, '/\\')));
     }
 
     /**
@@ -547,7 +701,7 @@ class Anon_Cms_Theme
             $componentPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $componentPath);
             
             $themeDir = self::getThemeDir();
-            $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'components');
+            $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
             
             if ($componentsDir === null) {
                 self::outputComponentError("组件目录未找到: components");

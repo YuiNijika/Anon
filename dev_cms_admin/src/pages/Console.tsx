@@ -1,17 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Card, Col, Descriptions, Row, Spin, Statistic, message } from 'antd'
+import { useEffect, useRef, useState } from 'react'
 import {
-  EyeOutlined,
-  CommentOutlined,
-  FolderOutlined,
-  TagOutlined,
-  UserOutlined,
-  FileTextOutlined,
-} from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
+import type { TooltipContentProps } from 'recharts'
+import { toast } from 'sonner'
+import {
+  Eye,
+  MessageCircle,
+  Folder,
+  Tag,
+  User,
+  FileText,
+} from 'lucide-react'
 import { useApiAdmin } from '@/hooks'
 import { AdminApi, type StatisticsData } from '@/services/admin'
-import { useAuth } from '@/hooks/useAuth'
+import { getErrorMessage } from '@/lib/utils'
+import { Alert } from '@/components/ui/alert'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type GithubRepoInfo = {
   full_name: string
@@ -67,21 +78,54 @@ function writeCache<T>(key: string, value: T): void {
   }
 }
 
+function DescRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2 py-1 text-sm">
+      <dt className="w-24 shrink-0 font-medium text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1">{children}</dd>
+    </div>
+  )
+}
+
+function StatBlock({ title, value, icon: Icon }: { title: string; value: number; icon: React.ComponentType<{ className?: string }> }) {
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <div className="mt-1 flex items-center gap-2">
+        {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+        <span className="text-2xl font-semibold">{value}</span>
+      </div>
+    </div>
+  )
+}
+
+function ChartTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+  if (!active || !payload?.length || label == null) return null
+  const date = new Date(label)
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return (
+    <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-md">
+      <p className="font-medium text-popover-foreground">{dateStr}</p>
+      <p className="text-muted-foreground">
+        访问量: <span className="font-medium text-foreground">{payload[0].value}</span>
+      </p>
+    </div>
+  )
+}
+
 export default function Console() {
   const apiAdmin = useApiAdmin()
-  const auth = useAuth()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<StatisticsData | null>(null)
   const [basic, setBasic] = useState<any>(null)
   const [theme, setTheme] = useState<any>(null)
   const [githubRepo, setGithubRepo] = useState<GithubRepoInfo | null>(null)
   const [githubRelease, setGithubRelease] = useState<GithubReleaseInfo | null>(null)
+  const [viewsTrend, setViewsTrend] = useState<Array<{ date: string; count: number }>>([])
+  const [trendLoading, setTrendLoading] = useState(false)
+  const [trendDays] = useState<7 | 14 | 30>(7)
   const fetchingRef = useRef(false)
-
-  const userName = useMemo(() => {
-    return auth.user?.display_name || auth.user?.name || '用户'
-  }, [auth.user])
+  const trendFetchingRef = useRef(false)
 
   useEffect(() => {
     if (fetchingRef.current) return
@@ -97,7 +141,9 @@ export default function Console() {
         ])
 
         if (statsRes.status === 'fulfilled' && statsRes.value.data) {
-          setData(statsRes.value.data)
+          const stats = statsRes.value.data
+          setData(stats)
+          setViewsTrend(stats.views_trend || [])
         }
         if (basicRes.status === 'fulfilled') {
           setBasic(basicRes.value.data || null)
@@ -107,20 +153,15 @@ export default function Console() {
         }
 
         const cachedRepo = readCache<GithubRepoInfo>(GITHUB_REPO_CACHE_KEY)
-        if (cachedRepo) {
-          setGithubRepo(cachedRepo)
-        }
+        if (cachedRepo) setGithubRepo(cachedRepo)
         const cachedRelease = readCache<GithubReleaseInfo>(GITHUB_RELEASE_CACHE_KEY)
-        if (cachedRelease) {
-          setGithubRelease(cachedRelease)
-        }
+        if (cachedRelease) setGithubRelease(cachedRelease)
 
         if (!cachedRepo || !cachedRelease) {
           const [repoRes, releaseRes] = await Promise.allSettled([
             cachedRepo ? Promise.resolve(cachedRepo) : fetch('https://api.github.com/repos/YuiNijika/Anon').then((r) => r.json()),
             cachedRelease ? Promise.resolve(cachedRelease) : fetch('https://api.github.com/repos/YuiNijika/Anon/releases/latest').then((r) => r.json()),
           ])
-
           if (repoRes.status === 'fulfilled' && repoRes.value && (repoRes.value as any).full_name) {
             const repo = repoRes.value as GithubRepoInfo
             setGithubRepo(repo)
@@ -133,7 +174,7 @@ export default function Console() {
           }
         }
       } catch (err) {
-        message.error('获取统计数据失败')
+        toast.error(getErrorMessage(err, '获取统计数据失败'))
         console.error(err)
       } finally {
         setLoading(false)
@@ -144,99 +185,182 @@ export default function Console() {
     fetchData()
   }, [apiAdmin])
 
+  useEffect(() => {
+    if (trendFetchingRef.current || !apiAdmin) return
+    const fetchTrend = async () => {
+      trendFetchingRef.current = true
+      try {
+        setTrendLoading(true)
+        const res = await AdminApi.getViewsTrend(apiAdmin, trendDays)
+        if (res.data?.length) setViewsTrend(res.data)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setTrendLoading(false)
+        trendFetchingRef.current = false
+      }
+    }
+    fetchTrend()
+  }, [apiAdmin, trendDays])
+
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" />
+      <div className="space-y-6">
+        <Alert variant="success">
+          <Skeleton className="h-5 w-48" />
+        </Alert>
+        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-20 w-full" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-20 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-24" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-20" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[320px] w-full" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div>
-      <Alert
-        message={`您好 ${userName}, 欢迎使用 AnonEcho !`}
-        type="success"
-        style={{ marginBottom: 16 }}
-        showIcon
-        action={
-          <Button
-            size="small"
-            onClick={async () => {
-              await auth.logout()
-              navigate('/login', { replace: true })
-            }}
-          >
-            退出登录
-          </Button>
-        }
-      />
-      <Row gutter={[16, 16]}>
-        <Col sm={24} lg={12}>
-          <Card title="站点信息">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="站点标题">{basic?.title || '-'}</Descriptions.Item>
-              <Descriptions.Item label="站点描述">{basic?.description || '-'}</Descriptions.Item>
-              <Descriptions.Item label="关键词">{basic?.keywords || '-'}</Descriptions.Item>
-              <Descriptions.Item label="当前主题">{theme?.current || '-'}</Descriptions.Item>
-            </Descriptions>
-          </Card>
-        </Col>
-        <Col sm={24} lg={12}>
-          <Card title="最新动态">
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="仓库">
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>站点信息</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-0">
+              <DescRow label="站点标题">{basic?.title ?? '-'}</DescRow>
+              <DescRow label="站点描述">{basic?.description ?? '-'}</DescRow>
+              <DescRow label="关键词">{basic?.keywords ?? '-'}</DescRow>
+              <DescRow label="当前主题">{theme?.current ?? '-'}</DescRow>
+            </dl>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>最新动态</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-0">
+              <DescRow label="仓库">
                 {githubRepo?.html_url ? (
-                  <a href={githubRepo.html_url} target="_blank" rel="noreferrer">
+                  <a href={githubRepo.html_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
                     {githubRepo.full_name}
                   </a>
                 ) : (
                   'YuiNijika/Anon'
                 )}
-              </Descriptions.Item>
-              <Descriptions.Item label="描述">{githubRepo?.description || '-'}</Descriptions.Item>
-              <Descriptions.Item label="最新版本">
+              </DescRow>
+              <DescRow label="描述">{githubRepo?.description ?? '-'}</DescRow>
+              <DescRow label="最新版本">
                 {githubRelease?.html_url ? (
-                  <a href={githubRelease.html_url} target="_blank" rel="noreferrer">
+                  <a href={githubRelease.html_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
                     {githubRelease.tag_name}
                   </a>
                 ) : (
                   '-'
                 )}
-              </Descriptions.Item>
-              <Descriptions.Item label="请求时间">
+              </DescRow>
+              <DescRow label="请求时间">
                 {githubRepo?.updated_at ? new Date(githubRepo.updated_at).toLocaleString('zh-CN') : '-'}
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        </Col>
-      </Row>
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col span={24}>
-          <Card title="数据概览">
-            <Row gutter={[16, 16]}>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="文章" value={data?.posts ?? 0} prefix={<FileTextOutlined />} />
-              </Col>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="评论" value={data?.comments ?? 0} prefix={<CommentOutlined />} />
-              </Col>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="分类" value={data?.categories ?? 0} prefix={<FolderOutlined />} />
-              </Col>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="标签" value={data?.tags ?? 0} prefix={<TagOutlined />} />
-              </Col>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="用户" value={data?.users ?? 0} prefix={<UserOutlined />} />
-              </Col>
-              <Col xs={12} sm={8} lg={4}>
-                <Statistic title="总访问" value={data?.total_views ?? 0} prefix={<EyeOutlined />} />
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-      </Row>
+              </DescRow>
+            </dl>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>数据概览</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <StatBlock title="文章" value={data?.posts ?? 0} icon={FileText} />
+            <StatBlock title="评论" value={data?.comments ?? 0} icon={MessageCircle} />
+            <StatBlock title="分类" value={data?.categories ?? 0} icon={Folder} />
+            <StatBlock title="标签" value={data?.tags ?? 0} icon={Tag} />
+            <StatBlock title="用户" value={data?.users ?? 0} icon={User} />
+            <StatBlock title="总访问" value={data?.total_views ?? 0} icon={Eye} />
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>访问量趋势</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="min-h-[320px] w-full">
+            {trendLoading ? (
+              <Skeleton className="h-[320px] w-full" />
+            ) : viewsTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart
+                  data={viewsTrend}
+                  margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+                >
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(text) => {
+                      const date = new Date(text)
+                      return `${date.getMonth() + 1}/${date.getDate()}`
+                    }}
+                    stroke="hsl(var(--border))"
+                  />
+                  <YAxis
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    stroke="hsl(var(--border))"
+                  />
+                  <Tooltip content={(props: TooltipContentProps<number, string>) => <ChartTooltip {...props} />} />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    name="访问量"
+                    stroke="hsl(var(--chart-1))"
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--chart-1))', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[320px] items-center justify-center text-muted-foreground">
+                暂无访问数据
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

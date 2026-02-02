@@ -1,335 +1,368 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Form, Input, Button, App, Space, Select, Radio, Divider } from 'antd'
-import { EditOutlined, FileOutlined, PictureOutlined } from '@ant-design/icons'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { Pencil, FileText, Image } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import MDEditor from '@uiw/react-md-editor'
 import '@uiw/react-md-editor/markdown-editor.css'
 import { useTheme, useApiAdmin } from '@/hooks'
+import { getErrorMessage } from '@/lib/utils'
 import MediaLibrary from '@/components/MediaLibrary'
 import { buildPublicUrl } from '@/utils/api'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 
 type ContentType = 'post' | 'page'
 
+const writeSchema = z.object({
+  title: z.string().min(1, '请输入标题'),
+  slug: z.string().optional(),
+  status: z.enum(['draft', 'publish', 'private']).optional(),
+  type: z.enum(['post', 'page']),
+  category: z.number().optional().nullable(),
+  tags: z.array(z.string()).optional(),
+  content: z.string().optional(),
+})
+
+type WriteFormValues = z.infer<typeof writeSchema>
+
 export default function Write() {
-  const app = App.useApp()
-  const message = app.message
   const apiAdmin = useApiAdmin()
   const { isDark } = useTheme()
   const [searchParams] = useSearchParams()
-  const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
-  const [contentType, setContentType] = useState<ContentType>('post')
-  const [content, setContent] = useState('')
-  const [categories, setCategories] = useState<any[]>([])
-  const [tags, setTags] = useState<any[]>([])
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false)
   const [postId, setPostId] = useState<number | null>(null)
   const [loadingPost, setLoadingPost] = useState(false)
 
-  // 加载分类和标签
+  const form = useForm<WriteFormValues>({
+    resolver: zodResolver(writeSchema),
+    defaultValues: {
+      title: '',
+      slug: '',
+      status: 'publish',
+      type: 'post',
+      category: null,
+      tags: [],
+      content: '',
+    },
+  })
+
+  const contentType = form.watch('type') as ContentType
+
   const loadCategories = useCallback(async () => {
     try {
       const response = await apiAdmin.admin.get('/metas/categories')
-      if (response.code === 200) {
-        setCategories(response.data || [])
-      }
+      if (response.code === 200) setCategories(response.data || [])
     } catch (err) {
       console.error('加载分类失败:', err)
     }
   }, [apiAdmin])
 
-  const loadTags = useCallback(async () => {
-    try {
-      const response = await apiAdmin.admin.get('/metas/tags')
-      if (response.code === 200) {
-        setTags(response.data || [])
-      }
-    } catch (err) {
-      console.error('加载标签失败:', err)
-    }
-  }, [apiAdmin])
-
   useEffect(() => {
     loadCategories()
-    loadTags()
-  }, [loadCategories, loadTags])
+  }, [loadCategories])
 
-  /**
-   * 加载文章数据（编辑模式）
-   */
   const loadPost = useCallback(async (id: number) => {
     try {
       setLoadingPost(true)
       const response = await apiAdmin.admin.get('/posts', { id })
-      if (response.code === 200) {
-        const post = response.data
-        setPostId(post.id)
-        setContentType(post.type as ContentType)
-        setContent(post.content || '')
-
-        form.setFieldsValue({
-          title: post.title,
-          slug: post.slug,
-          status: post.status,
-          category: post.category,
-          tags: post.tags || [],
-          type: post.type,
+      if (response.code === 200 && response.data) {
+        const post = response.data as Record<string, unknown>
+        setPostId(post.id as number)
+        form.reset({
+          title: (post.title as string) || '',
+          slug: (post.slug as string) || '',
+          status: (post.status as WriteFormValues['status']) || 'publish',
+          type: (post.type as ContentType) || 'post',
+          category: (post.category as number) ?? null,
+          tags: Array.isArray(post.tags) ? (post.tags as string[]) : [],
+          content: (post.content as string) || '',
         })
       } else {
-        message.error('加载文章失败')
+        toast.error('加载文章失败')
       }
     } catch (err) {
-      message.error('加载文章失败')
+      toast.error(getErrorMessage(err, '加载文章失败'))
     } finally {
       setLoadingPost(false)
     }
-  }, [apiAdmin, form, message])
+  }, [apiAdmin, form])
 
-  /**
-   * 检查 URL 参数，如果是编辑模式则加载文章
-   */
   useEffect(() => {
     const id = searchParams.get('id')
     if (id) {
       const postIdNum = parseInt(id, 10)
-      if (!isNaN(postIdNum) && postIdNum > 0) {
-        loadPost(postIdNum)
-      }
+      if (!isNaN(postIdNum) && postIdNum > 0) loadPost(postIdNum)
     } else {
-      // 新建模式，重置表单
       setPostId(null)
-      form.resetFields()
-      setContent('')
-      setContentType('post')
+      form.reset({
+        title: '',
+        slug: '',
+        status: 'publish',
+        type: 'post',
+        category: null,
+        tags: [],
+        content: '',
+      })
     }
   }, [searchParams, loadPost, form])
 
-  // 同步编辑器值到表单
-  useEffect(() => {
-    const currentContent = form.getFieldValue('content') || ''
-    if (currentContent !== content) {
-      setContent(currentContent)
-    }
-  }, [form.getFieldValue('content')])
-
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: WriteFormValues) => {
     try {
       setLoading(true)
       const submitData = {
         ...values,
-        type: contentType,
-        content: content,
+        content: values.content ?? '',
       }
-
       let response
       if (postId) {
-        // 更新文章
-        response = await apiAdmin.admin.put('/posts', {
-          id: postId,
-          ...submitData,
-        })
+        response = await apiAdmin.admin.put('/posts', { id: postId, ...submitData })
       } else {
-        // 创建文章
         response = await apiAdmin.admin.post('/posts', submitData)
       }
-
       if (response.code === 200) {
-        message.success(`${postId ? '更新' : '创建'}${contentType === 'post' ? '文章' : '页面'}成功`)
-        if (!postId) {
-          // 新建成功后，跳转到编辑模式
-          const newPostId = response.data.id
-          setPostId(newPostId)
-          window.history.replaceState({}, '', `/write?id=${newPostId}`)
+        toast.success(`${postId ? '更新' : '创建'}${contentType === 'post' ? '文章' : '页面'}成功`)
+        if (!postId && response.data?.id) {
+          setPostId(response.data.id)
+          window.history.replaceState({}, '', `/write?id=${response.data.id}`)
         }
       } else {
-        message.error(response.message || `${postId ? '更新' : '创建'}失败`)
+        toast.error((response as { message?: string }).message || `${postId ? '更新' : '创建'}失败`)
       }
     } catch (err) {
-      message.error(`${postId ? '更新' : '创建'}${contentType === 'post' ? '文章' : '页面'}失败`)
+      toast.error(getErrorMessage(err, `${postId ? '更新' : '创建'}${contentType === 'post' ? '文章' : '页面'}失败`))
     } finally {
       setLoading(false)
     }
   }
 
   const handleTypeChange = (type: ContentType) => {
-    setContentType(type)
-    form.setFieldValue('type', type)
-    form.resetFields(['title', 'slug', 'status', 'category', 'tags', 'content'])
-    form.setFieldValue('type', type)
+    form.setValue('type', type)
+    if (!postId) {
+      form.setValue('title', '')
+      form.setValue('slug', '')
+      form.setValue('content', '')
+    }
   }
 
-  const handleMediaSelect = (attachmentOrList: any) => {
+  const handleMediaSelect = (attachmentOrList: unknown) => {
     const list = Array.isArray(attachmentOrList) ? attachmentOrList : [attachmentOrList]
-    const currentContent = content || ''
-
+    const currentContent = form.getValues('content') || ''
     const blocks = list
       .filter(Boolean)
-      .map((attachment) => {
-        const url = attachment.insert_url || attachment.url
-        return `![${attachment.original_name}](${buildPublicUrl(url)})`
+      .map((a: Record<string, unknown>) => {
+        const url = (a.insert_url || a.url) as string
+        const name = (a.original_name ?? a.name ?? '') as string
+        return `![${name}](${buildPublicUrl(url)})`
       })
-
     const newContent = currentContent + (currentContent ? '\n\n' : '') + blocks.join('\n\n')
-    setContent(newContent)
-    form.setFieldValue('content', newContent)
+    form.setValue('content', newContent)
   }
 
   return (
-    <div style={{ display: 'flex', gap: '20px' }}>
-      {/* 左侧编辑区 - 9 栏 */}
-      <div style={{ flex: '0 0 75%', width: '75%' }}>
+    <div className="flex gap-6">
+      <div className="w-[75%] shrink-0">
         <Card>
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item
-              name="title"
-              label="标题"
-              rules={[{ required: true, message: `请输入${contentType === 'post' ? '文章' : '页面'}标题` }]}
-            >
-              <Input
-                placeholder={`${contentType === 'post' ? '文章' : '页面'}标题`}
-                style={{ fontSize: '20px', fontWeight: 600 }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="content"
-              label={
-                <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                  <span>内容</span>
-                  <Button
-                    type="link"
-                    icon={<PictureOutlined />}
-                    onClick={() => setMediaLibraryOpen(true)}
-                    size="small"
-                  >
-                    插入媒体
-                  </Button>
-                </Space>
-              }
-            >
-              <div data-color-mode={isDark ? 'dark' : 'light'}>
-                <MDEditor
-                  value={content}
-                  onChange={(value?: string) => {
-                    const newValue = value || ''
-                    setContent(newValue)
-                    form.setFieldValue('content', newValue)
-                  }}
-                  preview="edit"
-                  hideToolbar={false}
-                  height={600}
+          <CardContent className="pt-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>标题</FormLabel>
+                      <FormControl>
+                        <Input placeholder={contentType === 'post' ? '文章标题' : '页面标题'} className="text-xl font-semibold" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </Form.Item>
-          </Form>
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>内容</FormLabel>
+                        <Button type="button" variant="link" size="sm" onClick={() => setMediaLibraryOpen(true)}>
+                          <Image className="mr-1 h-4 w-4" />
+                          插入媒体
+                        </Button>
+                      </div>
+                      <FormControl>
+                        <div data-color-mode={isDark ? 'dark' : 'light'} className="rounded-md border overflow-hidden">
+                          <MDEditor
+                            value={field.value ?? ''}
+                            onChange={(value) => field.onChange(value ?? '')}
+                            preview="edit"
+                            hideToolbar={false}
+                            height={500}
+                          />
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </CardContent>
         </Card>
       </div>
 
-      {/* 右侧 Meta 信息区 - 3 栏 */}
-      <div style={{ flex: '0 0 25%', width: '25%' }}>
-        <Card size="small">
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            {/* 内容类型 */}
-            <Form.Item label="内容类型">
-              <Radio.Group
-                value={contentType}
-                onChange={(e) => handleTypeChange(e.target.value)}
-                disabled={!!postId}
-                style={{ width: '100%' }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Radio.Button value="post" style={{ width: '100%', textAlign: 'center' }}>
-                    <Space>
-                      <EditOutlined />
-                      <span>文章</span>
-                    </Space>
-                  </Radio.Button>
-                  <Radio.Button value="page" style={{ width: '100%', textAlign: 'center' }}>
-                    <Space>
-                      <FileOutlined />
-                      <span>页面</span>
-                    </Space>
-                  </Radio.Button>
-                </Space>
-              </Radio.Group>
-            </Form.Item>
-
-            <Divider style={{ margin: '16px 0' }} />
-
-            {/* 发布 */}
-            <Form.Item name="status" label="状态" initialValue="publish">
-              <Select>
-                <Select.Option value="draft">草稿</Select.Option>
-                <Select.Option value="publish">发布</Select.Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item>
-              <Button type="primary" block htmlType="submit" loading={loading || loadingPost}>
-                {postId ? '更新' : '立即发布'}
-              </Button>
-            </Form.Item>
-
-            <Divider style={{ margin: '16px 0' }} />
-
-            {/* 分类和标签（仅文章） */}
-            {contentType === 'post' && (
-              <>
-                <Form.Item name="category" label="分类">
-                  <Select
-                    placeholder="选择分类"
-                    allowClear
-                    showSearch
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    options={categories.map(cat => ({
-                      value: cat.id,
-                      label: cat.name,
-                    }))}
-                  />
-                </Form.Item>
-
-                <Form.Item name="tags" label="标签">
-                  <Select
-                    mode="tags"
-                    placeholder="输入标签后按回车"
-                    allowClear
-                    showSearch
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    options={tags.map(tag => ({
-                      value: tag.name,
-                      label: tag.name,
-                    }))}
-                    onSearch={async (value) => {
-                      if (value && !tags.some(t => t.name === value)) {
-                        // 可以在这里实现标签自动创建逻辑
-                      }
-                    }}
-                  />
-                </Form.Item>
-
-                <Divider style={{ margin: '16px 0' }} />
-              </>
-            )}
-
-            {/* 页面属性 */}
-            <Form.Item name="slug" label="别名">
-              <Input placeholder="URL 友好的别名" />
-            </Form.Item>
-          </Form>
+      <div className="w-[25%] shrink-0 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">发布</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>内容类型</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          value={field.value}
+                          onValueChange={(v) => handleTypeChange(v as ContentType)}
+                          className="flex flex-col gap-2"
+                          disabled={!!postId}
+                        >
+                          <div className="flex items-center space-x-2 rounded-md border p-3">
+                            <RadioGroupItem value="post" id="type-post" />
+                            <Label htmlFor="type-post" className="flex cursor-pointer items-center gap-2">
+                              <Pencil className="h-4 w-4" />
+                              文章
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2 rounded-md border p-3">
+                            <RadioGroupItem value="page" id="type-page" />
+                            <Label htmlFor="type-page" className="flex cursor-pointer items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              页面
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <hr />
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>状态</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">草稿</SelectItem>
+                          <SelectItem value="publish">发布</SelectItem>
+                          <SelectItem value="private">私有</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={loading || loadingPost}>
+                  {postId ? '更新' : '立即发布'}
+                </Button>
+                <hr />
+                {contentType === 'post' && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>分类</FormLabel>
+                          <Select
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="选择分类" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="tags"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>标签</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="逗号分隔的标签"
+                              value={Array.isArray(field.value) ? field.value.join(', ') : ''}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                const arr = v ? v.split(',').map((s) => s.trim()).filter(Boolean) : []
+                                field.onChange(arr)
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <hr />
+                  </>
+                )}
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>别名</FormLabel>
+                      <FormControl>
+                        <Input placeholder="URL 友好的别名" {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </CardContent>
         </Card>
       </div>
 
-      {/* 媒体库 */}
-      <MediaLibrary
-        open={mediaLibraryOpen}
-        onClose={() => setMediaLibraryOpen(false)}
-        onSelect={handleMediaSelect}
-      />
+      <MediaLibrary open={mediaLibraryOpen} onClose={() => setMediaLibraryOpen(false)} onSelect={handleMediaSelect} />
     </div>
   )
 }
-

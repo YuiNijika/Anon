@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import App from './App'
 import { ThemeProvider } from './components/ThemeProvider'
 import { ensureToken } from './hooks/useApi'
@@ -19,6 +20,7 @@ async function initApp() {
       <ThemeProvider>
         <HashRouter>
           <App />
+          <Toaster richColors position="top-right" />
         </HashRouter>
       </ThemeProvider>
     </StrictMode>,

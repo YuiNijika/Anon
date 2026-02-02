@@ -1,6 +1,8 @@
-# 主题系统
+# 主题系统与开发
 
-Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支持不区分大小写的文件查找，让主题开发更加灵活。
+**本节说明**：主题目录结构、自定义代码、模板与资源约定。**适用**：仅 CMS 模式。
+
+Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支持不区分大小写的文件查找，让主题开发更加灵活。与 [CMS 模式概述](./overview.md)、[路由与页面](./routes.md) 配合使用。
 
 ## 主题目录结构
 
@@ -11,7 +13,9 @@ Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支�
 ```
 app/Theme/
 └── default/
-    ├── functions.php     # 主题自定义代码
+    ├── app/
+    │   ├── code.php      # 主题自定义代码（钩子、路由等）
+    │   └── setup.php     # 主题设置项（return 数组）
     ├── index.php         # 首页模板
     ├── about.php         # 关于页模板
     ├── post.php          # 文章模板
@@ -34,19 +38,20 @@ app/Theme/
 
 ## 主题自定义代码
 
-主题目录下的 `functions.php` 会在主题初始化时自动加载。
+主题目录下的 `app/code.php` 会在主题初始化时自动加载。
 
-**文件位置：** `server/app/Theme/{themeName}/functions.php`
+**文件位置：** `server/app/Theme/{themeName}/app/code.php`
 
 **功能：**
 
-- 注册主题设置项
 - 注册钩子
 - 注册自定义路由
 - 注册错误处理器
 - 定义主题辅助函数和类
 
-**示例文件位置：** `server/app/Theme/Default/functions.php`
+主题设置项在 `app/setup.php` 中通过 return 数组定义，见下文。
+
+**示例文件位置：** `server/app/Theme/Default/app/code.php`
 
 **完整示例：**
 
@@ -99,7 +104,7 @@ Anon_System_Config::addRoute('/theme/custom', function () {
 
 ### 注册设置项
 
-在主题 `functions.php` 中注册设置项：
+在主题 `app/code.php` 中也可单条注册设置项（推荐使用 app/setup.php 统一定义）：
 
 ```php
 <?php
@@ -117,6 +122,44 @@ Anon_Theme_Options::register('site_title', [
         return strlen($value) <= 100;
     },
 ]);
+```
+
+**app/setup.php 定义设置项**
+
+在主题目录下创建 `app/setup.php`，**return 一个数组**（按 tab 分组），加载主题或管理端拉取设置项时会自动注册，无需再写其它代码：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+return [
+    'tab1' => [
+        'site_title' => [
+            'type' => 'text',
+            'label' => '网站标题',
+            'description' => '显示在页面中的标题',
+            'default' => '我的网站',
+        ],
+        'site_description' => [
+            'type' => 'textarea',
+            'label' => '网站描述',
+            'default' => '',
+        ],
+    ],
+    'tab2' => [
+        'color_scheme' => [
+            'type' => 'select',
+            'label' => '配色方案',
+            'default' => 'light',
+            'options' => ['light' => '浅色', 'dark' => '深色', 'auto' => '自动'],
+        ],
+        'show_sidebar' => [
+            'type' => 'checkbox',
+            'label' => '显示侧边栏',
+            'default' => true,
+        ],
+    ],
+];
 ```
 
 **设置项类型：**
@@ -864,7 +907,7 @@ Anon_Cms_Theme::footMeta(): void
 **注册 foot 钩子：**
 
 ```php
-// 在 functions.php 中
+// 在 app/code.php 中
 Anon_System_Hook::add_action('theme_foot', function () {
     echo '<script>console.log("Theme loaded");</script>';
 });

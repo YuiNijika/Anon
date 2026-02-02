@@ -45,64 +45,82 @@ export default defineConfig({
     nav: [
       { text: "快速开始", link: "/guide/quick-start" },
       { text: "安装指南", link: "/guide/installation" },
-      { text: "API 参考", link: "/api/reference" },
+      { text: "模式对比", link: "/guide/mode-overview" },
       {
-        text: "指南",
+        text: "API 模式",
         items: [
-          { text: "配置说明", link: "/guide/configuration" },
-          { text: "路由系统", link: "/guide/routing" },
-          { text: "数据库操作", link: "/guide/database" },
-          { text: "用户认证", link: "/guide/authentication" },
-          { text: "安全功能", link: "/guide/security" },
+          { text: "API 模式概述", link: "/guide/api/overview" },
+          { text: "路由与请求", link: "/guide/api/routing" },
+          { text: "请求与响应", link: "/guide/api/request-response" },
+          { text: "认证与安全", link: "/guide/api/authentication" },
+          { text: "API 参考", link: "/api/reference" },
+          { text: "API 端点", link: "/api/endpoints" },
         ]
       },
       {
-        text: "高级功能",
+        text: "CMS 模式",
         items: [
-          { text: "大数据处理", link: "/guide/big-data" },
-          { text: "调试工具", link: "/guide/debugging" },
-          { text: "性能优化", link: "/guide/performance-optimization" },
-          { text: "现代特性", link: "/guide/modern-features" },
+          { text: "CMS 模式概述", link: "/guide/cms/overview" },
+          { text: "路由与页面", link: "/guide/cms/routes" },
+          { text: "主题系统", link: "/guide/cms/theme-system" },
+          { text: "插件系统", link: "/guide/cms/plugin-system" },
+          { text: "管理后台", link: "/guide/cms/admin" },
+        ]
+      },
+      {
+        text: "更多",
+        items: [
+          { text: "配置说明", link: "/guide/configuration" },
+          { text: "数据库", link: "/guide/api/database" },
+          { text: "调试与性能", link: "/guide/api/debugging" },
+          { text: "开发规范", link: "/guide/coding-standards" },
         ]
       },
     ],
 
     // 侧边栏
     sidebar: {
+      '/guide/api/': [
+        {
+          base: '/guide/api/',
+          text: 'API 模式',
+          items: [
+            { text: 'API 模式概述', link: 'overview' },
+            { text: '路由系统', link: 'routing' },
+            { text: '请求与响应', link: 'request-response' },
+            { text: '用户认证', link: 'authentication' },
+            { text: 'Token 策略', link: 'token-strategy' },
+            { text: '安全功能', link: 'security' },
+            { text: '数据库操作', link: 'database' },
+            { text: '大数据处理', link: 'big-data' },
+            { text: '调试工具', link: 'debugging' },
+            { text: '性能优化', link: 'performance-optimization' },
+            { text: '服务端模式 (Swoole)', link: 'server-mode' },
+          ]
+        }
+      ],
+      '/guide/cms/': [
+        {
+          base: '/guide/cms/',
+          text: 'CMS 模式',
+          items: [
+            { text: 'CMS 模式概述', link: 'overview' },
+            { text: '路由与页面', link: 'routes' },
+            { text: '主题系统与开发', link: 'theme-system' },
+            { text: '插件系统', link: 'plugin-system' },
+            { text: '管理后台', link: 'admin' },
+          ]
+        }
+      ],
       '/guide/': [
         {
           base: '/guide/',
-          text: '入门指南',
+          text: '入门',
           items: [
             { text: '快速开始', link: 'quick-start' },
             { text: '安装指南', link: 'installation' },
             { text: '配置说明', link: 'configuration' },
-            { text: '路由系统', link: 'routing' },
-            { text: '数据库操作', link: 'database' }
-          ]
-        },
-        {
-          text: '核心功能',
-          base: '/guide/',
-          items: [
-            { text: '请求与响应', link: 'request-response' },
-            { text: '用户认证', link: 'authentication' },
-            { text: 'Token 策略', link: 'token-strategy' },
-            { text: '安全功能', link: 'security' }
-          ]
-        },
-        {
-          text: '高级功能',
-          base: '/guide/',
-          items: [
-            { text: '大数据处理', link: 'big-data' },
-            { text: '服务端模式 (Swoole)', link: 'server-mode' },
-            { text: '插件系统', link: 'plugin-system' },
-            { text: '调试工具', link: 'debugging' },
-            { text: '性能优化', link: 'performance-optimization' },
-            { text: '自定义代码', link: 'custom-code' },
-            { text: '现代特性', link: 'modern-features' },
-            { text: '高级用法', link: 'advanced' }
+            { text: '模式对比 API vs CMS', link: 'mode-overview' },
           ]
         },
         {

@@ -1,222 +1,214 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
-  Layout as AntLayout,
-  Avatar,
-  Dropdown,
-  Button,
-  message,
+  LayoutDashboard,
+  BarChart2,
+  Pencil,
+  Palette,
+  Grid3X3,
+  Folder,
+  User,
+  Tag,
+  File,
+  Settings,
+  LogOut,
+  Sun,
+  Moon,
   Menu,
-  theme,
-} from 'antd'
-import type { MenuProps } from 'antd'
-import {
-  DashboardOutlined,
-  SettingOutlined,
-  BarChartOutlined,
-  LogoutOutlined,
-  UserOutlined,
-  AppstoreOutlined,
-  BgColorsOutlined,
-  EditOutlined,
-  FolderOutlined,
-  TagsOutlined,
-  FileOutlined,
-} from '@ant-design/icons'
+} from 'lucide-react'
 import { useAuth } from '@/hooks'
 import { AdminApi, type BasicSettings, type NavbarItem } from '@/services/admin'
 import { useApiAdmin } from '@/hooks/useApiAdmin'
+import { useTheme } from '@/components/ThemeProvider'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 
-const { Header, Content, Sider } = AntLayout
-
-// 图标映射
-const iconMap: Record<string, React.ComponentType> = {
-  DashboardOutlined,
-  BarChartOutlined,
-  EditOutlined,
-  BgColorsOutlined,
-  AppstoreOutlined,
-  FolderOutlined,
-  UserOutlined,
-  TagsOutlined,
-  FileOutlined,
-  SettingOutlined,
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  DashboardOutlined: LayoutDashboard,
+  BarChartOutlined: BarChart2,
+  EditOutlined: Pencil,
+  BgColorsOutlined: Palette,
+  AppstoreOutlined: Grid3X3,
+  FolderOutlined: Folder,
+  UserOutlined: User,
+  TagsOutlined: Tag,
+  FileOutlined: File,
+  SettingOutlined: Settings,
 }
 
-// 将导航项转换为 Ant Design Menu 格式
-const convertNavbarItem = (item: NavbarItem): any => {
-  const menuItem: any = {
-    key: item.key,
-    label: item.label,
-  }
-
-  if (item.icon && iconMap[item.icon]) {
-    menuItem.icon = React.createElement(iconMap[item.icon])
-  }
-
-  if (item.children && item.children.length > 0) {
-    menuItem.children = item.children.map(convertNavbarItem)
-  }
-
-  return menuItem
+interface SideMenuItem {
+  key: string
+  label: string
+  icon?: string
+  children?: SideMenuItem[]
 }
 
-const defaultSideMenuItems: MenuProps['items'] = [
-  {
-    key: '/console',
-    icon: React.createElement(DashboardOutlined),
-    label: '控制台',
-  },
-  {
-    key: '/statistics',
-    icon: React.createElement(BarChartOutlined),
-    label: '统计',
-  },
-  {
-    key: '/write',
-    icon: React.createElement(EditOutlined),
-    label: '撰写',
-  },
-  {
-    key: '/themes',
-    icon: React.createElement(BgColorsOutlined),
-    label: '主题',
-  },
-  {
-    key: '/plugins',
-    icon: React.createElement(AppstoreOutlined),
-    label: '插件',
-  },
+const defaultSideMenuItems: SideMenuItem[] = [
+  { key: '/console', label: '控制台', icon: 'DashboardOutlined' },
+  { key: '/statistics', label: '统计', icon: 'BarChartOutlined' },
+  { key: '/write', label: '撰写', icon: 'EditOutlined' },
+  { key: '/themes', label: '主题', icon: 'BgColorsOutlined' },
+  { key: '/plugins', label: '插件', icon: 'AppstoreOutlined' },
   {
     key: 'manage',
-    icon: React.createElement(FolderOutlined),
     label: '管理',
+    icon: 'FolderOutlined',
     children: [
-      {
-        key: '/manage/posts',
-        icon: React.createElement(EditOutlined),
-        label: '文章',
-      },
-      {
-        key: '/manage/users',
-        icon: React.createElement(UserOutlined),
-        label: '用户',
-      },
-      {
-        key: '/manage/categories',
-        icon: React.createElement(FolderOutlined),
-        label: '分类',
-      },
-      {
-        key: '/manage/tags',
-        icon: React.createElement(TagsOutlined),
-        label: '标签',
-      },
-      {
-        key: '/manage/files',
-        icon: React.createElement(FileOutlined),
-        label: '附件',
-      },
+      { key: '/manage/posts', label: '文章', icon: 'EditOutlined' },
+      { key: '/manage/users', label: '用户', icon: 'UserOutlined' },
+      { key: '/manage/categories', label: '分类', icon: 'FolderOutlined' },
+      { key: '/manage/tags', label: '标签', icon: 'TagsOutlined' },
+      { key: '/manage/files', label: '附件', icon: 'FileOutlined' },
     ],
   },
   {
     key: 'settings',
-    icon: React.createElement(SettingOutlined),
     label: '设置',
+    icon: 'SettingOutlined',
     children: [
-      {
-        key: '/settings/basic',
-        icon: React.createElement(AppstoreOutlined),
-        label: '常规设置',
-      },
-      {
-        key: '/settings/permission',
-        icon: React.createElement(SettingOutlined),
-        label: '权限设置',
-      },
+      { key: '/settings/basic', label: '常规设置', icon: 'AppstoreOutlined' },
+      { key: '/settings/permission', label: '权限设置', icon: 'SettingOutlined' },
     ],
   },
 ]
 
+function convertNavbarItem(item: NavbarItem): SideMenuItem {
+  const menuItem: SideMenuItem = { key: item.key, label: item.label }
+  if (item.icon) menuItem.icon = item.icon
+  if (item.children?.length) {
+    menuItem.children = item.children.map(convertNavbarItem)
+  }
+  return menuItem
+}
+
 function useResponsive() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
-
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
   return { isMobile }
+}
+
+const HEADER_HEIGHT = 64
+const SIDER_WIDTH = 220
+
+function NavItem({
+  item,
+  isActive,
+  onNavigate,
+}: {
+  item: SideMenuItem
+  isActive: boolean
+  onNavigate: () => void
+}) {
+  const Icon = item.icon ? iconMap[item.icon] : null
+  return (
+    <NavLink
+      to={item.key}
+      end
+      onClick={onNavigate}
+      className={cn(
+        'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        isActive
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+      )}
+    >
+      {Icon && <Icon className="h-4 w-4 shrink-0" />}
+      {item.label}
+    </NavLink>
+  )
+}
+
+function SidebarNav({
+  items,
+  pathname,
+  onNavigate,
+  className,
+}: {
+  items: SideMenuItem[]
+  pathname: string
+  onNavigate: () => void
+  className?: string
+}) {
+  return (
+    <nav className={cn('flex flex-col gap-1 p-4', className)}>
+      {items.map((item) => {
+        if (item.children?.length) {
+          const isOpen =
+            pathname.startsWith('/manage') && item.key === 'manage' ||
+            pathname.startsWith('/settings') && item.key === 'settings'
+          const Icon = item.icon ? iconMap[item.icon] : null
+          return (
+            <Collapsible key={item.key} defaultOpen={isOpen}>
+              <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+                {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                {item.label}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 pt-1">
+                {item.children.map((child) => (
+                  <NavItem
+                    key={child.key}
+                    item={child}
+                    isActive={pathname === child.key}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          )
+        }
+        return (
+          <NavItem
+            key={item.key}
+            item={item}
+            isActive={pathname === item.key}
+            onNavigate={onNavigate}
+          />
+        )
+      })}
+    </nav>
+  )
 }
 
 export default function Layout() {
   const auth = useAuth()
   const apiAdmin = useApiAdmin()
+  const { isDark, toggleTheme } = useTheme()
   const { isMobile } = useResponsive()
   const navigate = useNavigate()
   const location = useLocation()
-  const [selectedKey, setSelectedKey] = useState('/console')
-  const [openKeys, setOpenKeys] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
-
-  const [siteTitle, setSiteTitle] = useState<string>('管理后台')
-  const [siteSubtitle, setSiteSubtitle] = useState<string>('')
+  const [siteTitle, setSiteTitle] = useState('管理后台')
+  const [siteSubtitle, setSiteSubtitle] = useState('')
   const siteFetchingRef = useRef(false)
-  const [headerMenuItems, setHeaderMenuItems] = useState<MenuProps['items']>([])
-  const [sideMenuItems, setSideMenuItems] = useState<MenuProps['items']>(defaultSideMenuItems)
+  const [sideMenuItems, setSideMenuItems] = useState<SideMenuItem[]>(defaultSideMenuItems)
   const navbarFetchingRef = useRef(false)
 
-  const {
-    token: { colorBgContainer, borderRadiusLG, colorBorder, colorText },
-  } = theme.useToken()
-
   useEffect(() => {
-    const path = location.pathname
-    setSelectedKey(path)
-
-    if (path.startsWith('/settings')) {
-      setOpenKeys(['settings'])
-    } else if (path.startsWith('/manage')) {
-      setOpenKeys(['manage'])
-    }
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (auth.initializing) {
-      return
-    }
-    if (!auth.isAuthenticated) {
-      return
-    }
-    if (siteFetchingRef.current) {
-      return
-    }
-
-    const fetchSite = async () => {
-      siteFetchingRef.current = true
-      try {
-        const res = await AdminApi.getBasicSettings(apiAdmin)
+    if (auth.initializing || !auth.isAuthenticated || siteFetchingRef.current) return
+    siteFetchingRef.current = true
+    AdminApi.getBasicSettings(apiAdmin)
+      .then((res) => {
         const settings = res.data as BasicSettings | undefined
-        if (settings?.title) {
-          setSiteTitle(settings.title)
-        }
-        if (settings?.subtitle) {
-          setSiteSubtitle(settings.subtitle)
-        } else {
-          setSiteSubtitle('')
-        }
-      } catch {
-        // ignore
-      } finally {
+        if (settings?.title) setSiteTitle(settings.title)
+        if (settings?.subtitle != null) setSiteSubtitle(settings.subtitle)
+      })
+      .finally(() => {
         siteFetchingRef.current = false
-      }
-    }
-
-    fetchSite()
+      })
   }, [apiAdmin, auth.initializing, auth.isAuthenticated])
 
   useEffect(() => {
@@ -225,180 +217,114 @@ export default function Layout() {
   }, [siteSubtitle, siteTitle])
 
   useEffect(() => {
-    if (auth.initializing) {
-      return
-    }
-    if (!auth.isAuthenticated) {
-      return
-    }
-    if (navbarFetchingRef.current) {
-      return
-    }
-
-    const fetchNavbar = async () => {
-      navbarFetchingRef.current = true
-      try {
-        const res = await AdminApi.getNavbar(apiAdmin)
-        if (res.data) {
-          // 转换顶部导航
-          const headerItems = res.data.header?.map(convertNavbarItem) || []
-          setHeaderMenuItems(headerItems)
-
-          // 转换侧边导航
-          const sidebarItems = res.data.sidebar?.map(convertNavbarItem) || defaultSideMenuItems
-          setSideMenuItems(sidebarItems)
+    if (auth.initializing || !auth.isAuthenticated || navbarFetchingRef.current) return
+    navbarFetchingRef.current = true
+    AdminApi.getNavbar(apiAdmin)
+      .then((res) => {
+        if (res.data?.sidebar?.length) {
+          setSideMenuItems(res.data.sidebar.map(convertNavbarItem))
         }
-      } catch {
-        // 使用默认导航
-        setHeaderMenuItems([])
+      })
+      .catch(() => {
         setSideMenuItems(defaultSideMenuItems)
-      } finally {
+      })
+      .finally(() => {
         navbarFetchingRef.current = false
-      }
-    }
-
-    fetchNavbar()
+      })
   }, [apiAdmin, auth.initializing, auth.isAuthenticated])
 
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   useEffect(() => {
-    if (auth.initializing) {
-      return
-    }
-
+    if (auth.initializing) return
     if (!auth.isAuthenticated) {
       navigate('/login', { replace: true })
       return
     }
-
     setMounted(true)
   }, [auth, navigate])
-
-  const handleMenuClick = ({ key }: { key: string }) => {
-    setSelectedKey(key)
-    navigate(key)
-  }
-
-  const handleOpenChange = (keys: string[]) => {
-    const uniqueKeys = Array.isArray(keys) ? [...new Set(keys)] : []
-    setOpenKeys(uniqueKeys)
-  }
 
   const handleLogout = async () => {
     try {
       await auth.logout()
-      message.success('已退出登录')
+      toast.success('已退出登录')
       navigate('/login', { replace: true })
     } catch {
       navigate('/login', { replace: true })
     }
   }
 
-  const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'logout',
-      icon: React.createElement(LogoutOutlined),
-      label: '退出登录',
-      onClick: handleLogout,
-    },
-  ]
-
-
-  if (!mounted) {
-    return null
-  }
-
-  const headerHeight = 64
-  const siderWidth = 200
+  if (!mounted) return null
 
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
-      <Header
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 24px',
-          height: headerHeight,
-          background: colorBgContainer,
-          borderBottom: `1px solid ${colorBorder}`,
-        }}
+    <div className="min-h-screen bg-background">
+      <header
+        className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center border-b bg-background px-4"
+        style={{ height: HEADER_HEIGHT }}
       >
-        <div style={{ fontSize: 18, fontWeight: 600, marginRight: 24, color: colorText }}>
-          {siteTitle}
-        </div>
-        <Menu
-          mode="horizontal"
-          selectedKeys={[selectedKey]}
-          items={headerMenuItems}
-          style={{ flex: 1, minWidth: 0, borderBottom: 'none' }}
-          onClick={handleMenuClick}
-        />
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-          <Button
-            type="text"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              height: 'auto',
-              padding: '4px 8px',
-            }}
-          >
-            <Avatar src={auth.user?.avatar} size="small" />
-            {!isMobile && <span>{auth.user?.display_name || auth.user?.name || 'Unknown'}</span>}
+        <div className="flex w-full items-center gap-4">
+          {isMobile ? (
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[280px] p-0">
+                <SidebarNav
+                  items={sideMenuItems}
+                  pathname={location.pathname}
+                  onNavigate={() => setSheetOpen(false)}
+                  className="pt-6"
+                />
+              </SheetContent>
+            </Sheet>
+          ) : null}
+          <span className="text-lg font-semibold text-foreground">{siteTitle}</span>
+          <div className="flex-1" />
+          <Button variant="ghost" size="icon" onClick={toggleTheme} title={isDark ? '切换到浅色' : '切换到深色'}>
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
-        </Dropdown>
-      </Header>
-      <AntLayout style={{ marginTop: headerHeight }}>
-        <Sider
-          width={siderWidth}
-          style={{
-            padding: '16px 0 16px 0',
-            margin: 0,
-            position: 'fixed',
-            left: 0,
-            top: headerHeight,
-            bottom: 0,
-            background: colorBgContainer,
-            overflow: 'auto',
-          }}
-        >
-          <Menu
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            openKeys={openKeys}
-            onOpenChange={handleOpenChange}
-            style={{ height: '100%', borderRight: 0 }}
-            items={sideMenuItems}
-            onClick={handleMenuClick}
-          />
-        </Sider>
-        <AntLayout
-          style={{
-            marginLeft: siderWidth,
-            padding: 24,
-            minHeight: `calc(100vh - ${headerHeight}px)`,
-            overflow: 'auto',
-          }}
-        >
-          <Content
-            style={{
-              padding: 24,
-              margin: 0,
-              minHeight: 280,
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-            }}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={auth.user?.avatar} />
+                  <AvatarFallback>
+                    {(auth.user?.display_name || auth.user?.name || 'U').slice(0, 1)}
+                  </AvatarFallback>
+                </Avatar>
+                {!isMobile && (
+                  <span className="text-sm">{auth.user?.display_name || auth.user?.name || 'Unknown'}</span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      <div className="flex" style={{ marginTop: HEADER_HEIGHT }}>
+        {!isMobile && (
+          <aside
+            className="fixed left-0 top-14 bottom-0 w-[220px] overflow-y-auto border-r bg-background"
+            style={{ width: SIDER_WIDTH }}
           >
-            <Outlet />
-          </Content>
-        </AntLayout>
-      </AntLayout>
-    </AntLayout>
+            <SidebarNav items={sideMenuItems} pathname={location.pathname} onNavigate={() => { }} />
+          </aside>
+        )}
+        <main
+          className="min-h-[calc(100vh-64px)] flex-1 overflow-auto p-6"
+          style={!isMobile ? { marginLeft: SIDER_WIDTH } : undefined}
+        >
+          <Outlet />
+        </main>
+      </div>
+    </div>
   )
 }

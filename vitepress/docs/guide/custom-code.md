@@ -1,4 +1,4 @@
-﻿# 自定义代码
+# 自定义代码
 
 一句话：在useCode.php中添加自定义代码，注册钩子、路由、中间件等。
 
@@ -46,18 +46,19 @@ $container->singleton('MyService', function() {
 
 ## 主题自定义代码
 
-主题模式下可以使用主题目录的 `functions.php` 作为主题级自定义代码文件。
+主题模式下使用主题目录的 `app/code.php` 作为主题级自定义代码文件。
 
-文件位置：`server/app/Theme/{themeName}/functions.php`
+文件位置：`server/app/Theme/{themeName}/app/code.php`
 
 **说明：**
 
 - 文件会在主题初始化时自动加载
-- 用于注册主题设置项
 - 用于注册主题相关钩子
 - 用于注册主题相关路由
 - 用于注册错误处理器
 - 用于添加自定义函数和类
+
+主题设置项在 `app/setup.php` 中通过 return 数组定义。
 
 **示例：**
 

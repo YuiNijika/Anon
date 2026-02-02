@@ -12,9 +12,12 @@ export interface ThemeOptionSchema {
   validate_callback?: (value: any) => boolean
 }
 
+/** 树形 schema：分组名 -> 选项名 -> 选项定义 */
+export type ThemeOptionsSchemaTree = Record<string, Record<string, ThemeOptionSchema>>
+
 export interface ThemeOptionsData {
   theme: string
-  schema: Record<string, ThemeOptionSchema>
+  schema: ThemeOptionsSchemaTree
   values: Record<string, any>
 }
 
@@ -40,6 +43,16 @@ export interface NavbarItem {
   children?: NavbarItem[]
 }
 
+export interface TrendData {
+  date: string
+  count: number
+}
+
+export interface DistributionData {
+  type: string
+  value: number
+}
+
 export interface StatisticsData {
   posts: number
   comments: number
@@ -53,6 +66,10 @@ export interface StatisticsData {
   approved_comments: number
   attachments_size: number
   total_views: number
+  views_trend?: TrendData[]
+  posts_trend?: TrendData[]
+  posts_status_distribution?: DistributionData[]
+  comments_status_distribution?: DistributionData[]
 }
 
 export interface BasicSettings {
@@ -149,12 +166,13 @@ export interface AttachmentListResponse {
 }
 
 export const AdminApi = {
-  // 主题设置
-  getThemeOptions: (api: ApiClient) => {
-    return api.admin.get<ThemeOptionsData>('/settings/theme-options')
+  /** 获取主题设置项，schema 来自主题 setup 文件，values 来自数据库 */
+  getThemeOptions: (api: ApiClient, params?: { theme?: string }) => {
+    return api.admin.get<ThemeOptionsData>('/settings/theme-options', params)
   },
 
-  updateThemeOptions: (api: ApiClient, data: Record<string, any>) => {
+  /** 保存主题设置项，需传 theme 与 values */
+  updateThemeOptions: (api: ApiClient, data: { theme: string; values: Record<string, any> }) => {
     return api.admin.post<ThemeOptionsData>('/settings/theme-options', data)
   },
 
@@ -184,6 +202,40 @@ export const AdminApi = {
 
   getStatistics: (api: ApiClient) => {
     return api.admin.get<StatisticsData>('/statistics')
+  },
+
+  getViewsTrend: (api: ApiClient, days: number) => {
+    return api.admin.get<Array<{ date: string; count: number }>>('/statistics/views-trend', { days })
+  },
+
+  getAccessLogs: (
+    api: ApiClient,
+    params?: {
+      page?: number
+      page_size?: number
+      ip?: string
+      path?: string
+      type?: string
+      user_agent?: string
+      status_code?: number
+      start_date?: string
+      end_date?: string
+    }
+  ) => {
+    return api.admin.get<AccessLogListResponse>('/statistics/access-logs', params)
+  },
+
+  getAccessStats: (
+    api: ApiClient,
+    params?: {
+      start_date?: string
+      end_date?: string
+      ip?: string
+      path?: string
+      type?: string
+    }
+  ) => {
+    return api.admin.get<AccessStats>('/statistics/access-stats', params)
   },
 
   getNavbar: (api: ApiClient) => {
@@ -334,5 +386,35 @@ export interface Plugin {
 
 export interface PluginListResponse {
   list: Plugin[]
+}
+
+export interface AccessLog {
+  id: number
+  url: string
+  path: string
+  method: string
+  type: string
+  ip: string
+  user_agent: string | null
+  referer: string | null
+  status_code: number
+  response_time: number | null
+  created_at: string
+}
+
+export interface AccessLogListResponse {
+  list: AccessLog[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface AccessStats {
+  total: number
+  unique_ips: number
+  top_pages: Array<{
+    path: string
+    count: number
+  }>
 }
 

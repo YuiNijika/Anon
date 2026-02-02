@@ -16,6 +16,9 @@ hero:
       text: 快速开始
       link: /guide/quick-start
     - theme: alt
+      text: 模式对比
+      link: /guide/mode-overview
+    - theme: alt
       text: API 参考
       link: /api/reference
 

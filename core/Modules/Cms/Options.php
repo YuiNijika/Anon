@@ -91,6 +91,9 @@ class Anon_Cms_Options
 
             self::$loaded = true;
         } catch (Exception $e) {
+            if (class_exists('Anon_Debug') && method_exists('Anon_Debug', 'error')) {
+                Anon_Debug::error('[Cms_Options] loadAll exception: ' . $e->getMessage());
+            }
             self::$loaded = true;
         }
     }

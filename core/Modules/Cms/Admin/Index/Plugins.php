@@ -245,37 +245,70 @@ class Anon_Cms_Admin_Plugins
                 }
             }
 
-            if (!$pluginName) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('ZIP 文件中未找到插件目录', 400);
-                return;
-            }
-
-            $pluginIndexFile = $extractDir . '/' . $pluginName . '/Index.php';
-            if (!file_exists($pluginIndexFile)) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('插件必须包含 Index.php 文件', 400);
-                return;
-            }
-
-            $meta = Anon_System_Plugin::readPluginMeta($pluginIndexFile);
-            if (!$meta) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('无法读取插件元数据', 400);
-                return;
-            }
-
-            $targetDir = $pluginDir . $pluginName;
-            if (is_dir($targetDir)) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('插件已存在', 400);
-                return;
-            }
-
-            if (!rename($extractDir . '/' . $pluginName, $targetDir)) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('移动插件文件失败', 500);
-                return;
+            $pluginIndexFile = null;
+            if ($pluginName) {
+                $pluginIndexFile = $extractDir . '/' . $pluginName . '/Index.php';
+                if (!file_exists($pluginIndexFile)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('插件必须包含 Index.php 文件', 400);
+                    return;
+                }
+                $meta = Anon_System_Plugin::readPluginMeta($pluginIndexFile);
+                if (!$meta) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('无法读取插件元数据', 400);
+                    return;
+                }
+                $targetDir = $pluginDir . $pluginName;
+                if (is_dir($targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('插件已存在', 400);
+                    return;
+                }
+                if (!rename($extractDir . '/' . $pluginName, $targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('移动插件文件失败', 500);
+                    return;
+                }
+            } else {
+                $pluginIndexFile = $extractDir . '/Index.php';
+                if (!file_exists($pluginIndexFile)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('ZIP 根目录未找到 Index.php，或请使用含单一插件目录的 ZIP', 400);
+                    return;
+                }
+                $meta = Anon_System_Plugin::readPluginMeta($pluginIndexFile);
+                if (!$meta) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('无法读取插件元数据', 400);
+                    return;
+                }
+                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+                $pluginName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('plugin_' . uniqid());
+                $targetDir = $pluginDir . $pluginName;
+                if (is_dir($targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('插件已存在', 400);
+                    return;
+                }
+                if (!mkdir($targetDir, 0755, true)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('无法创建插件目录', 500);
+                    return;
+                }
+                foreach ($entries as $entry) {
+                    if ($entry === '.' || $entry === '..') {
+                        continue;
+                    }
+                    $src = $extractDir . '/' . $entry;
+                    $dst = $targetDir . '/' . $entry;
+                    if (!rename($src, $dst)) {
+                        self::deleteDirectory($extractDir);
+                        self::deleteDirectory($targetDir);
+                        Anon_Http_Response::error('移动插件文件失败', 500);
+                        return;
+                    }
+                }
             }
 
             self::deleteDirectory($extractDir);

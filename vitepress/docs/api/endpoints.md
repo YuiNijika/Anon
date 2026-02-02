@@ -1,8 +1,12 @@
-﻿# API 端点
+# API 端点
 
-一句话：系统提供的所有API端点列表。
+**本节说明**：系统提供的所有 API 端点列表，按适用模式分区。**适用**：通用；部分端点仅限 API 或仅限 CMS 模式。
 
-## 系统端点
+一句话：系统提供的所有 API 端点列表。
+
+下文按分区列出：系统与安装、调试为通用；认证与用户为 API 与 CMS 共用；CMS 管理端点仅限 CMS 模式。
+
+## 系统与安装
 
 - `GET /anon/common/license` - 获取许可证信息
 - `GET /anon/common/system` - 获取系统信息
@@ -19,7 +23,7 @@
 - `POST /anon/install/api/back` - 返回上一步
 - `GET /anon` - 系统根路径
 
-## 调试端点
+## 调试
 
 - `GET /anon/debug/login` - 调试控制台登录页
 - `GET /anon/debug/console` - Web调试控制台
@@ -31,7 +35,7 @@
 - `GET /anon/debug/api/tools` - 获取工具信息
 - `POST /anon/debug/api/clear` - 清空调试数据
 
-## 认证端点
+## 认证与用户
 
 - `POST /auth/login` - 用户登录
 - `POST /auth/register` - 用户注册（支持防刷限制）
@@ -39,8 +43,6 @@
 - `GET /auth/check-login` - 检查登录状态
 - `GET /auth/token` - 获取Token
 - `GET /auth/captcha` - 获取验证码
-
-## 用户端点
 
 - `GET /user/info` - 获取用户信息
 
@@ -392,4 +394,4 @@ GET /anon/static/upload/image/a1b2c3d4e5f67890-1760000000/png
 - 转换后的文件如果已存在且不旧于原文件，直接返回缓存
 - 支持透明背景（PNG/WebP）
 
-**静态文件路由注册：** 通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](./routing.md#静态文件路由)。
+**静态文件路由注册：** 通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](/guide/api/routing#静态文件路由)。

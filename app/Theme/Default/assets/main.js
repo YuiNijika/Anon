@@ -1,4 +1,3 @@
-// 性能优化：使用 requestIdleCallback 延迟非关键代码执行
 (function () {
   'use strict';
 

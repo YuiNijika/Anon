@@ -29,10 +29,9 @@ Anon_Auth_Token::generate([...]);
 
 通过 `core/Compatibility.php` 自动创建类别名，旧代码无需修改即可继续工作。
 
-
 ﻿# API 参考文档
 
-一句话：所有核心模块的公共方法调用参考，快速查找可用方法。
+**本节说明**：所有核心模块的公共方法调用参考，快速查找可用方法。**适用**：主要面向 API 模式开发；CMS 模式下管理后台也会调用部分接口。
 
 ## 📋 目录
 
@@ -1010,4 +1009,3 @@ $ip = Anon_Common::GetClientIp();
 // 获取许可证文本
 $license = Anon_Common::LICENSE_TEXT;
 ```
-

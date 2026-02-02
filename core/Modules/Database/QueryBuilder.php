@@ -789,11 +789,13 @@ class Anon_Database_QueryBuilder
         // 执行插入
         $stmt = $this->prepareStatement($sql, $values);
         if ($stmt instanceof mysqli_stmt) {
-            $stmt->execute();
-            // 获取真实的mysqli连接
+            if (!$stmt->execute()) {
+                $stmt->close();
+                return false;
+            }
             $conn = $this->getMysqliConnection();
             $insertId = $conn->insert_id ?? null;
-            $stmt->close(); // 关闭语句
+            $stmt->close();
             return $insertId !== null ? (int)$insertId : true;
         }
         

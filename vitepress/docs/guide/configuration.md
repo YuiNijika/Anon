@@ -1,4 +1,4 @@
-﻿# 配置说明
+# 配置说明
 
 一句话：系统配置在env.php，应用配置在useApp.php，SQL配置在useSQL.php，用Anon_Env获取。
 
@@ -109,6 +109,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 ```
 
 **CMS 配置项：**
+
 - `theme`: 主题名称，对应 `app/Theme/{themeName}/` 目录
 - `apiPrefix`: API 路由前缀，默认为 `/api`
 - `routes`: CMS 路由配置，JSON 格式
@@ -117,6 +118,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 - `keywords`: 网站关键词
 
 **路由配置格式：**
+
 ```json
 {
   "/post/{id}": "post",
@@ -124,7 +126,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 }
 ```
 
-更多信息请参考 [CMS 模式文档](/guide/cms-mode) 和 [主题系统文档](/guide/theme-system)。
+更多信息请参考 [CMS 模式文档](/guide/cms/overview) 和 [主题系统文档](/guide/cms/theme-system)。
 
 ## SQL 安装配置 (useSQL.php)
 
@@ -148,6 +150,7 @@ return [
 ```
 
 使用 `{prefix}` 作为表前缀占位符，安装时会自动替换为 `env.php` 中配置的表前缀。
+
 - 可以添加多个表的 SQL 语句，安装系统会自动执行所有 SQL
 - 每个表的 SQL 语句必须是完整的 CREATE TABLE 语句
 
@@ -196,4 +199,3 @@ $config = Anon_System_Config::getRouterConfig();
 $installed = Anon_System_Config::isInstalled();
 // 返回: bool
 ```
-

@@ -1,3 +1,6 @@
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+?>
 </main>
 
 <footer class="border-t border-base-300 bg-base-100 mt-auto">

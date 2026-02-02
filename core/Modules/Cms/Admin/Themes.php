@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
- * 主题管理类
+ * 主题管理，含上传删除、设置获取与保存
  */
 class Anon_Cms_Admin_Themes
 {
@@ -67,23 +67,46 @@ class Anon_Cms_Admin_Themes
                 }
             }
 
-            if (!$themeName) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('ZIP 文件中未找到主题目录', 400);
-                return;
-            }
-
-            $targetDir = $themeDir . $themeName;
-            if (is_dir($targetDir)) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('主题已存在', 400);
-                return;
-            }
-
-            if (!rename($extractDir . '/' . $themeName, $targetDir)) {
-                self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('移动主题文件失败', 500);
-                return;
+            $targetDir = null;
+            if ($themeName) {
+                $targetDir = $themeDir . $themeName;
+                if (is_dir($targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('主题已存在', 400);
+                    return;
+                }
+                if (!rename($extractDir . '/' . $themeName, $targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('移动主题文件失败', 500);
+                    return;
+                }
+            } else {
+                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+                $themeName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('theme_' . uniqid());
+                $targetDir = $themeDir . $themeName;
+                if (is_dir($targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('主题已存在', 400);
+                    return;
+                }
+                if (!mkdir($targetDir, 0755, true)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('无法创建主题目录', 500);
+                    return;
+                }
+                foreach ($entries as $entry) {
+                    if ($entry === '.' || $entry === '..') {
+                        continue;
+                    }
+                    $src = $extractDir . '/' . $entry;
+                    $dst = $targetDir . '/' . $entry;
+                    if (!rename($src, $dst)) {
+                        self::deleteDirectory($extractDir);
+                        self::deleteDirectory($targetDir);
+                        Anon_Http_Response::error('移动主题文件失败', 500);
+                        return;
+                    }
+                }
             }
 
             self::deleteDirectory($extractDir);
@@ -187,8 +210,9 @@ class Anon_Cms_Admin_Themes
             }
             
             Anon_Cms_Options::set('theme', $themeName);
+            Anon_Cms_Theme::ensureThemeOptionsLoaded($themeName);
             Anon_Cms_Options::clearCache();
-            
+
             Anon_Http_Response::success([
                 'theme' => $themeName,
             ], '切换主题成功');
@@ -199,23 +223,38 @@ class Anon_Cms_Admin_Themes
 
     /**
      * 获取主题设置项
+     *
+     * schema 从主题目录 app/setup.php 读取；values 从 options 表读取。options 表中 name 列为 theme:{主题名}、theme:{主题名}:settings，首次获取或首次切换主题时自动写入默认值。
+     *
      * @return void
      */
     public static function getOptions()
     {
         try {
             $data = Anon_Http_Request::getInput();
-            $themeName = isset($data['theme']) ? trim($data['theme']) : null;
-            
+            $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($method === 'GET' && !empty($_GET)) {
+                $data = is_array($data) ? array_merge($data, $_GET) : $_GET;
+            }
+            $themeName = isset($data['theme']) ? trim((string) $data['theme']) : null;
             if ($themeName === null || $themeName === '') {
                 $themeName = Anon_Cms_Options::get('theme', 'default');
             }
-            
-            $schema = Anon_Theme_Options::schema($themeName);
-            $values = Anon_Theme_Options::all($themeName);
-            
+            $canonicalTheme = Anon_Cms_Theme::getCanonicalThemeName($themeName);
+            Anon_Cms_Theme::ensureThemeOptionsLoaded($themeName);
+            $schema = Anon_Cms_Theme::getSchemaFromSetupFile($canonicalTheme);
+            $stored = Anon_Theme_Options::all($canonicalTheme);
+            $values = [];
+            foreach ($schema as $groupItems) {
+                if (!is_array($groupItems)) {
+                    continue;
+                }
+                foreach ($groupItems as $key => $def) {
+                    $values[$key] = array_key_exists($key, $stored) ? $stored[$key] : ($def['default'] ?? null);
+                }
+            }
             Anon_Http_Response::success([
-                'theme' => $themeName,
+                'theme' => $canonicalTheme,
                 'schema' => $schema,
                 'values' => $values,
             ], '获取主题设置项成功');
@@ -226,89 +265,93 @@ class Anon_Cms_Admin_Themes
 
     /**
      * 保存主题设置项
+     *
+     * schema 从主题 setup 文件读取用于校验与清理，仅将 values 写入数据库。
+     *
      * @return void
+     */
+    /**
+     * 保存主题设置项
+     * 在 options 表内按 name = theme:当前主题名 判断：有则更新 value，无则用 setup 默认值插入。
      */
     public static function saveOptions()
     {
         try {
             $data = Anon_Http_Request::getInput();
-            
-            if (empty($data)) {
-                Anon_Http_Response::error('请求数据不能为空', 400);
+            if (!is_array($data)) {
+                $data = [];
+            }
+
+            $themeName = isset($data['theme']) ? trim((string)$data['theme']) : Anon_Cms_Options::get('theme', 'default');
+            $canonicalTheme = Anon_Cms_Theme::getCanonicalThemeName($themeName);
+            $storageKey = 'theme:' . strtolower($canonicalTheme);
+
+            $schema = Anon_Cms_Theme::getSchemaFromSetupFile($canonicalTheme);
+            if (empty($schema)) {
+                Anon_Http_Response::error('当前主题无设置定义(setup.php)', 400);
                 return;
             }
-            
-            $themeName = isset($data['theme']) ? trim($data['theme']) : null;
-            if ($themeName === null || $themeName === '') {
-                $themeName = Anon_Cms_Options::get('theme', 'default');
-            }
-            
-            $values = isset($data['values']) && is_array($data['values']) ? $data['values'] : [];
-            
-            if (empty($values)) {
-                Anon_Http_Response::error('设置值不能为空', 400);
-                return;
-            }
-            
-            /**
-             * 验证并保存设置项
-             */
-            $schema = Anon_Theme_Options::schema($themeName);
-            $errors = [];
-            $validatedValues = [];
-            
-            foreach ($values as $key => $value) {
-                if (!isset($schema[$key])) {
-                    continue;
-                }
-                
-                $def = $schema[$key];
-                
-                /**
-                 * 执行验证回调
-                 */
-                if (isset($def['validate_callback']) && is_callable($def['validate_callback'])) {
-                    $valid = call_user_func($def['validate_callback'], $value);
-                    if ($valid === false) {
-                        $label = $def['label'] ?? $key;
-                        $errors[] = "设置项 {$label} 验证失败";
-                        continue;
+
+            $submitted = isset($data['values']) && is_array($data['values']) ? $data['values'] : $data;
+            unset($submitted['theme']);
+
+            $db = Anon_Database::getInstance();
+            $row = $db->db('options')->where('name', $storageKey)->first();
+
+            $currentDbValues = [];
+            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
+                $v = $row['value'];
+                if (is_string($v) && (substr($v, 0, 1) === '{' || substr($v, 0, 1) === '[')) {
+                    $dec = json_decode($v, true);
+                    if (is_array($dec)) {
+                        $currentDbValues = $dec;
                     }
                 }
-                
-                /**
-                 * 执行清理回调
-                 */
-                if (isset($def['sanitize_callback']) && is_callable($def['sanitize_callback'])) {
-                    $value = call_user_func($def['sanitize_callback'], $value);
-                }
-                
-                $validatedValues[$key] = $value;
             }
-            
+
+            $finalValues = [];
+            $errors = [];
+            foreach ($schema as $items) {
+                if (!is_array($items)) {
+                    continue;
+                }
+                foreach ($items as $key => $def) {
+                    $val = array_key_exists($key, $submitted) ? $submitted[$key]
+                        : (array_key_exists($key, $currentDbValues) ? $currentDbValues[$key] : ($def['default'] ?? null));
+
+                    if (isset($def['validate_callback']) && is_callable($def['validate_callback']) && call_user_func($def['validate_callback'], $val) === false) {
+                        $errors[] = ($def['label'] ?? $key) . ' 格式错误';
+                        continue;
+                    }
+                    if (isset($def['sanitize_callback']) && is_callable($def['sanitize_callback'])) {
+                        $val = call_user_func($def['sanitize_callback'], $val);
+                    }
+                    $finalValues[$key] = $val;
+                }
+            }
             if (!empty($errors)) {
                 Anon_Http_Response::error(implode('; ', $errors), 400);
                 return;
             }
-            
-            if (empty($validatedValues)) {
-                Anon_Http_Response::error('没有有效的设置项', 400);
+
+            $valueStr = json_encode($finalValues, JSON_UNESCAPED_UNICODE);
+
+            if ($row && isset($row['name'])) {
+                $ok = $db->db('options')->where('name', $storageKey)->update(['value' => $valueStr]);
+            } else {
+                $ok = $db->db('options')->insert(['name' => $storageKey, 'value' => $valueStr]);
+            }
+
+            if (!$ok) {
+                Anon_Http_Response::error('写入数据库失败', 500);
                 return;
             }
-            
-            $result = Anon_Theme_Options::setMany($validatedValues, $themeName);
-            
-            if (!$result) {
-                Anon_Http_Response::error('保存主题设置项失败', 500);
-                return;
-            }
-            
             Anon_Cms_Options::clearCache();
-            
             Anon_Http_Response::success([
-                'theme' => $themeName,
-                'values' => $validatedValues,
-            ], '保存主题设置项成功');
+                'theme' => $canonicalTheme,
+                'schema' => $schema,
+                'values' => $finalValues,
+            ], '保存成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
         }
@@ -321,7 +364,7 @@ class Anon_Cms_Admin_Themes
     public static function initStaticRoutes()
     {
         $screenshotCache = null;
-        $nullSvgPath = __DIR__ . '/../../Static/img/null.svg';
+        $nullSvgPath = __DIR__ . '/../../../Static/img/null.svg';
         
         /**
          * 获取主题截图文件路径

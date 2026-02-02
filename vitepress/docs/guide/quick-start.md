@@ -1,4 +1,6 @@
-﻿# 快速开始
+# 快速开始
+
+**本节说明**：通过安装向导完成安装并创建路由，立即开始。**适用**：通用。
 
 一句话：通过安装向导完成安装，创建路由文件，立即开始。
 
@@ -17,7 +19,7 @@ http://your-domain.com/anon/install
 - 创建管理员账号
 - 初始化系统配置
 
-详细安装步骤请参考 [安装指南](./installation.md)。
+详细安装步骤请参考 [安装指南](./installation.md)。安装时需选择 **API 模式** 或 **CMS 模式**，选好后可查看 [模式对比](./mode-overview.md) 与「安装后下一步」。
 
 ## 2. 手动配置
 
@@ -151,5 +153,12 @@ return [
 
 更多信息请参考：
 
-- [CMS 模式文档](/guide/cms-mode)
-- [主题系统文档](/guide/theme-system)
+- [CMS 模式概述](/guide/cms/overview)
+- [主题系统与开发](/guide/cms/theme-system)
+
+## 安装后下一步
+
+- **若选 API 模式**：建议先看 [API 模式概述](/guide/api/overview) → [路由系统](/guide/api/routing) → [API 参考](/api/reference)、[API 端点](/api/endpoints)。  
+- **若选 CMS 模式**：建议先看 [CMS 模式概述](/guide/cms/overview) → [路由与页面](/guide/cms/routes) → [主题系统与开发](/guide/cms/theme-system) → [管理后台](/guide/cms/admin)。  
+
+详见 [模式对比 API vs CMS](/guide/mode-overview#安装后下一步)。

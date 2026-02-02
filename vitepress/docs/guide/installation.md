@@ -1,5 +1,7 @@
 # 安装指南
 
+**本节说明**：通过安装向导完成数据库与模式配置。**适用**：通用。
+
 Anon Framework 提供了可视化的安装向导，帮助您快速完成系统安装和配置。
 
 ## 访问安装页面
@@ -12,7 +14,7 @@ http://your-domain.com/anon/install
 
 ## 安装流程
 
-安装过程分为多个步骤，根据选择的模式，API 或 CMS，会有所不同。
+安装过程分为多个步骤，**请先确定使用 API 模式还是 CMS 模式**，两种模式后续步骤会有所不同。参见 [模式对比](./mode-overview.md)。
 
 ### 步骤 1：选择安装模式
 
@@ -76,6 +78,7 @@ GET /anon/install/api/token
 ```
 
 返回：
+
 ```json
 {
   "code": 200,
@@ -93,6 +96,7 @@ POST /anon/install/api/mode
 ```
 
 请求体：
+
 ```json
 {
   "csrf_token": "token",
@@ -107,6 +111,7 @@ GET /anon/install/api/get-mode
 ```
 
 返回：
+
 ```json
 {
   "code": 200,
@@ -124,6 +129,7 @@ POST /anon/install/api/database
 ```
 
 请求体：
+
 ```json
 {
   "csrf_token": "token",
@@ -143,6 +149,7 @@ POST /anon/install/api/site
 ```
 
 请求体：
+
 ```json
 {
   "csrf_token": "token",
@@ -161,6 +168,7 @@ POST /anon/install/api/install
 ```
 
 请求体：
+
 ```json
 {
   "csrf_token": "token",
@@ -177,6 +185,7 @@ POST /anon/install/api/back
 ```
 
 请求体：
+
 ```json
 {
   "csrf_token": "token"
@@ -270,10 +279,9 @@ CMS 模式下，系统会在 `options` 表中存储以下配置：
 
 ## 下一步
 
-安装完成后，您可以：
+安装完成后，根据所选模式继续：
 
-- [快速开始](./quick-start.md) - 了解基本使用方法
-- [配置说明](./configuration.md) - 了解详细配置选项
-- [CMS 模式](./cms-mode.md) - 了解 CMS 模式的使用（如果选择了 CMS 模式）
-- [路由系统](./routing.md) - 了解路由配置
+- **API 模式**：[API 模式概述](/guide/api/overview) → [路由系统](/guide/api/routing) → [API 参考](/api/reference)
+- **CMS 模式**：[CMS 模式概述](/guide/cms/overview) → [路由与页面](/guide/cms/routes) → [主题系统与开发](/guide/cms/theme-system) → [管理后台](/guide/cms/admin)
 
+通用：[快速开始](./quick-start.md)、[配置说明](./configuration.md)、[模式对比](./mode-overview.md)。
