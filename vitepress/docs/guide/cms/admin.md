@@ -6,8 +6,8 @@ CMS 模式提供完整的管理后台，用于配置站点、主题、插件、�
 
 ## 后台入口
 
-- **路由前缀**：`/anon/cms/admin`  
-- **访问示例**：`https://your-domain.com/anon/cms/admin`，具体入口以部署的前端为准，独立 Admin SPA 的根路径即后台首页。
+- **路由前缀**：`/admin`  
+- **访问示例**：`https://your-domain.com/admin`，具体入口以部署的前端为准，独立 Admin SPA 的根路径即后台首页。
 
 ::: tip 适用模式：CMS 模式  
 管理后台及下文所列端点仅在 **CMS 模式** 下可用；API 模式无 CMS 后台与 CMS 专用端点。  
