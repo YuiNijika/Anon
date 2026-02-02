@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 ?>
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="<?php echo $this->options()->get('color_scheme') ?>">
 <head>
 <?php 
     $this->headMeta();

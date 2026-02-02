@@ -72,7 +72,7 @@
   // 绑定点击事件
   themeToggle.addEventListener('click', toggleTheme);
 
-  // 初始化（延迟执行，不阻塞页面渲染）
+  // 初始化：延迟执行，不阻塞页面渲染
   function initWhenReady() {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initTheme);
