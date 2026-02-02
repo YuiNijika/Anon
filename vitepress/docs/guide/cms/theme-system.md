@@ -195,16 +195,27 @@ $siteTitle = Anon_Theme_Options::get('site_title', '默认标题');
 <?php echo $this->escape($this->options()->get('title', '默认标题')); ?>
 ```
 
-`$this->options()` 返回一个代理对象，提供以下方法：
+`$this->options()` 返回统一选项代理 `Anon_Cms_Options_Proxy`。主题内默认优先级：theme > plugin > system。
 
-- `get(string $name, $default = null)`: 获取选项值
-- `set(string $name, $value)`: 设置选项值
+**方法：**
+
+- **get(string $name, $default = null, bool $output = false, ?string $priority = null)**  
+  - `$name` 选项名，`$default` 默认值  
+  - `$output`：true 先 echo 再返回，false 仅返回  
+  - `$priority`：plugin、theme、system 之一，null 时按 theme > plugin > system  
+- **set(string $name, $value)**：写入系统 options 表
 
 **示例：**
 
 ```php
-<!-- 获取站点标题 -->
+<!-- 获取站点标题，默认主题 > 插件 > 系统 -->
 <h1><?php echo $this->escape($this->options()->get('title', '我的网站')); ?></h1>
+
+<!-- 仅从系统 options 读 -->
+<?php $siteTitle = $this->options()->get('title', '', false, 'system'); ?>
+
+<!-- 先 echo 再返回 -->
+<?php $this->options()->get('title', '我的网站', true, null); ?>
 
 <!-- 获取站点描述 -->
 <?php $description = $this->options()->get('description', ''); ?>

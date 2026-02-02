@@ -209,7 +209,7 @@ class Anon_Cms
     }
     
     /**
-     * 检查是否为文件（带缓存）
+     * 检查是否为文件，带缓存
      * @param string $path 路径
      * @return bool
      */

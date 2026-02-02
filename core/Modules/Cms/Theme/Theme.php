@@ -110,7 +110,7 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 加载主题 app/code.php（自定义代码）与 app/setup.php（主题设置项）
+     * 加载主题 app/code.php 与 app/setup.php，分别为自定义代码与主题设置项
      * @return void
      */
     private static function loadThemeCode(): void
@@ -214,10 +214,8 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 获取 app 目录绝对路径（不依赖 CWD，基于当前文件位置）
-     *
-     * Theme.php 在 server/core/Modules/Cms/Theme/，上溯 4 级为 server，app 为 server/app。
-     *
+     * 获取 app 目录绝对路径，不依赖 CWD，基于当前文件位置
+     * Theme.php 在 server/core/Modules/Cms/Theme/，上溯 4 级为 server，app 为 server/app
      * @return string
      */
     private static function getAppDirAbsolute(): string
@@ -279,7 +277,7 @@ class Anon_Cms_Theme
     }
 
     /**
-     * 获取用于接口的主题名（小写，与 options 存储一致，主题名不区分大小写）
+     * 获取用于接口的主题名，小写，与 options 存储一致
      *
      * @param string $themeName 请求或配置中的主题名，任意大小写
      * @return string 小写主题名，未找到目录则返回原值小写
@@ -418,7 +416,7 @@ class Anon_Cms_Theme
     /**
      * 获取主题资源 URL 或输出 HTML 标签
      * @param string $path 资源路径
-     * @param bool|string|null $forceNoCacheOrType 强制禁止缓存（true）或资源类型，不指定则根据文件后缀自动判断
+     * @param bool|string|null $forceNoCacheOrType true 表示强制禁止缓存，或传资源类型；不指定则按文件后缀自动判断
      * @param array $attributes 额外属性
      * @return string 如果只返回 URL，否则返回空字符串
      */
@@ -1432,7 +1430,7 @@ class Anon_Cms_Theme_View
     private static $renderedComponents = [];
 
     /**
-     * 清空已渲染组件记录，每次 Theme::render() 开始时调用，避免重复引入或跨页误判
+     * 清空已渲染组件记录，每次 Theme::render 开始时调用，避免重复引入或跨页误判
      */
     public static function clearRenderedComponents(): void
     {
@@ -1611,12 +1609,7 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取文章数据对象
-     * @return Anon_Cms_Post|null
-     */
-    /**
-     * 获取文章数据对象（仅查询，不存在时不渲染错误页）
-     * 用于在输出 head 前判断文章是否存在
+     * 获取文章数据对象，仅查询，不存在时不渲染错误页，用于在输出 head 前判断文章是否存在
      * @return Anon_Cms_Post|null
      */
     public function postIfExists(): ?Anon_Cms_Post
@@ -1632,8 +1625,7 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取页面数据对象（仅查询，不存在时不渲染错误页）
-     * 用于在输出 head 前判断页面是否存在，避免先输出 head 再触发错误页导致两套 head/foot
+     * 获取页面数据对象，仅查询，不存在时不渲染错误页，用于在输出 head 前判断页面是否存在
      * @return Anon_Cms_Post|null
      */
     public function pageIfExists(): ?Anon_Cms_Post
@@ -1787,13 +1779,12 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取选项管理器
-     * 在模板中通过 $this->options->get() 或 $this->options->set() 访问
-     * @return Anon_Cms_Theme_OptionsProxy
+     * 获取选项代理，主题内默认优先级 theme > plugin > system，可传参指定优先级或输出方式
+     * @return Anon_Cms_Options_Proxy
      */
-    public function options(): Anon_Cms_Theme_OptionsProxy
+    public function options(): Anon_Cms_Options_Proxy
     {
-        return new Anon_Cms_Theme_OptionsProxy();
+        return new Anon_Cms_Options_Proxy('theme', null, Anon_Cms_Theme::getCurrentTheme());
     }
 
     /**
@@ -1946,33 +1937,109 @@ class Anon_Cms_Theme_View
 }
 
 /**
- * 选项代理类
- * 在主题中通过 $this->options()->get() 读取设置，同名字段主题选项优先于系统 options
+ * 统一选项代理，合并插件、主题、系统三源
+ * 插件内默认顺序 plugin > theme > system，主题内默认 theme > plugin > system
  */
-class Anon_Cms_Theme_OptionsProxy
+class Anon_Cms_Options_Proxy
 {
-    /**
-     * 获取选项值
-     * 若当前主题选项中存在该键则返回主题值，否则返回系统 options 中的值
-     * @param string $name 选项名称
-     * @param mixed $default 默认值
-     * @return mixed
-     */
-    public function get(string $name, $default = null)
+    /** @var string 上下文 plugin 或 theme */
+    private $context;
+
+    /** @var string|null 插件 slug */
+    private $pluginSlug;
+
+    /** @var string|null 主题名 */
+    private $themeName;
+
+    public function __construct(string $context, ?string $pluginSlug = null, ?string $themeName = null)
     {
-        $themeName = Anon_Cms_Theme::getCurrentTheme();
-        if ($themeName !== '') {
-            $themeAll = Anon_Theme_Options::all($themeName);
-            if (array_key_exists($name, $themeAll)) {
-                return $themeAll[$name];
-            }
-        }
-        return Anon_Cms_Options::get($name, $default);
+        $this->context = $context;
+        $this->pluginSlug = $pluginSlug;
+        $this->themeName = $themeName;
     }
 
     /**
-     * 设置选项值
-     * @param string $name 选项名称
+     * 解析优先级得到源顺序
+     * @param string|null $priority plugin 或 theme 或 system，null 时按上下文
+     * @return string[] 源顺序
+     */
+    private function order(?string $priority): array
+    {
+        if ($priority === 'plugin') {
+            return ['plugin', 'theme', 'system'];
+        }
+        if ($priority === 'theme') {
+            return ['theme', 'plugin', 'system'];
+        }
+        if ($priority === 'system') {
+            return ['system'];
+        }
+        return $this->context === 'plugin'
+            ? ['plugin', 'theme', 'system']
+            : ['theme', 'plugin', 'system'];
+    }
+
+    /**
+     * 获取选项值
+     * 第三参可为 bool 或 string：bool 表示是否 echo，string 且为 plugin/theme/system 表示优先级；不传时默认 echo
+     * @param string $name 选项名
+     * @param mixed $default 默认值
+     * @param bool|string|null $outputOrPriority true 先 echo 再返回，false 仅返回；或传 plugin/theme/system 指定优先级并 echo
+     * @param string|null $priority 第四参时有效，指定优先级
+     * @return mixed
+     */
+    public function get(string $name, $default = null, $outputOrPriority = true, ?string $priority = null)
+    {
+        $output = true;
+        $resolvedPriority = null;
+        if (func_num_args() >= 3) {
+            $third = $outputOrPriority;
+            if (is_string($third) && in_array($third, ['plugin', 'theme', 'system'], true)) {
+                $resolvedPriority = $third;
+                $output = func_num_args() >= 4 ? (bool) $priority : true;
+            } else {
+                $output = (bool) $third;
+                $resolvedPriority = func_num_args() >= 4 ? $priority : null;
+            }
+        }
+        $order = $this->order($resolvedPriority);
+        $value = $default;
+
+        foreach ($order as $source) {
+            if ($source === 'plugin' && $this->pluginSlug !== null && $this->pluginSlug !== '') {
+                $all = Anon_System_Plugin::getPluginOptions($this->pluginSlug);
+                if (array_key_exists($name, $all)) {
+                    $value = $all[$name];
+                    break;
+                }
+            }
+            if ($source === 'theme') {
+                $themeName = $this->themeName !== null && $this->themeName !== ''
+                    ? $this->themeName
+                    : (class_exists('Anon_Cms_Theme') ? Anon_Cms_Theme::getCurrentTheme() : '');
+                if ($themeName !== '') {
+                    $all = Anon_Theme_Options::all($themeName);
+                    if (array_key_exists($name, $all)) {
+                        $value = $all[$name];
+                        break;
+                    }
+                }
+            }
+            if ($source === 'system') {
+                $value = Anon_Cms_Options::get($name, $default);
+                break;
+            }
+        }
+
+        if ($output) {
+            echo $value;
+        }
+        return $value;
+    }
+
+    /**
+     * 设置选项值，写入系统 options 表
+     * @param string $name 选项名
      * @param mixed $value 选项值
      * @return bool
      */

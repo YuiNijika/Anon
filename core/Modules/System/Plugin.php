@@ -369,7 +369,7 @@ class Anon_System_Plugin
     }
 
     /**
-     * 读取元数据（从主入口文件注释）
+     * 从主入口文件注释读取元数据
      * @param string $pluginFile 插件文件
      * @return array|null
      */
@@ -603,17 +603,27 @@ class Anon_System_Plugin
             if ($actualClassName && class_exists($actualClassName)) {
                 $className = $actualClassName;
                 try {
-                    if (method_exists($className, 'init')) {
+                    if (is_subclass_of($className, 'Anon_Plugin_Base')) {
+                        $instance = new $className($pluginSlug);
+                        if (method_exists($instance, 'init')) {
+                            $instance->init();
+                        }
+                        $pluginInstance = $instance;
+                        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                            Anon_Debug::debug("Plugin initialized (instance)", ['class' => $className]);
+                        }
+                    } elseif (method_exists($className, 'init')) {
                         $className::init();
                         if (defined('ANON_DEBUG') && ANON_DEBUG) {
                             Anon_Debug::debug("Plugin initialized", ['class' => $className]);
                         }
+                        $pluginInstance = $className;
                     } else {
                         if (defined('ANON_DEBUG') && ANON_DEBUG) {
                             Anon_Debug::warn("Plugin class has no init() method", ['class' => $className]);
                         }
+                        $pluginInstance = $className;
                     }
-                    $pluginInstance = $className;
                 } catch (Throwable $e) {
                     if (defined('ANON_DEBUG') && ANON_DEBUG) {
                         Anon_Debug::error("Plugin initialization failed", [
@@ -726,6 +736,31 @@ class Anon_System_Plugin
     }
 
     /**
+     * 获取插件选项，从 options 表 plugin:slug 的 value 解析为数组
+     * @param string $pluginSlug 插件标识符
+     * @return array
+     */
+    public static function getPluginOptions(string $pluginSlug): array
+    {
+        $slug = strtolower($pluginSlug);
+        $name = 'plugin:' . $slug;
+        $raw = null;
+        if (class_exists('Anon_Cms_Options')) {
+            $raw = Anon_Cms_Options::get($name, []);
+        } else {
+            $db = Anon_Database::getInstance();
+            $row = $db->db('options')->where('name', $name)->first();
+            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
+                $dec = json_decode($row['value'], true);
+                $raw = is_array($dec) ? $dec : [];
+            } else {
+                $raw = [];
+            }
+        }
+        return is_array($raw) ? $raw : [];
+    }
+
+    /**
      * 激活插件
      * @param string $pluginSlug 插件标识符
      * @return bool
@@ -820,7 +855,7 @@ class Anon_System_Plugin
             return false;
         }
 
-        // 检查插件是否应该加载（模式匹配）
+        // 按模式匹配检查插件是否应加载
         if (!self::shouldLoadPlugin($meta)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 Anon_Debug::debug("Plugin mode mismatch, skipping", ['slug' => $pluginSlug, 'mode' => $meta['mode'] ?? 'api']);
@@ -868,5 +903,45 @@ class Anon_System_Plugin
     public static function isCmsMode(): bool
     {
         return self::getAppMode() === 'cms';
+    }
+}
+
+/**
+ * 插件基类，继承后可调用 $this->options()->get()，默认优先级 plugin > theme > system
+ */
+abstract class Anon_Plugin_Base
+{
+    /** @var string 插件 slug */
+    protected $slug;
+
+    public function __construct(string $pluginSlug = '')
+    {
+        $this->slug = $pluginSlug !== '' ? strtolower($pluginSlug) : self::slugFromClass(get_class($this));
+    }
+
+    /**
+     * 从类名推导 slug，例 Anon_Plugin_HelloWorld 得 helloworld
+     * @param string $class 类名
+     * @return string
+     */
+    protected static function slugFromClass(string $class): string
+    {
+        if (strpos($class, 'Anon_Plugin_') === 0) {
+            $name = substr($class, strlen('Anon_Plugin_'));
+            return strtolower(preg_replace('/[-_]/', '', $name));
+        }
+        return strtolower($class);
+    }
+
+    /**
+     * 返回选项代理，默认优先级 plugin > theme > system
+     * @return Anon_Cms_Options_Proxy|null
+     */
+    public function options()
+    {
+        if (!class_exists('Anon_Cms_Options_Proxy')) {
+            return null;
+        }
+        return new Anon_Cms_Options_Proxy('plugin', $this->slug, null);
     }
 }

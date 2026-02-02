@@ -448,7 +448,7 @@ class Anon_Cms_Admin_Plugins
     }
 
     /**
-     * 从插件入口文件 options 方法获取设置 schema，不依赖 package.json
+     * 从插件入口文件 getSettingsSchema 或 options 方法获取设置 schema，不依赖 package.json
      * @param string $slugLower 插件标识符小写
      * @param string $pluginPath 插件目录绝对路径
      * @return array
@@ -456,9 +456,16 @@ class Anon_Cms_Admin_Plugins
     private static function getPluginSettingsSchema(string $slugLower, string $pluginPath): array
     {
         $pluginInfo = Anon_System_Plugin::getPlugin($slugLower);
-        if ($pluginInfo && isset($pluginInfo['class']) && is_string($pluginInfo['class']) && method_exists($pluginInfo['class'], 'options')) {
-            $schema = call_user_func([$pluginInfo['class'], 'options']);
-            return is_array($schema) ? $schema : [];
+        if ($pluginInfo && isset($pluginInfo['class']) && is_string($pluginInfo['class'])) {
+            $className = $pluginInfo['class'];
+            if (method_exists($className, 'getSettingsSchema')) {
+                $schema = call_user_func([$className, 'getSettingsSchema']);
+                return is_array($schema) ? $schema : [];
+            }
+            if (method_exists($className, 'options')) {
+                $schema = call_user_func([$className, 'options']);
+                return is_array($schema) ? $schema : [];
+            }
         }
         $mainFile = Anon_System_Plugin::getPluginMainFile($pluginPath);
         if ($mainFile === null) {
@@ -466,11 +473,18 @@ class Anon_Cms_Admin_Plugins
         }
         require_once $mainFile;
         $className = Anon_System_Plugin::getPluginClassNameFromSlug($slugLower);
-        if ($className === null || !class_exists($className) || !method_exists($className, 'options')) {
+        if ($className === null || !class_exists($className)) {
             return [];
         }
-        $schema = call_user_func([$className, 'options']);
-        return is_array($schema) ? $schema : [];
+        if (method_exists($className, 'getSettingsSchema')) {
+            $schema = call_user_func([$className, 'getSettingsSchema']);
+            return is_array($schema) ? $schema : [];
+        }
+        if (method_exists($className, 'options')) {
+            $schema = call_user_func([$className, 'options']);
+            return is_array($schema) ? $schema : [];
+        }
+        return [];
     }
 
     /**

@@ -9,51 +9,45 @@
  */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Plugin_HelloWorld
+class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
 {
     /**
-     * 插件初始化方法
+     * 插件初始化，可在内部使用 $this->options()->get() 读取选项
+     * @return void
      */
-    public static function init()
+    public function init()
     {
-        // 判断当前应用模式
+        $plugin = $this;
         if (Anon_System_Plugin::isApiMode()) {
-            // API 模式下的初始化逻辑
-            Anon::route('/hello', function () {
+            Anon::route('/hello', function () use ($plugin) {
                 Anon::success([
-                    self::index()
+                    $plugin->index()
                 ], 'Hello World from Plugin (API Mode)');
             }, [
                 'header' => true,
                 'requireLogin' => false,
                 'method' => ['GET'],
                 'token' => false,
-                'cache' => [
-                    'enabled' => true,
-                    'time' => 3600,
-                ],
+                'cache' => ['enabled' => true, 'time' => 3600],
             ]);
         } elseif (Anon_System_Plugin::isCmsMode()) {
-            // CMS 模式下的初始化逻辑
-            Anon::route('/hello', function () {
+            Anon::route('/hello', function () use ($plugin) {
                 Anon::success([
-                    self::index()
+                    $plugin->index()
                 ], 'Hello World from Plugin (CMS Mode)');
             }, [
                 'header' => true,
                 'requireLogin' => false,
                 'method' => ['GET'],
                 'token' => false,
-                'cache' => [
-                    'enabled' => true,
-                    'time' => 3600,
-                ],
+                'cache' => ['enabled' => true, 'time' => 3600],
             ]);
         }
     }
 
     /**
      * 插件激活时调用
+     * @return void
      */
     public static function activate()
     {
@@ -62,6 +56,7 @@ class Anon_Plugin_HelloWorld
 
     /**
      * 插件停用时调用
+     * @return void
      */
     public static function deactivate()
     {
@@ -69,25 +64,29 @@ class Anon_Plugin_HelloWorld
     }
 
     /**
-     * 设置页 schema，键为字段名，值为 type/label/default 等
+     * 设置页 schema，键为字段名，值为 type、label、default 等，供管理端读取
      * @return array
      */
-    public static function options(): array
+    public static function getSettingsSchema(): array
     {
         return [
             'greeting' => [
                 'type' => 'text',
                 'label' => '问候语',
-                'default' => 'Hello World',
+                'default' => 'Hello, World!',
             ],
         ];
     }
 
     /**
-     * 自定义方法
+     * 自定义方法，通过选项代理读取插件、主题、系统选项
+     * @return string
      */
-    public static function index()
+    public function index()
     {
-        return 'Hello World';
+        $proxy = $this->options();
+        return $proxy !== null
+            ? $proxy->get('greeting', 'Hello, World!', false, null)
+            : 'Hello, World!';
     }
 }

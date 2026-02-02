@@ -73,7 +73,7 @@ return [
             ],
         ],
         'plugins' => [
-            'enabled' => true,
+            'enabled' => false,
             'active' => [],
         ]
     ]

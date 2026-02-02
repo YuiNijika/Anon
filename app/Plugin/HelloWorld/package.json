@@ -1,6 +1,6 @@
 {
   "name": "HelloWorld",
-  "description": "Hello World",
+  "description": "启用插件后会自动注册一个 /hello 路由，返回 Hello, World!",
   "version": "1.0.0",
   "author": "YuiNijika",
   "url": "https://github.com/YuiNijika",

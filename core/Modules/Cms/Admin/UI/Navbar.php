@@ -22,9 +22,7 @@ class Anon_Cms_Admin_UI_Navbar
         
         /**
          * 允许插件通过钩子扩展顶部导航
-         * 钩子名称: admin_navbar_header
-         * 参数: $items (数组)
-         * 返回: 修改后的 $items 数组
+         * 钩子名称 admin_navbar_header，参数 $items 数组，返回修改后的 $items 数组
          */
         $items = Anon_System_Hook::apply_filters('admin_navbar_header', $items);
         
@@ -116,9 +114,7 @@ class Anon_Cms_Admin_UI_Navbar
         
         /**
          * 允许插件通过钩子扩展侧边导航
-         * 钩子名称: admin_navbar_sidebar
-         * 参数: $items (数组)
-         * 返回: 修改后的 $items 数组
+         * 钩子名称 admin_navbar_sidebar，参数 $items 数组，返回修改后的 $items 数组
          */
         $items = Anon_System_Hook::apply_filters('admin_navbar_sidebar', $items);
         

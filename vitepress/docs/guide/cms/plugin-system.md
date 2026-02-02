@@ -286,18 +286,18 @@ public static function init()
 
 ## 插件设置
 
-插件可提供“设置页”，供用户在管理后台配置选项。设置项**在插件入口文件中**通过静态方法 `getSettingsSchema()` 定义，不放在 package.json 中。
+插件可提供“设置页”，供用户在管理后台配置选项。设置项**在插件入口文件中**通过静态方法 `options()` 定义，不放在 package.json 中。
 
 ### 定义设置 schema
 
-在插件主类中实现 getSettingsSchema，返回字段名到定义的映射，含类型、标签、默认值等：
+在插件主类中实现静态方法 `options()`，返回字段名到定义的映射，含类型、标签、默认值等。继承 `Anon_Plugin_Base` 时，实例方法 `$this->options()` 为选项代理，与静态 schema 方法同名不冲突。
 
 ```php
 /**
- * 设置页 schema，键为字段名，值为 type/label/default 等
+ * 设置页 schema，键为字段名，值为 type、label、default 等，供管理端读取
  * @return array
  */
-public static function getSettingsSchema(): array
+public static function options(): array
 {
     return [
         'greeting' => [
@@ -332,6 +332,87 @@ public static function getSettingsSchema(): array
 
 若需在插件或主题中读取某插件的设置，可从 options 表读取 plugin:插件名 的 JSON 值，或通过 CMS Options 封装获取。
 
+## 插件基类与 $this->options()
+
+插件可继承 `Anon_Plugin_Base`，使用实例方法 `$this->options()` 参与统一选项优先级。
+
+### 继承基类
+
+继承后框架会实例化插件并调用实例方法 `init()`，在 `init()` 或其它实例方法中通过 `$this->options()` 获取选项代理。
+
+- 插件内默认优先级：plugin > theme > system
+- 主题内默认优先级：theme > plugin > system
+
+### options() 代理方法
+
+`$this->options()` 返回 `Anon_Cms_Options_Proxy`：
+
+- **get(string $name, $default = null, bool $output = false, ?string $priority = null)**  
+  - `$name` 选项名，`$default` 默认值  
+  - `$output`：true 先 echo 再返回，false 仅返回  
+  - `$priority`：plugin、theme、system 之一，null 时按上下文  
+- **set(string $name, $value)**：写入系统 options 表
+
+### 优先级含义
+
+- **plugin**：仅从插件选项 options 表 `plugin:插件名` 取值
+- **theme**：仅从当前主题选项 options 表 `theme:主题名` 取值
+- **system**：仅从系统 options 表顶层键取值
+
+不传 `$priority` 时，插件内按 plugin > theme > system，主题内按 theme > plugin > system。
+
+### 示例：插件内使用选项代理
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
+{
+    public function init()
+    {
+        $plugin = $this;
+        Anon::route('/hello', function () use ($plugin) {
+            Anon::success(['message' => $plugin->index()], 'OK');
+        }, ['method' => ['GET']]);
+    }
+
+    /** 管理端设置 schema */
+    public static function options(): array
+    {
+        return [
+            'greeting' => ['type' => 'text', 'label' => '问候语', 'default' => 'Hello, World!'],
+        ];
+    }
+
+    /** 实例方法：读取选项，默认插件>主题>系统 */
+    public function index()
+    {
+        $proxy = $this->options();
+        if ($proxy === null) {
+            return 'Hello, World!';
+        }
+        return $proxy->get('greeting', 'Hello, World!', false, null);
+    }
+}
+```
+
+### 指定优先级与输出方式
+
+```php
+// 仅返回值，按默认优先级
+$val = $this->options()->get('greeting', 'Hi', false, null);
+
+// 仅从系统 options 表读
+$val = $this->options()->get('title', '', false, 'system');
+
+// 仅从主题选项读
+$val = $this->options()->get('title', '', false, 'theme');
+
+// 先 echo 再返回
+$this->options()->get('greeting', 'Hi', true, null);
+```
+
 ## 插件管理
 
 ### 管理后台
@@ -341,7 +422,7 @@ public static function getSettingsSchema(): array
 - **插件列表**：查看所有已安装的插件
 - **上传插件**：上传 ZIP 格式的插件包
 - **启用/停用**：切换插件的激活状态
-- **设置**：进入插件设置页，仅当插件实现 getSettingsSchema 时有表单
+- **设置**：进入插件设置页，仅当插件实现静态 `options()` 时有表单
 - **删除插件**：删除不需要的插件，需先停用
 
 ### 插件上传

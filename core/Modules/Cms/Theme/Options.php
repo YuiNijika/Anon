@@ -29,8 +29,7 @@ class Anon_Theme_Options
     }
 
     /**
-     * 主题设置 values 的 options 键名（小写主题名）
-     *
+     * 主题设置 values 的 options 键名，小写主题名
      * @param string|null $themeName 主题名
      * @return string
      */
@@ -41,8 +40,7 @@ class Anon_Theme_Options
     }
 
     /**
-     * 主题设置 schema 的 options 键名（小写主题名）
-     *
+     * 主题设置 schema 的 options 键名，小写主题名
      * @param string|null $themeName 主题名
      * @return string
      */
