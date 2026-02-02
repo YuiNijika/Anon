@@ -298,7 +298,7 @@ export default function SettingsBasic() {
             </FormItem>
           )} />
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-end">
             <Button type="submit" disabled={loading}>{loading ? '保存中...' : '保存更改'}</Button>
             <Button type="button" variant="outline" onClick={() => loadSettings()}>重置</Button>
           </div>

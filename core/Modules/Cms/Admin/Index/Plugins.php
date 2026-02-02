@@ -34,14 +34,12 @@ class Anon_Cms_Admin_Plugins
                     continue;
                 }
 
-                $pluginFile = $pluginPath . '/Index.php';
-                if (!file_exists($pluginFile)) {
+                if (Anon_System_Plugin::getPluginMainFile($pluginPath) === null) {
                     continue;
                 }
 
-                $meta = Anon_System_Plugin::readPluginMeta($pluginFile);
+                $meta = Anon_System_Plugin::readPluginMetaForDir($pluginPath);
                 if (!$meta || empty($meta['name'])) {
-                    // 如果元数据读取失败或没有名称，使用目录名作为默认值
                     $meta = [
                         'name' => $dir,
                         'description' => '',
@@ -49,6 +47,7 @@ class Anon_Cms_Admin_Plugins
                         'author' => '',
                         'url' => '',
                         'mode' => 'api',
+                        'settings' => [],
                     ];
                 }
 
@@ -318,6 +317,160 @@ class Anon_Cms_Admin_Plugins
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
         }
+    }
+
+    /**
+     * 获取插件设置项。schema 来自插件入口文件中的 options 方法；values 来自 options 表 plugin:slug。
+     */
+    public static function getOptions()
+    {
+        try {
+            $slug = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
+            if ($slug === '') {
+                Anon_Http_Response::error('插件标识不能为空', 400);
+                return;
+            }
+            $slugLower = strtolower($slug);
+            $storageKey = 'plugin:' . $slugLower;
+
+            $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
+            $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
+            if ($resolvedDir === null) {
+                Anon_Http_Response::error('插件不存在', 404);
+                return;
+            }
+            $pluginPath = $pluginDir . $resolvedDir;
+            $schema = self::getPluginSettingsSchema($slugLower, $pluginPath);
+
+            $db = Anon_Database::getInstance();
+            $row = $db->db('options')->where('name', $storageKey)->first();
+            $values = [];
+            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
+                $v = $row['value'];
+                if (is_string($v) && (substr($v, 0, 1) === '{' || substr($v, 0, 1) === '[')) {
+                    $dec = json_decode($v, true);
+                    if (is_array($dec)) {
+                        $values = $dec;
+                    }
+                }
+            }
+            foreach ($schema as $key => $def) {
+                if (!is_array($def)) {
+                    continue;
+                }
+                if (!array_key_exists($key, $values)) {
+                    $values[$key] = $def['default'] ?? null;
+                }
+            }
+            Anon_Http_Response::success([
+                'slug' => $slugLower,
+                'schema' => $schema,
+                'values' => $values,
+            ]);
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 保存插件设置项。options 表 name = plugin:插件名，value 为 JSON。
+     */
+    public static function saveOptions()
+    {
+        try {
+            $data = Anon_Http_Request::getInput();
+            if (!is_array($data)) {
+                $data = [];
+            }
+            $slug = isset($data['slug']) ? trim((string)$data['slug']) : '';
+            if ($slug === '') {
+                Anon_Http_Response::error('插件标识不能为空', 400);
+                return;
+            }
+            $slugLower = strtolower($slug);
+            $storageKey = 'plugin:' . $slugLower;
+
+            $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
+            $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
+            if ($resolvedDir === null) {
+                Anon_Http_Response::error('插件不存在', 404);
+                return;
+            }
+            $pluginPath = $pluginDir . $resolvedDir;
+            $schema = self::getPluginSettingsSchema($slugLower, $pluginPath);
+
+            $submitted = isset($data['values']) && is_array($data['values']) ? $data['values'] : $data;
+            unset($submitted['slug']);
+
+            $db = Anon_Database::getInstance();
+            $row = $db->db('options')->where('name', $storageKey)->first();
+            $currentDbValues = [];
+            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
+                $v = $row['value'];
+                if (is_string($v) && (substr($v, 0, 1) === '{' || substr($v, 0, 1) === '[')) {
+                    $dec = json_decode($v, true);
+                    if (is_array($dec)) {
+                        $currentDbValues = $dec;
+                    }
+                }
+            }
+            $finalValues = [];
+            foreach ($schema as $key => $def) {
+                if (!is_array($def)) {
+                    continue;
+                }
+                $val = array_key_exists($key, $submitted) ? $submitted[$key]
+                    : (array_key_exists($key, $currentDbValues) ? $currentDbValues[$key] : ($def['default'] ?? null));
+                if (isset($def['sanitize_callback']) && is_callable($def['sanitize_callback'])) {
+                    $val = call_user_func($def['sanitize_callback'], $val);
+                }
+                $finalValues[$key] = $val;
+            }
+            $valueStr = json_encode($finalValues, JSON_UNESCAPED_UNICODE);
+            if ($row && isset($row['name'])) {
+                $ok = $db->db('options')->where('name', $storageKey)->update(['value' => $valueStr]);
+            } else {
+                $ok = $db->db('options')->insert(['name' => $storageKey, 'value' => $valueStr]);
+            }
+            if (!$ok) {
+                Anon_Http_Response::error('写入数据库失败', 500);
+                return;
+            }
+            Anon_Cms_Options::clearCache();
+            Anon_Http_Response::success([
+                'slug' => $slugLower,
+                'schema' => $schema,
+                'values' => $finalValues,
+            ], '保存成功');
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 从插件入口文件 options 方法获取设置 schema，不依赖 package.json
+     * @param string $slugLower 插件标识符小写
+     * @param string $pluginPath 插件目录绝对路径
+     * @return array
+     */
+    private static function getPluginSettingsSchema(string $slugLower, string $pluginPath): array
+    {
+        $pluginInfo = Anon_System_Plugin::getPlugin($slugLower);
+        if ($pluginInfo && isset($pluginInfo['class']) && is_string($pluginInfo['class']) && method_exists($pluginInfo['class'], 'options')) {
+            $schema = call_user_func([$pluginInfo['class'], 'options']);
+            return is_array($schema) ? $schema : [];
+        }
+        $mainFile = Anon_System_Plugin::getPluginMainFile($pluginPath);
+        if ($mainFile === null) {
+            return [];
+        }
+        require_once $mainFile;
+        $className = Anon_System_Plugin::getPluginClassNameFromSlug($slugLower);
+        if ($className === null || !class_exists($className) || !method_exists($className, 'options')) {
+            return [];
+        }
+        $schema = call_user_func([$className, 'options']);
+        return is_array($schema) ? $schema : [];
     }
 
     /**

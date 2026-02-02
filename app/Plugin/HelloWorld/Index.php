@@ -69,6 +69,21 @@ class Anon_Plugin_HelloWorld
     }
 
     /**
+     * 设置页 schema，键为字段名，值为 type/label/default 等
+     * @return array
+     */
+    public static function options(): array
+    {
+        return [
+            'greeting' => [
+                'type' => 'text',
+                'label' => '问候语',
+                'default' => 'Hello World',
+            ],
+        ];
+    }
+
+    /**
      * 自定义方法
      */
     public static function index()

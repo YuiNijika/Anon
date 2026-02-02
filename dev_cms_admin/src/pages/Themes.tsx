@@ -495,7 +495,7 @@ export default function SettingsTheme() {
                       return (
                         <>
                           {Object.entries(items).map(([key, option]) => renderThemeField(key, option))}
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 justify-end">
                             <Button type="submit" disabled={loading}>
                               保存更改
                             </Button>
@@ -528,7 +528,7 @@ export default function SettingsTheme() {
                             </TabsContent>
                           ))}
                         </Tabs>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-end">
                           <Button type="submit" disabled={loading}>
                             保存更改
                           </Button>

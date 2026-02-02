@@ -388,6 +388,20 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
+        self::addRoute('/plugins/options', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_Plugins::getOptions();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_Plugins::saveOptions();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST'],
+            'token' => true,
+        ]);
+
         self::addRoute('/themes', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'POST') {

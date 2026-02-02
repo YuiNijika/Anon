@@ -206,9 +206,6 @@ export default function Console() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Alert variant="success">
-          <Skeleton className="h-5 w-48" />
-        </Alert>
         <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
           <Card>
             <CardHeader>

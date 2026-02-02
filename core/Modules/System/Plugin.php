@@ -140,15 +140,15 @@ class Anon_System_Plugin
                     continue;
                 }
 
-                $pluginFile = $pluginPath . '/Index.php';
-                if (!file_exists($pluginFile)) {
+                $pluginFile = self::getPluginMainFile($pluginPath);
+                if ($pluginFile === null) {
                     continue;
                 }
 
-                $meta = self::readPluginMeta($pluginFile);
+                $meta = self::readPluginMetaForDir($pluginPath);
                 if (!$meta) {
                     if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'file' => $pluginFile]);
+                        Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'path' => $pluginPath]);
                     }
                     continue;
                 }
@@ -256,7 +256,120 @@ class Anon_System_Plugin
     }
 
     /**
-     * 读取元数据
+     * 从 package.json 读取元数据
+     * @param string $pluginPath 插件目录绝对路径
+     * @return array|null
+     */
+    public static function readPluginMetaFromPackageJson(string $pluginPath): ?array
+    {
+        $file = $pluginPath . '/package.json';
+        if (!is_file($file)) {
+            return null;
+        }
+        try {
+            $json = file_get_contents($file);
+            if ($json === false) {
+                return null;
+            }
+            $data = json_decode($json, true);
+            if (!is_array($data) || empty($data['name'])) {
+                return null;
+            }
+            $meta = [
+                'name' => trim((string)$data['name']),
+                'description' => isset($data['description']) ? trim((string)$data['description']) : '',
+                'version' => isset($data['version']) ? trim((string)$data['version']) : '',
+                'author' => isset($data['author']) ? trim((string)$data['author']) : '',
+                'url' => isset($data['url']) ? trim((string)$data['url']) : (isset($data['homepage']) ? trim((string)$data['homepage']) : ''),
+                'mode' => 'api',
+                'settings' => isset($data['settings']) && is_array($data['settings']) ? $data['settings'] : [],
+            ];
+            if (isset($data['anon']) && is_array($data['anon'])) {
+                if (isset($data['anon']['mode'])) {
+                    $m = strtolower(trim((string)$data['anon']['mode']));
+                    if (in_array($m, ['api', 'cms', 'auto'], true)) {
+                        $meta['mode'] = $m;
+                    }
+                }
+                if (isset($data['anon']['settings']) && is_array($data['anon']['settings'])) {
+                    $meta['settings'] = $data['anon']['settings'];
+                }
+            }
+            return $meta;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 插件目录下主入口文件路径，不区分大小写
+     * @param string $pluginPath 插件目录绝对路径
+     * @return string|null Index.php 的完整路径，未找到返回 null
+     */
+    public static function getPluginMainFile(string $pluginPath): ?string
+    {
+        if (!is_dir($pluginPath)) {
+            return null;
+        }
+        $files = scandir($pluginPath);
+        foreach ($files as $f) {
+            if ($f === '.' || $f === '..') {
+                continue;
+            }
+            if (strtolower($f) === 'index.php') {
+                return $pluginPath . '/' . $f;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 根据 slug 解析插件目录名，不区分大小写
+     * @param string $pluginDir 插件根目录
+     * @param string $slug 插件标识符
+     * @return string|null 实际目录名，未找到返回 null
+     */
+    public static function resolvePluginDir(string $pluginDir, string $slug): ?string
+    {
+        if (!is_dir($pluginDir)) {
+            return null;
+        }
+        $slugLower = strtolower($slug);
+        $dirs = scandir($pluginDir);
+        foreach ($dirs as $dir) {
+            if ($dir === '.' || $dir === '..') {
+                continue;
+            }
+            if (!is_dir($pluginDir . $dir)) {
+                continue;
+            }
+            if (strtolower($dir) === $slugLower) {
+                return $dir;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 从插件目录读取元数据，优先 package.json，否则从主入口文件注释读取
+     * @param string $pluginPath 插件目录绝对路径
+     * @return array|null
+     */
+    public static function readPluginMetaForDir(string $pluginPath): ?array
+    {
+        $meta = self::readPluginMetaFromPackageJson($pluginPath);
+        if ($meta !== null) {
+            return $meta;
+        }
+        $mainFile = self::getPluginMainFile($pluginPath);
+        if ($mainFile !== null) {
+            return self::readPluginMeta($mainFile);
+        }
+        return null;
+    }
+
+    /**
+     * 读取元数据（从主入口文件注释）
      * @param string $pluginFile 插件文件
      * @return array|null
      */
@@ -564,6 +677,17 @@ class Anon_System_Plugin
     }
 
     /**
+     * 根据 slug 获取插件类名，用于未加载时读取设置 schema
+     * @param string $slug 插件标识符
+     * @return string|null
+     */
+    public static function getPluginClassNameFromSlug(string $slug): ?string
+    {
+        $resolvedDir = self::resolvePluginDir(self::PLUGIN_DIR, $slug);
+        return $resolvedDir !== null ? self::getPluginClassName($resolvedDir) : null;
+    }
+
+    /**
      * 查找类
      * @param string $className 类名
      * @return string|null
@@ -672,24 +796,23 @@ class Anon_System_Plugin
         self::$activePlugins = self::getActivePlugins();
         
         $pluginDir = self::PLUGIN_DIR;
-        $pluginPath = $pluginDir . $pluginSlug;
-        
-        if (!is_dir($pluginPath)) {
+        $resolvedDir = self::resolvePluginDir($pluginDir, $pluginSlug);
+        if ($resolvedDir === null) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn("Plugin directory not found", ['slug' => $pluginSlug, 'path' => $pluginPath]);
+                Anon_Debug::warn("Plugin directory not found", ['slug' => $pluginSlug]);
+            }
+            return false;
+        }
+        $pluginPath = $pluginDir . $resolvedDir;
+        $pluginFile = self::getPluginMainFile($pluginPath);
+        if ($pluginFile === null) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                Anon_Debug::warn("Plugin main file not found", ['slug' => $pluginSlug, 'path' => $pluginPath]);
             }
             return false;
         }
 
-        $pluginFile = $pluginPath . '/Index.php';
-        if (!file_exists($pluginFile)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn("Plugin file not found", ['slug' => $pluginSlug, 'file' => $pluginFile]);
-            }
-            return false;
-        }
-
-        $meta = self::readPluginMeta($pluginFile);
+        $meta = self::readPluginMetaForDir($pluginPath);
         if (!$meta || empty($meta['name'])) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 Anon_Debug::warn("Failed to read plugin meta", ['slug' => $pluginSlug]);
@@ -714,7 +837,7 @@ class Anon_System_Plugin
         }
 
         // 加载插件
-        self::loadPlugin($pluginSlug, $pluginFile, $meta, $pluginSlug);
+        self::loadPlugin($pluginSlug, $pluginFile, $meta, $resolvedDir);
 
         // 调用激活方法
         return self::activatePlugin($pluginSlug);

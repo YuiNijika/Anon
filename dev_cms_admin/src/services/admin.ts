@@ -360,6 +360,16 @@ export const AdminApi = {
     return api.admin.delete<{ slug: string }>('/plugins', { slug })
   },
 
+  /** 获取插件设置项，schema 来自插件 getSettingsSchema，values 来自 options 表 plugin:slug */
+  getPluginOptions: (api: ApiClient, params: { slug: string }) => {
+    return api.admin.get<PluginOptionsData>('/plugins/options', params)
+  },
+
+  /** 保存插件设置项 */
+  updatePluginOptions: (api: ApiClient, data: { slug: string; values: Record<string, any> }) => {
+    return api.admin.post<PluginOptionsData>('/plugins/options', data)
+  },
+
   // 主题管理
   uploadTheme: (api: ApiClient, file: File) => {
     const formData = new FormData()
@@ -386,6 +396,21 @@ export interface Plugin {
 
 export interface PluginListResponse {
   list: Plugin[]
+}
+
+/** 插件设置 schema 单字段定义，与主题一致 */
+export interface PluginOptionSchema {
+  type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number' | 'color'
+  label: string
+  description?: string
+  default?: any
+  options?: Record<string, string>
+}
+
+export interface PluginOptionsData {
+  slug: string
+  schema: Record<string, PluginOptionSchema>
+  values: Record<string, any>
 }
 
 export interface AccessLog {

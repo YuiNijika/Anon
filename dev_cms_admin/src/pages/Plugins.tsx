@@ -1,13 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
-import { Upload, Trash2, MoreHorizontal } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Upload, Trash2, MoreHorizontal, Settings, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useApiAdmin, usePlugins } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
-import { AdminApi, type Plugin } from '@/services/admin'
+import { AdminApi, type Plugin, type PluginOptionSchema } from '@/services/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -26,7 +36,10 @@ import { cn } from '@/lib/utils'
 
 export default function Plugins() {
   const apiAdmin = useApiAdmin()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { uploadPlugin, activatePlugin, deactivatePlugin, deletePlugin } = usePlugins()
+
+  const optionsSlug = searchParams.get('options') ?? ''
 
   const [loading, setLoading] = useState(false)
   const [plugins, setPlugins] = useState<Plugin[]>([])
@@ -34,7 +47,12 @@ export default function Plugins() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchInput, setSearchInput] = useState('')
+  const [optionsLoading, setOptionsLoading] = useState(false)
+  const [pluginOptionsSchema, setPluginOptionsSchema] = useState<Record<string, PluginOptionSchema>>({})
+  const [pluginOptionsValues, setPluginOptionsValues] = useState<Record<string, any>>({})
+  const [pluginOptionsSaving, setPluginOptionsSaving] = useState(false)
   const fetchingRef = useRef(false)
+  const optionsFetchingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -44,6 +62,15 @@ export default function Plugins() {
   useEffect(() => {
     loadPlugins()
   }, [searchKeyword, statusFilter])
+
+  useEffect(() => {
+    if (optionsSlug) {
+      loadPluginOptions(optionsSlug)
+    } else {
+      setPluginOptionsSchema({})
+      setPluginOptionsValues({})
+    }
+  }, [optionsSlug])
 
   const loadPlugins = async () => {
     if (fetchingRef.current) return
@@ -121,6 +148,187 @@ export default function Plugins() {
     await loadPlugins()
   }
 
+  const openPluginOptions = (slug: string) => {
+    setSearchParams({ options: slug })
+  }
+
+  const closePluginOptions = () => {
+    setSearchParams({})
+  }
+
+  const loadPluginOptions = async (slug: string) => {
+    if (optionsFetchingRef.current || !slug) return
+    optionsFetchingRef.current = true
+    setOptionsLoading(true)
+    try {
+      const res = await AdminApi.getPluginOptions(apiAdmin, { slug })
+      if (res.data) {
+        setPluginOptionsSchema(res.data.schema || {})
+        setPluginOptionsValues(res.data.values || {})
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, '加载插件设置失败'))
+    } finally {
+      optionsFetchingRef.current = false
+      setOptionsLoading(false)
+    }
+  }
+
+  const handlePluginOptionsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!optionsSlug) return
+    setPluginOptionsSaving(true)
+    try {
+      await AdminApi.updatePluginOptions(apiAdmin, { slug: optionsSlug, values: pluginOptionsValues })
+      toast.success('插件设置已保存')
+    } catch (err) {
+      toast.error(getErrorMessage(err, '保存插件设置失败'))
+    } finally {
+      setPluginOptionsSaving(false)
+    }
+  }
+
+  const setPluginOptionValue = (key: string, value: any) => {
+    setPluginOptionsValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const renderPluginOptionField = (key: string, option: PluginOptionSchema) => {
+    const { type, label, description, options: selectOptions, default: defaultValue } = option
+    const value = pluginOptionsValues[key]
+
+    switch (type) {
+      case 'text':
+        return (
+          <div key={key} className="space-y-2">
+            <Label htmlFor={key} className="text-sm">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <Input
+              id={key}
+              value={value ?? ''}
+              onChange={(e) => setPluginOptionValue(key, e.target.value)}
+              placeholder={defaultValue}
+              className="w-full"
+            />
+          </div>
+        )
+      case 'textarea':
+        return (
+          <div key={key} className="space-y-2">
+            <Label htmlFor={key} className="text-sm">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <textarea
+              id={key}
+              rows={4}
+              value={value ?? ''}
+              onChange={(e) => setPluginOptionValue(key, e.target.value)}
+              placeholder={defaultValue}
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        )
+      case 'select':
+        return (
+          <div key={key} className="space-y-2">
+            <Label className="text-sm">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <Select
+              value={value ?? ''}
+              onValueChange={(v) => setPluginOptionValue(key, v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="请选择" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(selectOptions || {}).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )
+      case 'checkbox':
+        return (
+          <div key={key} className="flex items-center justify-between space-x-2">
+            <Label htmlFor={key} className="text-sm flex-1">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <Switch
+              id={key}
+              checked={!!value}
+              onCheckedChange={(checked) => setPluginOptionValue(key, checked)}
+            />
+          </div>
+        )
+      case 'number':
+        return (
+          <div key={key} className="space-y-2">
+            <Label htmlFor={key} className="text-sm">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <Input
+              id={key}
+              type="number"
+              value={value ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setPluginOptionValue(key, v === '' ? undefined : Number(v))
+              }}
+              placeholder={defaultValue}
+              className="w-full"
+            />
+          </div>
+        )
+      case 'color':
+        return (
+          <div key={key} className="space-y-2">
+            <Label htmlFor={key} className="text-sm">
+              {label}
+              {description && (
+                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
+              )}
+            </Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                id={key}
+                value={typeof value === 'string' && value.startsWith('#') ? value : '#000000'}
+                onChange={(e) => setPluginOptionValue(key, e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border border-input bg-background p-1"
+              />
+              <Input
+                value={value ?? ''}
+                onChange={(e) => setPluginOptionValue(key, e.target.value)}
+                placeholder="#000000"
+                className="flex-1 font-mono text-sm"
+              />
+            </div>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
   const getModeClass = (mode: string) => {
     switch (mode) {
       case 'cms':
@@ -134,158 +342,212 @@ export default function Plugins() {
     }
   }
 
+  const pluginForOptions = plugins.find((p) => p.slug === optionsSlug)
+  const schemaEntries = Object.entries(pluginOptionsSchema).filter(
+    ([, def]) => def && typeof def === 'object' && def.type
+  )
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>插件管理</CardTitle>
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".zip"
-              className="hidden"
-              onChange={handleUpload}
-            />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              上传插件
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="搜索插件名称或描述"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setSearchKeyword(searchInput)}
-              className="w-[300px] max-w-full"
-            />
-            <Button variant="secondary" onClick={() => setSearchKeyword(searchInput)}>
-              搜索
-            </Button>
-            <div className="flex gap-1">
-              {(['all', 'active', 'inactive'] as const).map((s) => (
-                <Button
-                  key={s}
-                  variant={statusFilter === s ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setStatusFilter(s)}
-                >
-                  {s === 'all' ? '全部' : s === 'active' ? '已启用' : '未启用'}
-                </Button>
-              ))}
+      {optionsSlug ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={closePluginOptions} title="返回列表">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle>
+                插件设置
+                {pluginForOptions ? ` - ${pluginForOptions.name}` : ` (${optionsSlug})`}
+              </CardTitle>
             </div>
-          </div>
+          </CardHeader>
+          <CardContent>
+            {optionsLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-16 w-full" />
+              </div>
+            ) : schemaEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">该插件暂无设置项。</p>
+            ) : (
+              <form onSubmit={handlePluginOptionsSubmit} className="space-y-6 max-w-xl">
+                {schemaEntries.map(([key, def]) => renderPluginOptionField(key, def))}
+                <div className="flex gap-2 justify-end">
+                  <Button type="submit" disabled={pluginOptionsSaving}>
+                    {pluginOptionsSaving ? '保存中...' : '保存'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => optionsSlug && loadPluginOptions(optionsSlug)}
+                  >
+                    重置
+                  </Button>
+                </div>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>插件名称</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead className="w-[100px]">模式</TableHead>
-                  <TableHead className="w-[100px]">版本</TableHead>
-                  <TableHead className="w-[150px]">作者</TableHead>
-                  <TableHead className="w-[100px]">状态</TableHead>
-                  <TableHead className="w-[80px]">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+      {!optionsSlug && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>插件管理</CardTitle>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".zip"
+                className="hidden"
+                onChange={handleUpload}
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                上传插件
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                placeholder="搜索插件名称或描述"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && setSearchKeyword(searchInput)}
+                className="w-[300px] max-w-full"
+              />
+              <Button variant="secondary" onClick={() => setSearchKeyword(searchInput)}>
+                搜索
+              </Button>
+              <div className="flex gap-1">
+                {(['all', 'active', 'inactive'] as const).map((s) => (
+                  <Button
+                    key={s}
+                    variant={statusFilter === s ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter(s)}
+                  >
+                    {s === 'all' ? '全部' : s === 'active' ? '已启用' : '未启用'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      加载中...
-                    </TableCell>
+                    <TableHead>插件名称</TableHead>
+                    <TableHead>描述</TableHead>
+                    <TableHead className="w-[100px]">模式</TableHead>
+                    <TableHead className="w-[100px]">版本</TableHead>
+                    <TableHead className="w-[150px]">作者</TableHead>
+                    <TableHead className="w-[100px]">状态</TableHead>
+                    <TableHead className="w-[80px]">操作</TableHead>
                   </TableRow>
-                ) : !plugins.length ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      {searchKeyword ? '未找到匹配的插件' : '暂无插件'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  plugins.map((plugin) => (
-                    <TableRow key={plugin.slug}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="truncate" title={plugin.name}>
-                            {plugin.name || '-'}
-                          </span>
-                          {plugin.active && (
-                            <span className="shrink-0 rounded bg-green-500/10 px-2 py-0.5 text-xs text-green-700 dark:text-green-400">
-                              已启用
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className="block max-w-[300px] truncate text-sm text-muted-foreground"
-                          title={plugin.description || '-'}
-                        >
-                          {plugin.description || '-'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            'rounded px-2 py-0.5 text-xs',
-                            getModeClass(plugin.mode)
-                          )}
-                        >
-                          {plugin.mode.toUpperCase()}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {plugin.version || '-'}
-                      </TableCell>
-                      <TableCell className="max-w-[150px] truncate text-muted-foreground">
-                        {plugin.author || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={plugin.active}
-                          onCheckedChange={() => handleToggle(plugin)}
-                        />
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          {plugin.active ? '启用' : '停用'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              disabled={plugin.active}
-                              onClick={() => handleDelete(plugin)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                        加载中...
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {!loading && plugins.length > 0 && (
-            <p className="text-sm text-muted-foreground">共 {plugins.length} 条</p>
-          )}
-        </CardContent>
-      </Card>
+                  ) : !plugins.length ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                        {searchKeyword ? '未找到匹配的插件' : '暂无插件'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    plugins.map((plugin) => (
+                      <TableRow key={plugin.slug}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="truncate" title={plugin.name}>
+                              {plugin.name || '-'}
+                            </span>
+                            {plugin.active && (
+                              <span className="shrink-0 rounded bg-green-500/10 px-2 py-0.5 text-xs text-green-700 dark:text-green-400">
+                                已启用
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="block max-w-[300px] truncate text-sm text-muted-foreground"
+                            title={plugin.description || '-'}
+                          >
+                            {plugin.description || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              'rounded px-2 py-0.5 text-xs',
+                              getModeClass(plugin.mode)
+                            )}
+                          >
+                            {plugin.mode.toUpperCase()}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {plugin.version || '-'}
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate text-muted-foreground">
+                          {plugin.author || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={plugin.active}
+                            onCheckedChange={() => handleToggle(plugin)}
+                          />
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            {plugin.active ? '启用' : '停用'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openPluginOptions(plugin.slug)}>
+                                <Settings className="mr-2 h-4 w-4" />
+                                设置
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                disabled={plugin.active}
+                                onClick={() => handleDelete(plugin)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            {!loading && plugins.length > 0 && (
+              <p className="text-sm text-muted-foreground">共 {plugins.length} 条</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

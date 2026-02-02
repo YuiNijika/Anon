@@ -1,0 +1,10 @@
+{
+  "name": "HelloWorld",
+  "description": "Hello World",
+  "version": "1.0.0",
+  "author": "YuiNijika",
+  "url": "https://github.com/YuiNijika",
+  "anon": {
+    "mode": "auto"
+  }
+}
