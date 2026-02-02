@@ -704,7 +704,10 @@ class Anon_Cms_Theme
             $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
             
             if ($componentsDir === null) {
-                self::outputComponentError("组件目录未找到: components");
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    error_log('[Anon Theme components] 静态调用: 组件目录未找到: themeDir=' . $themeDir . ', 查找 app/components');
+                }
+                self::outputComponentError("组件目录未找到: app/components");
                 return;
             }
             
@@ -715,6 +718,9 @@ class Anon_Cms_Theme
             foreach ($pathParts as $part) {
                 $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
                 if ($foundDir === null) {
+                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                        error_log('[Anon Theme components] 静态调用: 组件子目录未找到: componentPath=' . $componentPath . ', part=' . $part . ', componentDir=' . $componentDir);
+                    }
                     self::outputComponentError("组件目录未找到: {$componentPath}");
                     return;
                 }
@@ -729,6 +735,9 @@ class Anon_Cms_Theme
                 return;
             }
             
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Anon Theme components] 静态调用: 组件文件未找到: componentPath=' . $componentPath . ', componentName=' . $componentName . ', componentDir=' . $componentDir);
+            }
             self::outputComponentError("组件未找到: {$componentPath}");
         } catch (Error $e) {
             self::handleFatalError($e);
@@ -1508,8 +1517,11 @@ class Anon_Cms_Theme_View
         $componentPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $componentPath);
 
         $themeDir = Anon_Cms_Theme::getThemeDir();
-        $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'components');
+        $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
         if ($componentsDir === null) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Anon Theme components] 组件目录未找到: themeDir=' . $themeDir . ', 查找 app/components');
+            }
             return;
         }
 
@@ -1520,6 +1532,9 @@ class Anon_Cms_Theme_View
         foreach ($pathParts as $part) {
             $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
             if ($foundDir === null) {
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    error_log('[Anon Theme components] 组件子目录未找到: componentPath=' . $componentPath . ', part=' . $part . ', componentDir=' . $componentDir);
+                }
                 return;
             }
             $componentDir = $foundDir;
@@ -1527,6 +1542,9 @@ class Anon_Cms_Theme_View
 
         $componentFile = Anon_Cms::findFileCaseInsensitive($componentDir, $componentName);
         if ($componentFile === null) {
+            if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                error_log('[Anon Theme components] 组件文件未找到: componentPath=' . $componentPath . ', componentName=' . $componentName . ', componentDir=' . $componentDir);
+            }
             return;
         }
 
@@ -1929,18 +1947,26 @@ class Anon_Cms_Theme_View
 
 /**
  * 选项代理类
- * 提供链式调用 Anon_Cms_Options 的方法
+ * 在主题中通过 $this->options()->get() 读取设置，同名字段主题选项优先于系统 options
  */
 class Anon_Cms_Theme_OptionsProxy
 {
     /**
      * 获取选项值
+     * 若当前主题选项中存在该键则返回主题值，否则返回系统 options 中的值
      * @param string $name 选项名称
      * @param mixed $default 默认值
      * @return mixed
      */
     public function get(string $name, $default = null)
     {
+        $themeName = Anon_Cms_Theme::getCurrentTheme();
+        if ($themeName !== '') {
+            $themeAll = Anon_Theme_Options::all($themeName);
+            if (array_key_exists($name, $themeAll)) {
+                return $themeAll[$name];
+            }
+        }
         return Anon_Cms_Options::get($name, $default);
     }
 
