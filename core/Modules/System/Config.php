@@ -26,11 +26,11 @@ class Anon_System_Config
     public static function addRoute(string $path, callable $handler, array $meta = [])
     {
         $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
-        
+
         if (isset(self::$routerConfig['routes'][$normalized])) {
             $existingHandler = self::$routerConfig['routes'][$normalized];
             $conflictInfo = self::detectRouteConflict($normalized, $handler, $existingHandler);
-            
+
             if ($conflictInfo['conflict']) {
                 $message = "路由冲突: {$normalized}";
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -39,9 +39,9 @@ class Anon_System_Config
                 throw new RuntimeException($message);
             }
         }
-        
+
         self::$routerConfig['routes'][$normalized] = $handler;
-        
+
         if (!empty($meta)) {
             $defaultMeta = [
                 'header' => true,
@@ -52,14 +52,14 @@ class Anon_System_Config
                     'time' => 0,
                 ],
             ];
-            
+
             $allowedKeys = ['header', 'requireLogin', 'requireAdmin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
             $meta = array_intersect_key($meta, array_flip($allowedKeys));
-            
+
             if (isset($meta['cache']) && is_array($meta['cache'])) {
                 $cacheAllowedKeys = ['enabled', 'time'];
                 $meta['cache'] = array_intersect_key($meta['cache'], array_flip($cacheAllowedKeys));
-                
+
                 if (isset($meta['cache']['enabled']) && !is_bool($meta['cache']['enabled'])) {
                     unset($meta['cache']['enabled']);
                 }
@@ -67,11 +67,11 @@ class Anon_System_Config
                     unset($meta['cache']['time']);
                 }
             }
-            
+
             self::$routerConfig['route_meta'][$normalized] = array_merge($defaultMeta, $meta);
         }
     }
-    
+
     /**
      * 获取路由元数据
      * @param string $path 路由路径
@@ -109,25 +109,25 @@ class Anon_System_Config
             'requireLogin' => false
         ];
         $meta = array_merge($defaultMeta, $meta);
-        
-        self::addRoute($route, function() use ($filePath, $mimeType, $cacheTime, $compress) {
+
+        self::addRoute($route, function () use ($filePath, $mimeType, $cacheTime, $compress) {
             $actualFilePath = is_callable($filePath) ? $filePath() : $filePath;
             $actualMimeType = is_callable($mimeType) ? $mimeType() : $mimeType;
-            
+
             if (!$actualFilePath || !is_file($actualFilePath) || !is_readable($actualFilePath)) {
                 http_response_code(404);
                 exit;
             }
-            
+
             header('Content-Type: ' . $actualMimeType);
             header('Content-Length: ' . filesize($actualFilePath));
-            
+
             // 检测是否有 nocache 参数，如果有则不缓存
             $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
-            
+
             // 检测是否有 ver 参数，ver 参数作为版本标识，不同版本视为不同资源
             $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
-            
+
             if ($hasNoCacheParam) {
                 // 有 nocache 参数，强制不缓存
                 header('Cache-Control: no-cache, no-store, must-revalidate');
@@ -148,7 +148,7 @@ class Anon_System_Config
                 header('Pragma: no-cache');
                 header('Expires: 0');
             }
-            
+
             if ($compress && extension_loaded('zlib')) {
                 $compressibleTypes = ['text/html', 'text/css', 'text/javascript', 'application/javascript', 'application/json', 'text/xml', 'application/xml'];
                 if (in_array($actualMimeType, $compressibleTypes)) {
@@ -163,7 +163,7 @@ class Anon_System_Config
                     }
                 }
             }
-            
+
             readfile($actualFilePath);
             exit;
         }, $meta);
@@ -213,39 +213,39 @@ class Anon_System_Config
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registering system routes...");
         }
-        
-        self::addRoute('/anon/common/license', function() {
+
+        self::addRoute('/anon/common/license', function () {
             Anon_Common::Header();
             Anon_Http_Response::success(Anon_Common::LICENSE_TEXT(), '获取许可证信息成功');
         });
-        self::addRoute('/anon/common/system', function() {
+        self::addRoute('/anon/common/system', function () {
             Anon_Common::Header();
             Anon_Http_Response::success(Anon_Common::SystemInfo(), '获取系统信息成功');
         });
-        self::addRoute('/anon/common/client-ip', function() {
+        self::addRoute('/anon/common/client-ip', function () {
             Anon_Common::Header();
             $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
             Anon_Http_Response::success(['ip' => $ip], '获取客户端IP成功');
         });
-        self::addRoute('/anon/ciallo', function() {
+        self::addRoute('/anon/ciallo', function () {
             Anon_Common::Header();
             Anon_Http_Response::success(Anon_Common::Ciallo(), '恰喽~');
         });
 
         $staticDir = __DIR__ . '/../../Static/';
-        
+
         $debugCacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
         $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
 
         if (Anon_System_Env::get('app.mode') === 'cms') {
-            self::addRoute('/anon/cms/api-prefix', function() {
+            self::addRoute('/anon/cms/api-prefix', function () {
                 Anon_Common::Header();
                 $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
                 Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API 前缀成功');
             });
             self::addRoute('/anon/cms/comments', [Anon_Cms::class, 'handleCommentsRequest'], ['method' => 'GET,POST', 'token' => false]);
-            self::addRoute('/admin', function() {
+            self::addRoute('/admin', function () {
                 Anon_Common::Header(200, false, false);
                 header('Content-Type: text/html; charset=utf-8');
                 try {
@@ -278,7 +278,7 @@ class Anon_System_Config
         self::addRoute('/anon/install/api/back', [Anon_System_Install::class, 'apiBack']);
         self::addRoute('/anon/install/api/install', [Anon_System_Install::class, 'apiInstall']);
         self::addRoute('/anon/install/api/confirm-overwrite', [Anon_System_Install::class, 'apiConfirmOverwrite']);
-        self::addRoute('/anon', function() {
+        self::addRoute('/anon', function () {
             if (self::isInstalled()) {
                 Anon_Common::Header(403);
                 echo json_encode([
@@ -290,7 +290,7 @@ class Anon_System_Config
                 Anon_System_Install::index();
             }
         });
-        
+
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered system routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
         }
@@ -312,10 +312,10 @@ class Anon_System_Config
             self::addRoute('/anon/debug/api/errors', [Anon_Debug::class, 'errors']);
             self::addRoute('/anon/debug/api/hooks', [Anon_Debug::class, 'hooks']);
             self::addRoute('/anon/debug/api/tools', [Anon_Debug::class, 'tools']);
+            self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
+            self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
+            self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
         }
-        self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
-        self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
-        self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
 
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             error_log("Registered app routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
@@ -334,22 +334,22 @@ class Anon_System_Config
         if ($newHandler === $existingHandler) {
             return ['conflict' => false, 'details' => ''];
         }
-        
+
         $newReflection = self::getCallableReflection($newHandler);
         $existingReflection = self::getCallableReflection($existingHandler);
-        
+
         if ($newReflection && $existingReflection) {
             $newInfo = $newReflection['file'] . ':' . $newReflection['line'];
             $existingInfo = $existingReflection['file'] . ':' . $existingReflection['line'];
-            
+
             if ($newInfo === $existingInfo) {
                 return ['conflict' => false, 'details' => ''];
             }
         }
-        
+
         $newInfo = self::formatHandlerInfo($newHandler);
         $existingInfo = self::formatHandlerInfo($existingHandler);
-        
+
         return [
             'conflict' => true,
             'details' => "新处理函数: {$newInfo}, 已存在: {$existingInfo}"
@@ -386,7 +386,7 @@ class Anon_System_Config
         } catch (Exception $e) {
             // 忽略
         }
-        
+
         return null;
     }
 
@@ -405,7 +405,7 @@ class Anon_System_Config
         } elseif ($handler instanceof Closure) {
             return "closure";
         }
-        
+
         return "unknown";
     }
 
@@ -417,26 +417,26 @@ class Anon_System_Config
     {
         $routes = [];
         $conflicts = [];
-        
+
         foreach (self::$routerConfig['routes'] as $path => $handler) {
             $handlerInfo = self::formatHandlerInfo($handler);
             $reflection = self::getCallableReflection($handler);
-            
+
             $routeInfo = [
                 'path' => $path,
                 'handler' => $handlerInfo,
                 'meta' => self::$routerConfig['route_meta'][$path] ?? [],
                 'conflict' => false
             ];
-            
+
             if ($reflection) {
                 $routeInfo['file'] = $reflection['file'];
                 $routeInfo['line'] = $reflection['line'];
             }
-            
+
             $routes[] = $routeInfo;
         }
-        
+
         $pathCounts = [];
         foreach (self::$routerConfig['routes'] as $path => $handler) {
             if (!isset($pathCounts[$path])) {
@@ -444,7 +444,7 @@ class Anon_System_Config
             }
             $pathCounts[$path][] = $handler;
         }
-        
+
         foreach ($pathCounts as $path => $handlers) {
             if (count($handlers) > 1) {
                 $conflicts[$path] = count($handlers);
@@ -455,7 +455,7 @@ class Anon_System_Config
                 }
             }
         }
-        
+
         return [
             'routes' => $routes,
             'conflicts' => $conflicts,
