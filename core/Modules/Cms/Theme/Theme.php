@@ -151,11 +151,11 @@ class Anon_Cms_Theme
         if (!defined('ANON_ALLOWED_ACCESS')) {
             define('ANON_ALLOWED_ACCESS', true);
         }
-        
+
         // 创建辅助对象，提供 $this 上下文
         $helper = new Anon_Cms_Theme_Setup_Helper($themeName);
         $raw = $helper->loadSetupFile($setupFile);
-        
+
         if (!is_array($raw)) {
             return [];
         }
@@ -202,12 +202,12 @@ class Anon_Cms_Theme
         if (!defined('ANON_ALLOWED_ACCESS')) {
             define('ANON_ALLOWED_ACCESS', true);
         }
-        
+
         // 创建辅助对象，提供 $this 上下文
         $name = $themeName !== null && $themeName !== '' ? $themeName : basename($themeDirResolved);
         $helper = new Anon_Cms_Theme_Setup_Helper($name);
         $schema = $helper->loadSetupFile($setupFile);
-        
+
         if (!is_array($schema)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 error_log('[Theme] loadThemeSetupFile: setup.php did not return array, got: ' . gettype($schema));
@@ -340,6 +340,15 @@ class Anon_Cms_Theme
 
             if (!self::$assetsRegistered) {
                 self::registerAssets();
+            }
+
+            // 将路由参数设置到全局变量，供 PageMeta 使用（必须在 startPageLoad 之前设置）
+            if (!empty($data)) {
+                foreach (['uid', 'name', 'id', 'slug'] as $key) {
+                    if (isset($data[$key])) {
+                        $GLOBALS[$key] = $data[$key];
+                    }
+                }
             }
 
             Anon_Cms::startPageLoad();

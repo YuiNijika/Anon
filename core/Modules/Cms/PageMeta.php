@@ -8,7 +8,7 @@ class Anon_Cms_PageMeta
      * @var array
      */
     private static $metaCache = [];
-    
+
     /**
      * URL缓存
      * @var string|null
@@ -78,6 +78,18 @@ class Anon_Cms_PageMeta
                         'description' => self::extractDescription($postData['content'] ?? ''),
                         'keywords' => self::getPostKeywords($postData['id'] ?? 0),
                     ] : self::getIndexMeta();
+                } elseif ($pageType === 'user' || $pageType === 'author') {
+                    $userData = self::getUserData();
+                    if ($userData) {
+                        $displayName = !empty($userData['display_name']) ? trim($userData['display_name']) : (!empty($userData['name']) ? trim($userData['name']) : '');
+                        $meta = [
+                            'title' => $displayName ?: '用户',
+                            'description' => !empty($userData['description']) ? trim($userData['description']) : null,
+                            'keywords' => null,
+                        ];
+                    } else {
+                        $meta = self::getIndexMeta();
+                    }
                 } else {
                     $meta = self::getIndexMeta();
                 }
@@ -256,6 +268,21 @@ class Anon_Cms_PageMeta
         if ($varName === 'slug' && $last !== '' && !is_numeric($last)) {
             return $last;
         }
+        // 支持从路由参数中提取 uid 和 name
+        if ($varName === 'uid' && is_numeric($last)) {
+            // 检查路径是否匹配用户路由模式
+            $pathLower = strtolower($path);
+            if (strpos($pathLower, '/user/') !== false || strpos($pathLower, '/author/') !== false) {
+                return (int)$last;
+            }
+        }
+        if ($varName === 'name' && $last !== '' && !is_numeric($last)) {
+            // 检查路径是否匹配用户路由模式
+            $pathLower = strtolower($path);
+            if (strpos($pathLower, '/user/') !== false || strpos($pathLower, '/author/') !== false) {
+                return $last;
+            }
+        }
         return null;
     }
 
@@ -274,6 +301,23 @@ class Anon_Cms_PageMeta
         if ($type === 'page') {
             $slug = self::getScopeVariable('slug');
             return $slug ? ($db->db('posts')->where('slug', $slug)->where('type', 'page')->where('status', 'publish')->first() ?: null) : null;
+        }
+        return null;
+    }
+
+    /**
+     * 获取用户数据
+     * @return array|null
+     */
+    private static function getUserData(): ?array
+    {
+        $uid = self::getScopeVariable('uid');
+        $name = self::getScopeVariable('name');
+        if ($uid !== null && $uid > 0) {
+            return Anon_Cms::getUserByUid((int) $uid);
+        }
+        if (is_string($name) && $name !== '') {
+            return Anon_Cms::getUserByName($name);
         }
         return null;
     }
@@ -314,52 +358,52 @@ class Anon_Cms_PageMeta
         if ($postId <= 0) {
             return [];
         }
-        
+
         try {
             $db = Anon_Database::getInstance();
             $keywords = [];
             $categories = [];
             $tags = [];
-            
+
             // 获取已发布的文章信息
             $post = $db->db('posts')
                 ->where('id', $postId)
                 ->where('status', 'publish')
                 ->first(['category_id', 'tag_ids']);
-            
+
             if (!$post) {
                 return [];
             }
-            
+
             // 获取分类信息
             if (!empty($post['category_id'])) {
                 $category = $db->db('metas')
                     ->where('id', (int)$post['category_id'])
                     ->where('type', 'category')
                     ->first(['name']);
-                
+
                 if ($category && !empty($category['name'])) {
                     $categories[] = trim($category['name']);
                 }
             }
-            
+
             // 获取标签信息
             if (!empty($post['tag_ids'])) {
                 $tagIds = json_decode($post['tag_ids'], true);
-                
+
                 if (is_array($tagIds) && !empty($tagIds)) {
                     // 过滤有效的标签ID
-                    $validTagIds = array_filter($tagIds, function($id) {
+                    $validTagIds = array_filter($tagIds, function ($id) {
                         return is_numeric($id) && $id > 0;
                     });
-                    
+
                     if (!empty($validTagIds)) {
                         $tagRows = $db->db('metas')
                             ->whereIn('id', $validTagIds)
                             ->where('type', 'tag')
                             ->orderBy('name', 'asc')
                             ->get(['name']);
-                        
+
                         foreach ($tagRows as $tag) {
                             if (!empty($tag['name'])) {
                                 $tags[] = trim($tag['name']);
@@ -368,13 +412,13 @@ class Anon_Cms_PageMeta
                     }
                 }
             }
-            
+
             // 组合关键词，分类优先
             $keywords = array_merge($categories, $tags);
-            
+
             // 去重并保持顺序
             $keywords = array_values(array_unique($keywords));
-            
+
             // 记录调试信息
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
                 Anon_Debug::info('文章关键词获取成功', [
@@ -386,9 +430,8 @@ class Anon_Cms_PageMeta
                     'keywords' => $keywords
                 ]);
             }
-            
+
             return $keywords;
-            
         } catch (Exception $e) {
             // 记录错误日志
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {

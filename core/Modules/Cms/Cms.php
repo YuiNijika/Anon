@@ -25,7 +25,7 @@ class Anon_Cms
     {
         $templateNameLower = strtolower($templateName);
         $fileName = pathinfo(basename($templateNameLower), PATHINFO_FILENAME);
-        $specialTypes = ['index', 'post', 'page', 'error'];
+        $specialTypes = ['index', 'post', 'page', 'error', 'user', 'author'];
 
         if (in_array($fileName, $specialTypes)) {
             return $fileName;
