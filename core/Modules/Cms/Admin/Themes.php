@@ -7,7 +7,37 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_Cms_Admin_Themes
 {
     /**
+     * 从主题目录的 package.json 读取版本号
+     * @param string $themePath 主题目录绝对路径
+     * @return string
+     */
+    private static function getThemeVersionFromDir(string $themePath): string
+    {
+        $items = @scandir($themePath);
+        if (!is_array($items)) {
+            return '';
+        }
+        foreach ($items as $item) {
+            if (strtolower($item) === 'package.json') {
+                $file = $themePath . DIRECTORY_SEPARATOR . $item;
+                if (is_file($file)) {
+                    $json = @file_get_contents($file);
+                    if ($json !== false) {
+                        $data = json_decode($json, true);
+                        if (is_array($data) && isset($data['version'])) {
+                            return trim((string) $data['version']);
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        return '';
+    }
+
+    /**
      * 上传主题
+     * 若同名主题已存在，根据 package.json 版本比较返回需确认或直接覆盖（POST overwrite=1）
      * @return void
      */
     public static function upload()
@@ -21,6 +51,7 @@ class Anon_Cms_Admin_Themes
             $file = $_FILES['file'];
             $fileName = $file['name'];
             $tmpPath = $file['tmp_name'];
+            $overwrite = !empty($_POST['overwrite']);
 
             if (!preg_match('/\.(zip)$/i', $fileName)) {
                 Anon_Http_Response::error('只支持 ZIP 格式的主题包', 400);
@@ -67,28 +98,38 @@ class Anon_Cms_Admin_Themes
                 }
             }
 
-            $targetDir = null;
-            if ($themeName) {
-                $targetDir = $themeDir . $themeName;
-                if (is_dir($targetDir)) {
+            $sourcePath = $themeName ? ($extractDir . '/' . $themeName) : null;
+            if (!$themeName) {
+                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+                $themeName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('theme_' . uniqid());
+            }
+
+            $targetDir = $themeDir . $themeName;
+            if (is_dir($targetDir)) {
+                $existingVersion = self::getThemeVersionFromDir($targetDir);
+                $newVersion = $sourcePath ? self::getThemeVersionFromDir($sourcePath) : '';
+                if (!$overwrite) {
                     self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('主题已存在', 400);
+                    Anon_Http_Response::success([
+                        'needConfirm' => true,
+                        'name' => $themeName,
+                        'existingVersion' => $existingVersion,
+                        'newVersion' => $newVersion,
+                        'upgrade' => version_compare($newVersion, $existingVersion, '>'),
+                    ], '主题已存在，请确认是否覆盖');
                     return;
                 }
-                if (!rename($extractDir . '/' . $themeName, $targetDir)) {
+                self::deleteDirectory($targetDir);
+            }
+
+            $targetDir = $themeDir . $themeName;
+            if ($sourcePath && is_dir($sourcePath)) {
+                if (!rename($sourcePath, $targetDir)) {
                     self::deleteDirectory($extractDir);
                     Anon_Http_Response::error('移动主题文件失败', 500);
                     return;
                 }
             } else {
-                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
-                $themeName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('theme_' . uniqid());
-                $targetDir = $themeDir . $themeName;
-                if (is_dir($targetDir)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('主题已存在', 400);
-                    return;
-                }
                 if (!mkdir($targetDir, 0755, true)) {
                     self::deleteDirectory($extractDir);
                     Anon_Http_Response::error('无法创建主题目录', 500);
@@ -165,7 +206,7 @@ class Anon_Cms_Admin_Themes
         try {
             $currentTheme = Anon_Cms_Options::get('theme', 'default');
             $allThemes = Anon_Cms_Theme::getAllThemes();
-            
+
             Anon_Http_Response::success([
                 'current' => $currentTheme,
                 'themes' => $allThemes,
@@ -183,18 +224,18 @@ class Anon_Cms_Admin_Themes
     {
         try {
             $data = Anon_Http_Request::getInput();
-            
+
             if (empty($data) || !isset($data['theme'])) {
                 Anon_Http_Response::error('主题名称不能为空', 400);
                 return;
             }
-            
+
             $themeName = trim($data['theme']);
             if (empty($themeName)) {
                 Anon_Http_Response::error('主题名称不能为空', 400);
                 return;
             }
-            
+
             $allThemes = Anon_Cms_Theme::getAllThemes();
             $themeExists = false;
             foreach ($allThemes as $theme) {
@@ -203,12 +244,12 @@ class Anon_Cms_Admin_Themes
                     break;
                 }
             }
-            
+
             if (!$themeExists) {
                 Anon_Http_Response::error('主题不存在', 400);
                 return;
             }
-            
+
             Anon_Cms_Options::set('theme', $themeName);
             Anon_Cms_Theme::ensureThemeOptionsLoaded($themeName);
             Anon_Cms_Options::clearCache();
@@ -278,6 +319,7 @@ class Anon_Cms_Admin_Themes
     {
         try {
             $data = Anon_Http_Request::getInput();
+            
             if (!is_array($data)) {
                 $data = [];
             }
@@ -287,8 +329,9 @@ class Anon_Cms_Admin_Themes
             $storageKey = 'theme:' . strtolower($canonicalTheme);
 
             $schema = Anon_Cms_Theme::getSchemaFromSetupFile($canonicalTheme);
+            
             if (empty($schema)) {
-                Anon_Http_Response::error('当前主题无设置定义(setup.php)', 400);
+                Anon_Http_Response::error('当前主题无设置定义(setup.php)，主题名: ' . $canonicalTheme, null, 400);
                 return;
             }
 
@@ -342,8 +385,30 @@ class Anon_Cms_Admin_Themes
                 $ok = $db->db('options')->insert(['name' => $storageKey, 'value' => $valueStr]);
             }
 
-            if (!$ok) {
-                Anon_Http_Response::error('写入数据库失败', 500);
+            if ($ok === false) {
+                // 获取详细的数据库错误信息
+                $dbError = 'Unknown';
+                if (method_exists($db, 'error')) {
+                    $dbError = $db->error();
+                }
+                if (method_exists($db, 'getLastError')) {
+                    $dbError = $db->getLastError();
+                }
+                
+                $debugInfo = [
+                    'storageKey' => $storageKey,
+                    'operation' => ($row && isset($row['name'])) ? 'update' : 'insert',
+                    'valueLength' => strlen($valueStr),
+                    'dbError' => $dbError,
+                ];
+                
+                Anon_Http_Response::error(
+                    '写入数据库失败 - 操作: ' . $debugInfo['operation'] . 
+                    ', Key: ' . $debugInfo['storageKey'] . 
+                    ', 错误: ' . (is_string($dbError) ? $dbError : json_encode($dbError)),
+                    $debugInfo,
+                    500
+                );
                 return;
             }
             Anon_Cms_Options::clearCache();
@@ -365,7 +430,7 @@ class Anon_Cms_Admin_Themes
     {
         $screenshotCache = null;
         $nullSvgPath = __DIR__ . '/../../../Static/img/null.svg';
-        
+
         /**
          * 获取主题截图文件路径
          * @return string|null 文件路径，失败返回 null
@@ -374,9 +439,9 @@ class Anon_Cms_Admin_Themes
             if ($screenshotCache !== null) {
                 return $screenshotCache;
             }
-            
+
             $themeName = $_GET['themeName'] ?? '';
-            
+
             if (empty($themeName)) {
                 $requestPath = $_SERVER['REQUEST_URI'] ?? '';
                 $requestPath = preg_replace('#/+#', '/', $requestPath);
@@ -384,9 +449,9 @@ class Anon_Cms_Admin_Themes
                     $themeName = $matches[1];
                 }
             }
-            
+
             $themeName = trim($themeName, '/ ');
-            
+
             if (empty($themeName)) {
                 $requestPath = $_SERVER['REQUEST_URI'] ?? '';
                 $requestPath = preg_replace('#/+#', '/', $requestPath);
@@ -396,20 +461,20 @@ class Anon_Cms_Admin_Themes
                     $themeName = $parts[$themeIndex + 1];
                 }
             }
-            
+
             if (empty($themeName)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $themesDir = Anon_Main::APP_DIR . 'Theme/';
             $themePath = Anon_Cms::findDirectoryCaseInsensitive($themesDir, $themeName);
-            
+
             if ($themePath === null || !is_dir($themePath)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $infoFile = null;
             $themeItems = Anon_Cms::scanDirectory($themePath);
             if ($themeItems !== null) {
@@ -420,50 +485,50 @@ class Anon_Cms_Admin_Themes
                     }
                 }
             }
-            
+
             if (!$infoFile || !file_exists($infoFile)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $jsonContent = file_get_contents($infoFile);
             if ($jsonContent === false) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $decoded = json_decode($jsonContent, true);
             if (!is_array($decoded)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $themeInfo = $decoded;
             if (isset($decoded['anon']) && is_array($decoded['anon'])) {
                 $themeInfo = array_merge($decoded, $decoded['anon']);
             }
-            
+
             if (empty($themeInfo['screenshot'])) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $screenshotFileName = $themeInfo['screenshot'];
             $screenshotFile = $themePath . DIRECTORY_SEPARATOR . $screenshotFileName;
-            
+
             if (!file_exists($screenshotFile)) {
                 $screenshotFile = Anon_Cms::findFileCaseInsensitive($themePath, pathinfo($screenshotFileName, PATHINFO_FILENAME), ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
             }
-            
+
             if (!$screenshotFile || !file_exists($screenshotFile) || !is_readable($screenshotFile)) {
                 $screenshotCache = $nullSvgPath;
                 return $nullSvgPath;
             }
-            
+
             $screenshotCache = $screenshotFile;
             return $screenshotFile;
         };
-        
+
         /**
          * 获取主题截图文件的 MIME 类型
          * @return string MIME 类型
@@ -473,7 +538,7 @@ class Anon_Cms_Admin_Themes
             if (!$screenshotFile) {
                 return 'image/svg+xml';
             }
-            
+
             $ext = strtolower(pathinfo($screenshotFile, PATHINFO_EXTENSION));
             $mimeTypes = [
                 'png' => 'image/png',
@@ -485,7 +550,7 @@ class Anon_Cms_Admin_Themes
             ];
             return $mimeTypes[$ext] ?? 'image/svg+xml';
         };
-        
+
         Anon_System_Config::addStaticRoute(
             '/anon/static/cms/theme/{themeName}/screenshot',
             $getScreenshotFile,
@@ -540,4 +605,3 @@ class Anon_Cms_Admin_Themes
         rmdir($dir);
     }
 }
-

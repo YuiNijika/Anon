@@ -55,9 +55,9 @@ class Anon
                 // 检查是否是严重错误
                 $errorMessage = $e->getMessage();
                 $isFatal = strpos($errorMessage, 'Call to undefined') !== false ||
-                          strpos($errorMessage, 'not found') !== false ||
-                          strpos($errorMessage, 'Class') !== false;
-                
+                    strpos($errorMessage, 'not found') !== false ||
+                    strpos($errorMessage, 'Class') !== false;
+
                 if ($isFatal && class_exists('Anon_Cms_Theme_FatalError')) {
                     Anon_Cms_Theme_FatalError::render(
                         $errorMessage,
@@ -73,7 +73,7 @@ class Anon
             }
             exit;
         }
-        
+
         // 默认回退到 API 响应
         Anon_Http_Response::error($message, $data, $httpCode);
     }
@@ -414,14 +414,15 @@ class Anon
         Anon_Debug::error($message, $context);
     }
 
-    
+
     /**
      * 获取数据库查询构建器
+     * @param string $table 表名
      * @return Anon_QueryBuilder
      */
-    public static function db()
+    public static function db(string $table)
     {
-        return Anon_Database::db();
+        return Anon_Database::getInstance()->db($table);
     }
 
     /**
@@ -433,4 +434,3 @@ class Anon
         return Anon_Common::GetClientIp();
     }
 }
-

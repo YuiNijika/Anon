@@ -13,6 +13,7 @@ class Anon_Cms_AccessLog
         '/anon/static',
         '/assets',
         '/static',
+        '/.well-known',
         '/favicon.ico',
         '/robots.txt',
     ];

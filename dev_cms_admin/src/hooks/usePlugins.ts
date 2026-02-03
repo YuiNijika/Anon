@@ -28,14 +28,18 @@ export function usePlugins() {
     }
   }, [apiAdmin])
 
-  const uploadPlugin = useCallback(async (file: File) => {
+  const uploadPlugin = useCallback(async (file: File, overwrite = false) => {
     try {
       setLoading(true)
-      const response = await AdminApi.uploadPlugin(apiAdmin, file)
+      const response = await AdminApi.uploadPlugin(apiAdmin, file, overwrite)
       if (response.code === 200) {
+        const data = response.data
+        if (data?.needConfirm) {
+          return data
+        }
         toast.success('上传成功')
         await loadPlugins()
-        return response.data
+        return data
       } else {
         toast.error(response.message || '上传失败')
         return null

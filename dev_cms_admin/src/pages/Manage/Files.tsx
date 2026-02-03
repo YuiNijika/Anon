@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAttachments } from '@/hooks'
+import { Lightbox } from '@/components/ui/lightbox'
 import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
@@ -55,6 +56,8 @@ export default function ManageFiles() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadFileList, setUploadFileList] = useState<UploadFileItem[]>([])
   const [sort, setSort] = useState<'new' | 'old'>('new')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -212,11 +215,20 @@ export default function ManageFiles() {
                     <TableRow key={row.id}>
                       <TableCell>
                         {row.mime_type?.startsWith('image/') ? (
-                          <img
-                            src={buildPublicUrl(row.url)}
-                            alt={row.name}
-                            className="h-14 w-14 rounded object-cover"
-                          />
+                          <button
+                            type="button"
+                            className="cursor-zoom-in rounded outline-none ring-offset-2 hover:ring-2 hover:ring-primary/50"
+                            onClick={() => {
+                              setLightboxSrc(buildPublicUrl(row.url))
+                              setLightboxOpen(true)
+                            }}
+                          >
+                            <img
+                              src={buildPublicUrl(row.url)}
+                              alt={row.name}
+                              className="h-14 w-14 rounded object-cover"
+                            />
+                          </button>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -310,6 +322,12 @@ export default function ManageFiles() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Lightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        src={lightboxSrc}
+      />
     </div>
   )
 }

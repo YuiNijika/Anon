@@ -34,10 +34,10 @@ class Anon_Cms_Theme
                 'ttf' => 'font/ttf',
                 'eot' => 'application/vnd.ms-fontobject',
             ];
-            
+
             self::$mimeTypesCache = Anon_System_Hook::apply_filters('cms_theme_mime_types', $defaultMimeTypes);
         }
-        
+
         return self::$mimeTypesCache;
     }
 
@@ -63,10 +63,10 @@ class Anon_Cms_Theme
                 'ttf' => 'fonts',
                 'eot' => 'fonts',
             ];
-            
+
             self::$typeDirsCache = Anon_System_Hook::apply_filters('cms_theme_type_dirs', $defaultTypeDirs);
         }
-        
+
         return self::$typeDirsCache;
     }
 
@@ -83,20 +83,20 @@ class Anon_Cms_Theme
             if (self::$initialized && self::$themeDir !== null) {
                 return;
             }
-            
+
             if ($themeName === null) {
                 $themeName = Anon_System_Env::get('app.cms.theme', 'default');
             }
-            
+
             $actualThemeDir = self::findThemeDirectory($themeName);
             if ($actualThemeDir === null) {
                 throw new RuntimeException("主题目录未找到: {$themeName}");
             }
-            
+
             self::$currentTheme = basename($actualThemeDir);
             self::$themeDir = $actualThemeDir;
             self::$initialized = true;
-            
+
             self::loadThemeCode();
         } catch (Error $e) {
             self::handleFatalError($e);
@@ -151,7 +151,11 @@ class Anon_Cms_Theme
         if (!defined('ANON_ALLOWED_ACCESS')) {
             define('ANON_ALLOWED_ACCESS', true);
         }
-        $raw = include $setupFile;
+        
+        // 创建辅助对象，提供 $this 上下文
+        $helper = new Anon_Cms_Theme_Setup_Helper($themeName);
+        $raw = $helper->loadSetupFile($setupFile);
+        
         if (!is_array($raw)) {
             return [];
         }
@@ -198,14 +202,18 @@ class Anon_Cms_Theme
         if (!defined('ANON_ALLOWED_ACCESS')) {
             define('ANON_ALLOWED_ACCESS', true);
         }
-        $schema = include $setupFile;
+        
+        // 创建辅助对象，提供 $this 上下文
+        $name = $themeName !== null && $themeName !== '' ? $themeName : basename($themeDirResolved);
+        $helper = new Anon_Cms_Theme_Setup_Helper($name);
+        $schema = $helper->loadSetupFile($setupFile);
+        
         if (!is_array($schema)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 error_log('[Theme] loadThemeSetupFile: setup.php did not return array, got: ' . gettype($schema));
             }
             return;
         }
-        $name = $themeName !== null && $themeName !== '' ? $themeName : basename($themeDirResolved);
         Anon_Theme_Options::registerFromSchema($schema, strtolower($name));
         Anon_Cms_Options::clearCache();
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -263,16 +271,16 @@ class Anon_Cms_Theme
             return;
         }
         $keyName = strtolower(basename(rtrim($themeDir, '/\\')));
-        
+
         // 检查 options 表中是否存在该主题的值
         // 使用一个特殊对象作为默认值来判断是否存在
         $missing = new stdClass();
         $val = Anon_Cms_Options::get("theme:{$keyName}", $missing);
-        
+
         if ($val !== $missing) {
             return;
         }
-        
+
         self::loadThemeSetupFile($themeDir, $keyName);
     }
 
@@ -307,12 +315,13 @@ class Anon_Cms_Theme
             return self::$themeDir;
         } catch (Error $e) {
             self::handleFatalError($e);
+            return '';
         } catch (Throwable $e) {
             if (self::isFatalError($e)) {
                 self::handleFatalError($e);
-            } else {
-                throw $e;
+                return '';
             }
+            throw $e;
         }
     }
 
@@ -328,22 +337,32 @@ class Anon_Cms_Theme
             if (!self::$initialized) {
                 self::init();
             }
-            
+
             if (!self::$assetsRegistered) {
                 self::registerAssets();
             }
-            
+
             Anon_Cms::startPageLoad();
 
+            if (strtolower($templateName) === 'user') {
+                $resolved = self::resolveUserTemplate();
+                if ($resolved === null) {
+                    http_response_code(404);
+                    self::render('error', ['code' => 404, 'message' => '页面不存在']);
+                    exit;
+                }
+                $templateName = $resolved;
+            }
+
             $templatePath = self::findTemplate($templateName);
-            
+
             if ($templatePath === null) {
                 $pageType = Anon_Cms::getPageType($templateName);
                 if ($pageType !== 'index' && in_array($pageType, ['post', 'page', 'error'])) {
                     $templatePath = self::findTemplate('index');
                 }
             }
-            
+
             if ($templatePath === null) {
                 throw new RuntimeException("模板文件未找到: {$templateName}");
             }
@@ -391,6 +410,21 @@ class Anon_Cms_Theme
     }
 
     /**
+     * 解析用户页模板，有 user 或 author 模板则返回对应名，否则返回 null
+     * @return string|null user、author 或 null
+     */
+    public static function resolveUserTemplate(): ?string
+    {
+        if (self::findTemplate('user') !== null) {
+            return 'user';
+        }
+        if (self::findTemplate('author') !== null) {
+            return 'author';
+        }
+        return null;
+    }
+
+    /**
      * 查找模板文件
      * @param string $templateName 模板名
      * @return string|null
@@ -398,18 +432,18 @@ class Anon_Cms_Theme
     public static function findTemplate(string $templateName): ?string
     {
         $cacheKey = self::$currentTheme . ':' . strtolower($templateName);
-        
+
         if (isset(self::$templateCache[$cacheKey])) {
             return self::$templateCache[$cacheKey];
         }
 
         $themeDir = self::getThemeDir();
         $templatePath = Anon_Cms::findFileCaseInsensitive($themeDir, $templateName);
-        
+
         if ($templatePath !== null) {
             self::$templateCache[$cacheKey] = $templatePath;
         }
-        
+
         return $templatePath;
     }
 
@@ -423,43 +457,43 @@ class Anon_Cms_Theme
     public static function assets(string $path, $forceNoCacheOrType = null, array $attributes = []): string
     {
         $path = ltrim($path, '/');
-        
+
         $forceNoCache = false;
         $type = null;
-        
+
         if (is_bool($forceNoCacheOrType)) {
             $forceNoCache = $forceNoCacheOrType;
         } elseif (is_string($forceNoCacheOrType)) {
             $type = $forceNoCacheOrType;
         }
-        
+
         if (!self::$assetsRegistered) {
             self::registerAssets();
         }
-        
+
         $themeDir = self::getThemeDir();
         $assetsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'assets');
-        
+
         if ($assetsDir === null) {
             return '';
         }
-        
+
         $filePath = $assetsDir . DIRECTORY_SEPARATOR . $path;
         $fileExt = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        
+
         if ($type === null) {
             $type = self::detectAssetType($fileExt);
         }
-        
+
         $typeDirs = self::getTypeDirs();
         $typeDir = $typeDirs[$fileExt] ?? 'files';
-        
+
         $fileName = pathinfo($path, PATHINFO_FILENAME);
         $url = '/assets/' . $typeDir . '/' . $fileName;
-        
+
         $mimeTypes = self::getMimeTypes();
         $mimeType = $mimeTypes[$fileExt] ?? 'application/octet-stream';
-        
+
         // 缓存参数
         $cacheParam = self::getAssetCacheParam();
         if ($forceNoCache) {
@@ -484,7 +518,7 @@ class Anon_Cms_Theme
             }
             return '';
         }
-        
+
         if ($type === 'favicon' || $type === 'icon') {
             $rel = $type === 'favicon' ? 'icon' : 'icon';
             echo '<link rel="' . $rel . '" href="' . htmlspecialchars($urlWithCache) . '" type="' . htmlspecialchars($mimeType) . '">' . "\n";
@@ -499,6 +533,38 @@ class Anon_Cms_Theme
     }
 
     /**
+     * 仅返回主题资源 URL，不输出标签，供 theme()->themeUrl() 等调用
+     * @param string $path 资源相对路径，如 style.css、js/main.js
+     * @param bool $forceNoCache 是否追加禁缓存参数
+     * @return string 绝对路径 URL，无站点前缀；资源不存在或未注册时返回空字符串
+     */
+    public static function getAssetUrl(string $path, bool $forceNoCache = false): string
+    {
+        $path = ltrim($path, '/');
+        if ($path === '') {
+            return '';
+        }
+        if (!self::$assetsRegistered) {
+            self::registerAssets();
+        }
+        $themeDir = self::getThemeDir();
+        $assetsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'assets');
+        if ($assetsDir === null) {
+            return '';
+        }
+        $fileExt = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $typeDirs = self::getTypeDirs();
+        $typeDir = $typeDirs[$fileExt] ?? 'files';
+        $fileName = pathinfo($path, PATHINFO_FILENAME);
+        $url = '/assets/' . $typeDir . '/' . $fileName;
+        $cacheParam = self::getAssetCacheParam();
+        if ($forceNoCache) {
+            $cacheParam = ($cacheParam === '' ? '?' : $cacheParam . '&') . 'nocache=1';
+        }
+        return $url . $cacheParam;
+    }
+
+    /**
      * 根据文件后缀检测资源类型
      * @param string $ext 文件后缀
      * @return string|null
@@ -506,7 +572,7 @@ class Anon_Cms_Theme
     private static function detectAssetType(string $ext): ?string
     {
         $ext = strtolower($ext);
-        
+
         $typeMap = [
             'css' => 'css',
             'js' => 'js',
@@ -517,7 +583,7 @@ class Anon_Cms_Theme
             'gif' => 'icon',
             'svg' => 'icon',
         ];
-        
+
         return $typeMap[$ext] ?? null;
     }
 
@@ -580,19 +646,19 @@ class Anon_Cms_Theme
             if (self::$assetsRegistered) {
                 return;
             }
-            
+
             if (self::$themeDir === null) {
                 self::init();
             }
-            
+
             $themeDir = self::getThemeDir();
             $assetsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'assets');
-            
+
             if ($assetsDir === null) {
                 self::$assetsRegistered = true;
                 return;
             }
-            
+
             self::scanAssetsDirectory($assetsDir, '');
             self::$assetsRegistered = true;
         } catch (Error $e) {
@@ -618,33 +684,33 @@ class Anon_Cms_Theme
         if ($items === null) {
             return;
         }
-        
+
         $typeDirs = self::getTypeDirs();
         $mimeTypes = self::getMimeTypes();
-        
+
         foreach ($items as $item) {
             $itemPath = $dir . DIRECTORY_SEPARATOR . $item;
-            
+
             if (Anon_Cms::isDir($itemPath)) {
                 self::scanAssetsDirectory($itemPath, $prefix . '/' . $item);
                 continue;
             }
-            
+
             if (!Anon_Cms::isFile($itemPath)) {
                 continue;
             }
-            
+
             $ext = strtolower(pathinfo($item, PATHINFO_EXTENSION));
             $typeDir = $typeDirs[$ext] ?? 'files';
             $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
-            
+
             $fileName = pathinfo($item, PATHINFO_FILENAME);
             $urlPath = '/assets/' . $typeDir . '/' . $fileName;
-            
+
             if (!empty($prefix)) {
                 $urlPath = '/assets/' . $typeDir . $prefix . '/' . $fileName;
             }
-            
+
             Anon_System_Config::addStaticRoute(
                 $urlPath,
                 $itemPath,
@@ -672,17 +738,17 @@ class Anon_Cms_Theme
     {
         $themeDir = self::getThemeDir();
         $partialsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'partials');
-        
+
         if ($partialsDir === null) {
             throw new RuntimeException("模板片段目录未找到: partials");
         }
-        
+
         $partialPath = Anon_Cms::findFileCaseInsensitive($partialsDir, $partialName);
-        
+
         if ($partialPath === null) {
             throw new RuntimeException("模板片段未找到: {$partialName}");
         }
-        
+
         extract($data, EXTR_SKIP);
         include $partialPath;
     }
@@ -697,10 +763,10 @@ class Anon_Cms_Theme
     {
         try {
             $componentPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $componentPath);
-            
+
             $themeDir = self::getThemeDir();
             $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
-            
+
             if ($componentsDir === null) {
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
                     error_log('[Anon Theme components] 静态调用: 组件目录未找到: themeDir=' . $themeDir . ', 查找 app/components');
@@ -708,11 +774,11 @@ class Anon_Cms_Theme
                 self::outputComponentError("组件目录未找到: app/components");
                 return;
             }
-            
+
             $pathParts = explode(DIRECTORY_SEPARATOR, $componentPath);
             $componentName = array_pop($pathParts);
             $componentDir = $componentsDir;
-            
+
             foreach ($pathParts as $part) {
                 $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
                 if ($foundDir === null) {
@@ -724,15 +790,15 @@ class Anon_Cms_Theme
                 }
                 $componentDir = $foundDir;
             }
-            
+
             $componentFile = Anon_Cms::findFileCaseInsensitive($componentDir, $componentName);
-            
+
             if ($componentFile !== null) {
                 extract($data, EXTR_SKIP);
                 include $componentFile;
                 return;
             }
-            
+
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 error_log('[Anon Theme components] 静态调用: 组件文件未找到: componentPath=' . $componentPath . ', componentName=' . $componentName . ', componentDir=' . $componentDir);
             }
@@ -758,7 +824,7 @@ class Anon_Cms_Theme
     public static function title(?string $title = null, string $separator = ' - ', bool $reverse = false): void
     {
         $siteTitle = Anon_Cms_Options::get('title', '');
-        
+
         if ($title === null) {
             $title = $siteTitle;
         } else {
@@ -768,7 +834,7 @@ class Anon_Cms_Theme
                 $title = $title . $separator . $siteTitle;
             }
         }
-        
+
         echo '<title>' . htmlspecialchars($title) . '</title>' . "\n";
     }
 
@@ -790,35 +856,35 @@ class Anon_Cms_Theme
         $charset = $options['charset'] ?? 'UTF-8';
         $viewport = $options['viewport'] ?? 'width=device-width, initial-scale=1.0';
         $lang = $options['lang'] ?? 'zh-CN';
-        
+
         echo '<meta charset="' . htmlspecialchars($charset) . '">' . "\n";
         echo '<meta name="viewport" content="' . htmlspecialchars($viewport) . '">' . "\n";
-        
+
         self::title($title);
-        
+
         if (!empty($description)) {
             echo '<meta name="description" content="' . htmlspecialchars($description) . '">' . "\n";
         }
-        
+
         if (!empty($keywords)) {
             if (is_array($keywords)) {
                 $keywords = implode(', ', $keywords);
             }
             echo '<meta name="keywords" content="' . htmlspecialchars($keywords) . '">' . "\n";
         }
-        
+
         if (!empty($author)) {
             echo '<meta name="author" content="' . htmlspecialchars($author) . '">' . "\n";
         }
-        
+
         if (!empty($robots)) {
             echo '<meta name="robots" content="' . htmlspecialchars($robots) . '">' . "\n";
         }
-        
+
         if (!empty($canonical)) {
             echo '<link rel="canonical" href="' . htmlspecialchars($canonical) . '">' . "\n";
         }
-        
+
         if (!empty($og)) {
             foreach ($og as $key => $value) {
                 if (!empty($value)) {
@@ -826,7 +892,7 @@ class Anon_Cms_Theme
                 }
             }
         }
-        
+
         if (!empty($twitter)) {
             foreach ($twitter as $key => $value) {
                 if (!empty($value)) {
@@ -849,13 +915,13 @@ class Anon_Cms_Theme
         echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n";
         try {
             $seo = Anon_Cms_PageMeta::getSeo($overrides);
-            
+
             if (!empty($seo['title'])) {
                 echo '<title>' . htmlspecialchars($seo['title']) . '</title>' . "\n";
             } else {
                 self::title();
             }
-            
+
             self::meta($seo);
         } catch (Error $e) {
             self::handleFatalError($e);
@@ -878,7 +944,7 @@ class Anon_Cms_Theme
         if (isset($meta['description']) && !empty($meta['description'])) {
             echo '<meta name="description" content="' . htmlspecialchars($meta['description']) . '">' . "\n";
         }
-        
+
         if (isset($meta['keywords']) && !empty($meta['keywords'])) {
             $keywords = $meta['keywords'];
             if (is_array($keywords)) {
@@ -886,19 +952,19 @@ class Anon_Cms_Theme
             }
             echo '<meta name="keywords" content="' . htmlspecialchars($keywords) . '">' . "\n";
         }
-        
+
         if (isset($meta['author']) && !empty($meta['author'])) {
             echo '<meta name="author" content="' . htmlspecialchars($meta['author']) . '">' . "\n";
         }
-        
+
         if (isset($meta['robots']) && !empty($meta['robots'])) {
             echo '<meta name="robots" content="' . htmlspecialchars($meta['robots']) . '">' . "\n";
         }
-        
+
         if (isset($meta['canonical']) && !empty($meta['canonical'])) {
             echo '<link rel="canonical" href="' . htmlspecialchars($meta['canonical']) . '">' . "\n";
         }
-        
+
         if (isset($meta['og']) && is_array($meta['og']) && !empty($meta['og'])) {
             foreach ($meta['og'] as $key => $value) {
                 if (!empty($value)) {
@@ -906,7 +972,7 @@ class Anon_Cms_Theme
                 }
             }
         }
-        
+
         if (isset($meta['twitter']) && is_array($meta['twitter']) && !empty($meta['twitter'])) {
             foreach ($meta['twitter'] as $key => $value) {
                 if (!empty($value)) {
@@ -927,13 +993,13 @@ class Anon_Cms_Theme
         if (is_string($styles)) {
             $styles = [$styles];
         }
-        
+
         foreach ($styles as $style) {
             $url = self::assets($style, 'css', $attributes);
             if (empty($url)) {
                 continue;
             }
-            
+
             $rel = $attributes['rel'] ?? 'stylesheet';
             $media = isset($attributes['media']) ? ' media="' . htmlspecialchars($attributes['media']) . '"' : '';
             echo '<link rel="' . htmlspecialchars($rel) . '" href="' . htmlspecialchars($url) . '"' . $media . '>' . "\n";
@@ -951,13 +1017,13 @@ class Anon_Cms_Theme
         if (is_string($scripts)) {
             $scripts = [$scripts];
         }
-        
+
         foreach ($scripts as $script) {
             $url = self::assets($script, 'js', $attributes);
             if (empty($url)) {
                 continue;
             }
-            
+
             $defer = isset($attributes['defer']) ? ' defer' : '';
             $async = isset($attributes['async']) ? ' async' : '';
             echo '<script src="' . htmlspecialchars($url) . '"' . $defer . $async . '></script>' . "\n";
@@ -987,12 +1053,13 @@ class Anon_Cms_Theme
             return self::$currentTheme;
         } catch (Error $e) {
             self::handleFatalError($e);
+            return '';
         } catch (Throwable $e) {
             if (self::isFatalError($e)) {
                 self::handleFatalError($e);
-            } else {
-                throw $e;
+                return '';
             }
+            throw $e;
         }
     }
 
@@ -1005,27 +1072,27 @@ class Anon_Cms_Theme
         if (self::$allThemesCache !== null) {
             return self::$allThemesCache;
         }
-        
+
         $themesDir = Anon_Main::APP_DIR . 'Theme/';
         $themes = [];
-        
+
         if (!Anon_Cms::isDir($themesDir)) {
             self::$allThemesCache = $themes;
             return $themes;
         }
-        
+
         $items = Anon_Cms::scanDirectory($themesDir);
         if ($items === null) {
             self::$allThemesCache = $themes;
             return $themes;
         }
-        
+
         foreach ($items as $item) {
             $themePath = $themesDir . $item;
             if (!Anon_Cms::isDir($themePath)) {
                 continue;
             }
-            
+
             $infoFile = null;
             $themeItems = Anon_Cms::scanDirectory($themePath);
             if ($themeItems !== null) {
@@ -1051,7 +1118,7 @@ class Anon_Cms_Theme
                     }
                 }
             }
-            
+
             $screenshot = '';
             if (!empty($themeInfo['screenshot'])) {
                 $screenshotFile = $themePath . DIRECTORY_SEPARATOR . $themeInfo['screenshot'];
@@ -1059,7 +1126,7 @@ class Anon_Cms_Theme
                     $screenshot = '/anon/static/cms/theme/' . $item . '/screenshot';
                 }
             }
-            
+
             $themes[] = [
                 'name' => $item,
                 'displayName' => $themeInfo['displayName'] ?? ($themeInfo['name'] ?? $item),
@@ -1070,7 +1137,7 @@ class Anon_Cms_Theme
                 'screenshot' => $screenshot,
             ];
         }
-        
+
         self::$allThemesCache = $themes;
         return $themes;
     }
@@ -1085,13 +1152,13 @@ class Anon_Cms_Theme
         if (!self::$initialized) {
             self::init();
         }
-        
+
         $cacheKey = self::$currentTheme;
-        
+
         if (!isset(self::$themeInfoCache[$cacheKey])) {
             $themeDir = self::getThemeDir();
             $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package', ['json', 'php', 'html', 'htm']);
-            
+
             $themeInfo = [];
             if ($infoFile !== null && Anon_Cms::fileExists($infoFile)) {
                 $jsonContent = file_get_contents($infoFile);
@@ -1106,16 +1173,16 @@ class Anon_Cms_Theme
                     }
                 }
             }
-            
+
             self::$themeInfoCache[$cacheKey] = $themeInfo;
         }
-        
+
         $themeInfo = self::$themeInfoCache[$cacheKey];
-        
+
         if ($key === null) {
             return $themeInfo;
         }
-        
+
         return $themeInfo[$key] ?? null;
     }
 
@@ -1197,13 +1264,13 @@ class Anon_Cms_Theme
     {
         $themeName = self::getCurrentTheme();
         $optionName = "theme:{$themeName}";
-        
+
         // 获取当前主题设置
         $settings = Anon_Cms_Options::get($optionName, []);
         if (!is_array($settings)) {
             $settings = [];
         }
-        
+
         // 合并默认参数
         $defaultArgs = [
             'type' => 'text',
@@ -1213,14 +1280,14 @@ class Anon_Cms_Theme
             'sanitize_callback' => null,
             'validate_callback' => null,
         ];
-        
+
         $args = array_merge($defaultArgs, $args);
-        
+
         // 如果设置项不存在，使用默认值
         if (!isset($settings[$key])) {
             $settings[$key] = $args['default'];
         }
-        
+
         // 保存设置项定义
         $registeredSettings = Anon_Cms_Options::get("theme:{$themeName}:settings", []);
         if (!is_array($registeredSettings)) {
@@ -1228,7 +1295,7 @@ class Anon_Cms_Theme
         }
         $registeredSettings[$key] = $args;
         Anon_Cms_Options::set("theme:{$themeName}:settings", $registeredSettings);
-        
+
         // 保存设置值
         Anon_Cms_Options::set($optionName, $settings);
     }
@@ -1243,12 +1310,12 @@ class Anon_Cms_Theme
     {
         $themeName = self::getCurrentTheme();
         $optionName = "theme:{$themeName}";
-        
+
         $settings = Anon_Cms_Options::get($optionName, []);
         if (!is_array($settings)) {
             return $default;
         }
-        
+
         return $settings[$key] ?? $default;
     }
 
@@ -1262,17 +1329,17 @@ class Anon_Cms_Theme
     {
         $themeName = self::getCurrentTheme();
         $optionName = "theme:{$themeName}";
-        
+
         $settings = Anon_Cms_Options::get($optionName, []);
         if (!is_array($settings)) {
             $settings = [];
         }
-        
+
         // 获取设置项定义进行验证
         $registeredSettings = Anon_Cms_Options::get("theme:{$themeName}:settings", []);
         if (isset($registeredSettings[$key])) {
             $settingDef = $registeredSettings[$key];
-            
+
             // 执行验证回调
             if (isset($settingDef['validate_callback']) && is_callable($settingDef['validate_callback'])) {
                 $valid = call_user_func($settingDef['validate_callback'], $value);
@@ -1280,13 +1347,13 @@ class Anon_Cms_Theme
                     return false;
                 }
             }
-            
+
             // 执行清理回调
             if (isset($settingDef['sanitize_callback']) && is_callable($settingDef['sanitize_callback'])) {
                 $value = call_user_func($settingDef['sanitize_callback'], $value);
             }
         }
-        
+
         $settings[$key] = $value;
         return Anon_Cms_Options::set($optionName, $settings);
     }
@@ -1299,7 +1366,7 @@ class Anon_Cms_Theme
     {
         $themeName = self::getCurrentTheme();
         $optionName = "theme:{$themeName}";
-        
+
         $settings = Anon_Cms_Options::get($optionName, []);
         return is_array($settings) ? $settings : [];
     }
@@ -1329,14 +1396,14 @@ class Anon_Cms_Theme
             'ArgumentCountError',
             'FatalError',
         ];
-        
+
         $className = get_class($e);
         foreach ($fatalErrors as $fatalError) {
             if ($className === $fatalError || strpos($className, $fatalError) !== false) {
                 return true;
             }
         }
-        
+
         $message = $e->getMessage();
         $fatalPatterns = [
             'Call to undefined method',
@@ -1345,13 +1412,13 @@ class Anon_Cms_Theme
             'Undefined class constant',
             'Undefined property',
         ];
-        
+
         foreach ($fatalPatterns as $pattern) {
             if (preg_match('/' . $pattern . '/i', $message)) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -1388,7 +1455,7 @@ class Anon_Cms_Theme
     private static function outputComponentError(string $message): void
     {
         $showDetails = defined('ANON_DEBUG') && ANON_DEBUG;
-        
+
         echo '<div style="';
         echo 'background: #fff3cd;';
         echo 'border: 1px solid #ffc107;';
@@ -1413,7 +1480,6 @@ class Anon_Cms_Theme
         }
         echo '</div>';
     }
-
 }
 
 /**
@@ -1426,7 +1492,7 @@ class Anon_Cms_Theme_View
      * @var array 模板数据
      */
     private $data = [];
-    
+
     /**
      * @var array 已渲染的组件路径
      */
@@ -1572,12 +1638,74 @@ class Anon_Cms_Theme_View
 
     /**
      * 输出页面头部 meta
-     * @param array $overrides
+     * @param array $overrides 覆盖项
      * @return void
      */
     public function headMeta(array $overrides = []): void
     {
         Anon_Cms_Theme::headMeta($overrides);
+    }
+
+    /**
+     * 输出 HTML 头部，同 headMeta，类似 Typecho header()
+     * @param array $overrides 覆盖项
+     * @return void
+     */
+    public function header(array $overrides = []): void
+    {
+        Anon_Cms_Theme::headMeta($overrides);
+    }
+
+    /**
+     * 当前归档标题：有文章/页面时为其标题，否则为站点标题，类似 Typecho archiveTitle
+     * @return string
+     */
+    public function archiveTitle(): string
+    {
+        $p = $this->post();
+        if ($p !== null) {
+            return $p->title();
+        }
+        $p = $this->page();
+        if ($p !== null) {
+            return $p->title();
+        }
+        return (string) $this->options()->get('title', '', false);
+    }
+
+    /**
+     * 输出或返回关键词，类似 Typecho keywords
+     * @param string $separator 多个关键词分隔符
+     * @param string $default 默认值
+     * @param bool $output true 直接输出，false 仅返回
+     * @return string
+     */
+    public function keywords(string $separator = ',', string $default = '', bool $output = true): string
+    {
+        $kw = $this->options()->get('keywords', $default, false);
+        if (is_array($kw)) {
+            $kw = implode($separator, $kw);
+        }
+        $kw = (string) $kw;
+        if ($output && $kw !== '') {
+            echo $this->escape($kw);
+        }
+        return $kw;
+    }
+
+    /**
+     * 输出或返回站点描述，类似 Typecho description
+     * @param string $default 默认值
+     * @param bool $output true 直接输出，false 仅返回
+     * @return string
+     */
+    public function description(string $default = '', bool $output = true): string
+    {
+        $desc = (string) $this->options()->get('description', $default, false);
+        if ($output && $desc !== '') {
+            echo $this->escape($desc);
+        }
+        return $desc;
     }
 
     /**
@@ -1672,7 +1800,7 @@ class Anon_Cms_Theme_View
 
         // 分页逻辑
         $pageSize = max(1, min(100, $pageSize));
-        
+
         // 获取当前页码
         if ($page === null) {
             $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -1716,7 +1844,7 @@ class Anon_Cms_Theme_View
             'posts' => $result,
             'paginator' => $this->paginator,
         ];
-        
+
         return $result;
     }
 
@@ -1765,13 +1893,100 @@ class Anon_Cms_Theme_View
         return $result;
     }
 
-    /**
-     * 获取选项代理，主题内默认优先级 theme > plugin > system，可传参指定优先级或输出方式
-     * @return Anon_Cms_Options_Proxy
-     */
+    public function isLoggedIn(): bool
+    {
+        return Anon_Check::isLoggedIn();
+    }
+
+    public function getCommentDisplayName(): string
+    {
+        return Anon_Cms::getCurrentUserDisplayName();
+    }
+
+    public function getPostComments(int $postId): array
+    {
+        return Anon_Cms::getCommentsByPostId($postId);
+    }
+
+    public function getCommentsByPostId(int $postId): array
+    {
+        return Anon_Cms::getCommentsByPostId($postId);
+    }
+
+    public function getPostIfExists(?int $id = null): ?array
+    {
+        return Anon_Cms::getPostIfExists($id);
+    }
+
+    public function getPageIfExists(?string $slug = null): ?array
+    {
+        return Anon_Cms::getPageIfExists($slug);
+    }
+
+    public function getPageType(string $templateName): string
+    {
+        return Anon_Cms::getPageType($templateName);
+    }
+
+    public function getTemplateExtensions(): array
+    {
+        return Anon_Cms::getTemplateExtensions();
+    }
+
+    public function getPageLoadTime(): float
+    {
+        return Anon_Cms::getPageLoadTime();
+    }
+
+    public function findDirectoryCaseInsensitive(string $baseDir, string $dirName): ?string
+    {
+        return Anon_Cms::findDirectoryCaseInsensitive($baseDir, $dirName);
+    }
+
+    public function findFileCaseInsensitive(string $baseDir, string $fileName, ?array $extensions = null): ?string
+    {
+        return Anon_Cms::findFileCaseInsensitive($baseDir, $fileName, $extensions);
+    }
+
     public function options(): Anon_Cms_Options_Proxy
     {
         return new Anon_Cms_Options_Proxy('theme', null, Anon_Cms_Theme::getCurrentTheme());
+    }
+
+    /**
+     * 当前登录用户对象，未登录为 null
+     * @return Anon_Cms_User|null
+     */
+    public function user(): ?Anon_Cms_User
+    {
+        $user = Anon_Cms::getCurrentUser();
+        return $user !== null ? new Anon_Cms_User($user) : null;
+    }
+
+    /**
+     * 用户页当前被访问的用户对象，由路由 uid 或 name 解析，不存在为 null
+     * @return Anon_Cms_User|null
+     */
+    public function profileUser(): ?Anon_Cms_User
+    {
+        $uid = $this->get('uid');
+        $name = $this->get('name');
+        $user = null;
+        if ($uid !== null && $uid !== '') {
+            $user = Anon_Cms::getUserByUid((int) $uid);
+        } elseif (is_string($name) && $name !== '') {
+            $user = Anon_Cms::getUserByName($name);
+        }
+        return $user !== null ? new Anon_Cms_User($user) : null;
+    }
+
+    /**
+     * 主题辅助对象，仅读当前主题名与主题选项
+     * @return Anon_Cms_Theme_Helper
+     */
+    public function theme(): Anon_Cms_Theme_Helper
+    {
+        return new Anon_Cms_Theme_Helper(Anon_Cms_Theme::getCurrentTheme());
     }
 
     /**
@@ -1808,7 +2023,7 @@ class Anon_Cms_Theme_View
         // 获取路由配置
         $routesValue = Anon_Cms_Options::get('routes', '');
         $routes = [];
-        
+
         if (is_array($routesValue)) {
             $routes = $routesValue;
         } elseif (is_string($routesValue) && !empty($routesValue)) {
@@ -1820,7 +2035,7 @@ class Anon_Cms_Theme_View
 
         // 根据类型查找对应的路由模板
         $routePattern = null;
-        
+
         // 优先查找精确匹配的路由
         foreach ($routes as $pattern => $template) {
             // 检查模板是否匹配当前类型
@@ -1829,14 +2044,14 @@ class Anon_Cms_Theme_View
                 break;
             }
         }
-        
+
         // 如果没有找到，尝试使用类型映射
         if ($routePattern === null) {
             $typeMapping = [
                 'post' => 'post',
                 'page' => 'page',
             ];
-            
+
             $templateName = $typeMapping[$type] ?? null;
             if ($templateName !== null) {
                 foreach ($routes as $pattern => $template) {
@@ -1861,19 +2076,19 @@ class Anon_Cms_Theme_View
 
         // 替换路由参数
         $url = $routePattern;
-        
+
         // 替换 {id}（文章/页面 ID）
         if (strpos($url, '{id}') !== false) {
             $id = $post->id();
             $url = str_replace('{id}', $id, $url);
         }
-        
+
         // 替换 {slug}（文章/页面 slug）
         if (strpos($url, '{slug}') !== false) {
             $slug = $post->slug();
             $url = str_replace('{slug}', urlencode($slug), $url);
         }
-        
+
         // 替换 {category}（分类 slug，需要从分类中获取）
         if (strpos($url, '{category}') !== false) {
             $categoryId = $post->categoryId();
@@ -1885,7 +2100,7 @@ class Anon_Cms_Theme_View
                 $url = str_replace('{category}', '', $url);
             }
         }
-        
+
         // 替换 {directory}（多级分类，暂时使用分类 slug）
         if (strpos($url, '{directory}') !== false) {
             $categoryId = $post->categoryId();
@@ -1896,7 +2111,7 @@ class Anon_Cms_Theme_View
                 $url = str_replace('{directory}', '', $url);
             }
         }
-        
+
         // 替换日期相关参数
         $date = $post->date('Y-m-d');
         if (!empty($date)) {
@@ -1905,13 +2120,13 @@ class Anon_Cms_Theme_View
                 $year = $dateParts[0];
                 $month = $dateParts[1];
                 $day = $dateParts[2];
-                
+
                 $url = str_replace('{year}', $year, $url);
                 $url = str_replace('{month}', $month, $url);
                 $url = str_replace('{day}', $day, $url);
             }
         }
-        
+
 
         // 确保 URL 以 / 开头
         if (strpos($url, '/') !== 0) {
@@ -1919,6 +2134,21 @@ class Anon_Cms_Theme_View
         }
 
         return self::getSiteBaseUrl() . $url;
+    }
+
+    /**
+     * 站点根 URL，带参数时拼接相对路径
+     * @param string $suffix 相对路径，如 /about、/post/1
+     * @return string
+     */
+    public function siteUrl(string $suffix = ''): string
+    {
+        $base = self::getSiteBaseUrl();
+        if ($suffix === '') {
+            return $base;
+        }
+        $suffix = '/' . ltrim($suffix, '/');
+        return $base . $suffix;
     }
 
     /**
@@ -1944,7 +2174,6 @@ class Anon_Cms_Theme_View
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
         return $scheme . '://' . $host;
     }
-
 }
 
 /**
@@ -2183,24 +2412,24 @@ class Anon_Cms_Paginator
         $parsedUrl = parse_url($currentUrl);
         $path = $parsedUrl['path'] ?? '/';
         $query = [];
-        
+
         if (isset($parsedUrl['query'])) {
             parse_str($parsedUrl['query'], $query);
         }
-        
+
         // 更新页码
         if ($page <= 1) {
             unset($query['page']);
         } else {
             $query['page'] = $page;
         }
-        
+
         // 构建 URL
         $url = $path;
         if (!empty($query)) {
             $url .= '?' . http_build_query($query);
         }
-        
+
         return $url;
     }
 
@@ -2214,11 +2443,11 @@ class Anon_Cms_Paginator
         $pages = [];
         $start = max(1, $this->currentPage - $range);
         $end = min($this->totalPages, $this->currentPage + $range);
-        
+
         for ($i = $start; $i <= $end; $i++) {
             $pages[] = $i;
         }
-        
+
         return $pages;
     }
 }
@@ -2283,10 +2512,10 @@ class Anon_Cms_Post
 
         // 移除 HTML 标签
         $text = strip_tags($content);
-        
+
         // 移除 Markdown 标记
         $text = preg_replace('/<!--markdown-->/', '', $text);
-        
+
         // 移除 Markdown 语法符号
         $text = preg_replace('/```[\s\S]*?```/u', ' ', $text);
         $text = preg_replace('/`[^`]*`/u', ' ', $text);
@@ -2294,16 +2523,16 @@ class Anon_Cms_Post
         $text = preg_replace('/\[[^\]]*\]\([^)]+\)/u', ' ', $text);
         $text = preg_replace('/(^|\s)#+\s+/u', ' ', $text);
         $text = preg_replace('/[*_~>#-]{1,3}/u', ' ', $text);
-        
+
         // 清理多余空白
         $text = preg_replace('/\s+/u', ' ', $text);
         $text = trim($text);
-        
+
         // 截取指定长度
         if (mb_strlen($text, 'UTF-8') <= $length) {
             return $text;
         }
-        
+
         return mb_substr($text, 0, $length, 'UTF-8') . '...';
     }
 
@@ -2415,3 +2644,80 @@ class Anon_Cms_Post
     }
 }
 
+/**
+ * Setup 文件辅助类
+ * 为 app/setup.php 提供 $this 上下文，支持调用 siteUrl() 等方法
+ */
+class Anon_Cms_Theme_Setup_Helper
+{
+    /**
+     * @var string 主题名
+     */
+    private $themeName;
+
+    /**
+     * @param string $themeName 主题名
+     */
+    public function __construct(string $themeName)
+    {
+        $this->themeName = $themeName;
+    }
+
+    /**
+     * 加载 setup.php 文件
+     * @param string $setupFile setup.php 文件路径
+     * @return mixed
+     */
+    public function loadSetupFile(string $setupFile)
+    {
+        return include $setupFile;
+    }
+
+    /**
+     * 获取站点 URL
+     * @param string $suffix 相对路径
+     * @return string
+     */
+    public function siteUrl(string $suffix = ''): string
+    {
+        $base = Anon_Cms_Theme_View::getSiteBaseUrl();
+        if ($suffix === '') {
+            return $base;
+        }
+        $suffix = '/' . ltrim($suffix, '/');
+        return $base . $suffix;
+    }
+
+    /**
+     * 获取主题 URL
+     * @param string $path 资源路径
+     * @return string
+     */
+    public function themeUrl(string $path = ''): string
+    {
+        $base = Anon_Cms_Theme_View::getSiteBaseUrl();
+        if ($path === '') {
+            return rtrim($base, '/');
+        }
+        $url = Anon_Cms_Theme::getAssetUrl($path);
+        return $url !== '' ? $base . $url : rtrim($base, '/') . '/assets/files/' . ltrim($path, '/');
+    }
+
+    /**
+     * 获取选项代理对象
+     * @return Anon_Cms_Options_Proxy
+     */
+    public function options(): Anon_Cms_Options_Proxy
+    {
+        return new Anon_Cms_Options_Proxy('theme', null, $this->themeName);
+    }
+
+    /**
+     * 获取主题辅助对象
+     * @return Anon_Cms_Theme_Helper
+     */
+    public function theme(): Anon_Cms_Theme_Helper
+    {
+        return new Anon_Cms_Theme_Helper($this->themeName);
+    }
+}

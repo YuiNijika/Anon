@@ -19,6 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { OptionField } from '@/components/OptionField'
+import { Lightbox } from '@/components/ui/lightbox'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
+const DISPLAY_ONLY_TYPES = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'] as const
 
 const nullSvgUrl = `${getApiBaseUrl()}/anon/static/img/null`
 
@@ -43,6 +56,16 @@ export default function SettingsTheme() {
   const [currentTheme, setCurrentTheme] = useState<string>('')
   const [themes, setThemes] = useState<ThemeInfo[]>([])
   const [activeTab, setActiveTab] = useState('list')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState('')
+  const [overwriteDialog, setOverwriteDialog] = useState<{
+    open: boolean
+    name: string
+    existingVersion: string
+    newVersion: string
+    upgrade: boolean
+    pendingFile: File | null
+  }>({ open: false, name: '', existingVersion: '', newVersion: '', upgrade: false, pendingFile: null })
   const fetchingRef = useRef(false)
   const themeListFetchingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -129,9 +152,30 @@ export default function SettingsTheme() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentTheme) return
+    const allKeys = Object.keys(schema).flatMap((tab) => Object.keys(schema[tab] || {}))
+    const schemaMap = new Map<string, ThemeOptionSchema>()
+    Object.values(schema).forEach((tab) => {
+      Object.entries(tab || {}).forEach(([k, v]) => schemaMap.set(k, v))
+    })
+    const valuesToSave: Record<string, any> = {}
+    allKeys.forEach((key) => {
+      const option = schemaMap.get(key)
+      if (!option || DISPLAY_ONLY_TYPES.includes(option.type as any)) return
+
+      if (option.type === 'text_list') {
+        const raw = formValues[key]
+        const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+        valuesToSave[key] = list
+          .map((item) => String(item).trim())
+          .filter((item) => item !== '')
+        return
+      }
+
+      if (formValues[key] !== undefined) valuesToSave[key] = formValues[key]
+    })
     try {
       setLoading(true)
-      await AdminApi.updateThemeOptions(apiAdmin, { theme: currentTheme, values: formValues })
+      await AdminApi.updateThemeOptions(apiAdmin, { theme: currentTheme, values: valuesToSave })
       toast.success('主题设置已保存')
     } catch (err) {
       toast.error(getErrorMessage(err, '保存主题设置失败'))
@@ -144,142 +188,15 @@ export default function SettingsTheme() {
     setFormValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const renderThemeField = (key: string, option: ThemeOptionSchema) => {
-    const { type, label, description, options: selectOptions, default: defaultValue } = option
-    const value = formValues[key]
-
-    switch (type) {
-      case 'text':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Input
-              id={key}
-              value={value ?? ''}
-              onChange={(e) => setFieldValue(key, e.target.value)}
-              placeholder={defaultValue}
-              className="w-full"
-            />
-          </div>
-        )
-      case 'textarea':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <textarea
-              id={key}
-              rows={4}
-              value={value ?? ''}
-              onChange={(e) => setFieldValue(key, e.target.value)}
-              placeholder={defaultValue}
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-        )
-      case 'select':
-        return (
-          <div key={key} className="space-y-2">
-            <Label className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Select
-              value={value ?? ''}
-              onValueChange={(v) => setFieldValue(key, v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="请选择" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(selectOptions || {}).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )
-      case 'checkbox':
-        return (
-          <div key={key} className="flex items-center justify-between space-x-2">
-            <Label htmlFor={key} className="text-sm flex-1">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Switch
-              id={key}
-              checked={!!value}
-              onCheckedChange={(checked) => setFieldValue(key, checked)}
-            />
-          </div>
-        )
-      case 'number':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Input
-              id={key}
-              type="number"
-              value={value ?? ''}
-              onChange={(e) => {
-                const v = e.target.value
-                setFieldValue(key, v === '' ? undefined : Number(v))
-              }}
-              placeholder={defaultValue}
-              className="w-full"
-            />
-          </div>
-        )
-      case 'color':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id={key}
-                value={typeof value === 'string' && value.startsWith('#') ? value : '#000000'}
-                onChange={(e) => setFieldValue(key, e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded border border-input bg-background p-1"
-              />
-              <Input
-                value={value ?? ''}
-                onChange={(e) => setFieldValue(key, e.target.value)}
-                placeholder="#000000"
-                className="flex-1 font-mono text-sm"
-              />
-            </div>
-          </div>
-        )
-      default:
-        return null
-    }
-  }
+  const renderThemeField = (key: string, option: ThemeOptionSchema) => (
+    <OptionField
+      key={key}
+      name={key}
+      option={option}
+      value={formValues[key]}
+      onChange={(v) => setFieldValue(key, v)}
+    />
+  )
 
   const sortedThemes = [...themes].sort((a, b) => {
     if (a.name === currentTheme) return -1
@@ -316,10 +233,36 @@ export default function SettingsTheme() {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      await uploadTheme(file)
+      const result = await uploadTheme(file)
+      if (result?.needConfirm) {
+        setOverwriteDialog({
+          open: true,
+          name: result.name ?? '',
+          existingVersion: result.existingVersion ?? '',
+          newVersion: result.newVersion ?? '',
+          upgrade: result.upgrade ?? false,
+          pendingFile: file,
+        })
+        return
+      }
       await loadThemeList()
     } finally {
       e.target.value = ''
+    }
+  }
+
+  const handleOverwriteConfirm = async () => {
+    const file = overwriteDialog.pendingFile
+    if (!file) {
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
+      return
+    }
+    try {
+      const result = await uploadTheme(file, true)
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
+      if (result && !result.needConfirm) await loadThemeList()
+    } finally {
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
     }
   }
 
@@ -381,7 +324,14 @@ export default function SettingsTheme() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {sortedThemes.map((theme) => (
                 <Card key={theme.name} className="overflow-hidden">
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  <button
+                    type="button"
+                    className="relative aspect-[4/3] w-full overflow-hidden bg-muted cursor-zoom-in outline-none"
+                    onClick={() => {
+                      setLightboxSrc(getScreenshotUrl(theme))
+                      setLightboxOpen(true)
+                    }}
+                  >
                     <img
                       draggable={false}
                       alt={theme.displayName}
@@ -398,7 +348,7 @@ export default function SettingsTheme() {
                         }
                       }}
                     />
-                  </div>
+                  </button>
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-base">
                       {theme.displayName}
@@ -549,6 +499,32 @@ export default function SettingsTheme() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Lightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        src={lightboxSrc}
+      />
+      <AlertDialog open={overwriteDialog.open} onOpenChange={(open) => !open && setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{overwriteDialog.upgrade ? '更新主题' : '覆盖主题'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {overwriteDialog.upgrade ? (
+                <>发现新版本：已安装 <strong>{overwriteDialog.existingVersion || '—'}</strong>，上传包版本 <strong>{overwriteDialog.newVersion || '—'}</strong>。是否覆盖并更新主题「{overwriteDialog.name}」？</>
+              ) : (
+                <>当前已安装版本 <strong>{overwriteDialog.existingVersion || '—'}</strong>，上传包版本 <strong>{overwriteDialog.newVersion || '—'}</strong> 较低或相同。仍要覆盖主题「{overwriteDialog.name}」吗？</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <Button variant={overwriteDialog.upgrade ? 'default' : 'destructive'} onClick={handleOverwriteConfirm}>
+              确认覆盖
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

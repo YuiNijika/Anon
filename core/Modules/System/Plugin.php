@@ -63,17 +63,17 @@ class Anon_System_Plugin
     public static function isEnabled(): bool
     {
         $appMode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
-        
+
         // CMS 模式
         if ($appMode === 'cms') {
             return true;
         }
-        
+
         // API 模式
         if (Anon_System_Env::isInitialized()) {
             return Anon_System_Env::get('app.plugins.enabled', true);
         }
-        
+
         return true;
     }
 
@@ -94,11 +94,11 @@ class Anon_System_Plugin
         Anon_System_Hook::do_action('plugin_before_scan');
 
         $cachedPlugins = self::loadScanCache($pluginDir);
-        
+
         if ($cachedPlugins !== null) {
             foreach ($cachedPlugins as $pluginData) {
                 $pluginSlug = $pluginData['slug'];
-                
+
                 if (!self::isPluginActive($pluginSlug)) {
                     continue;
                 }
@@ -119,9 +119,9 @@ class Anon_System_Plugin
         } else {
             $scannedPlugins = [];
             $dirs = scandir($pluginDir);
-            
+
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                $pluginDirs = array_filter($dirs, function($dir) {
+                $pluginDirs = array_filter($dirs, function ($dir) {
                     return $dir !== '.' && $dir !== '..';
                 });
                 Anon_Debug::debug("Scanning plugin directory", [
@@ -154,7 +154,7 @@ class Anon_System_Plugin
                 }
 
                 $pluginSlug = self::getPluginSlug($dir, $meta);
-                
+
                 $scannedPlugins[] = [
                     'slug' => $pluginSlug,
                     'dir' => $dir,
@@ -179,7 +179,7 @@ class Anon_System_Plugin
 
                 self::loadPlugin($pluginSlug, $pluginFile, $meta, $dir);
             }
-            
+
             self::saveScanCache($pluginDir, $scannedPlugins);
         }
 
@@ -200,7 +200,7 @@ class Anon_System_Plugin
 
         try {
             $cached = Anon_Cache::get('plugin_scan_list');
-            
+
             if (!is_array($cached) || !isset($cached['plugins']) || !isset($cached['file_count'])) {
                 return null;
             }
@@ -231,7 +231,7 @@ class Anon_System_Plugin
 
         try {
             $fileCount = count(glob($pluginDir . '*/Index.php'));
-            
+
             $cacheData = [
                 'file_count' => $fileCount,
                 'plugins' => $plugins
@@ -249,7 +249,7 @@ class Anon_System_Plugin
     public static function clearScanCache(): void
     {
         Anon_Cache::delete('plugin_scan_list');
-        
+
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             Anon_Debug::info('Plugin scan cache cleared');
         }
@@ -387,27 +387,27 @@ class Anon_System_Plugin
             } elseif (preg_match('/^\s*\*\s*Plugin Name:\s*(.+)$/im', $content, $matches)) {
                 $meta['name'] = trim($matches[1]);
             }
-            
+
             if (preg_match('/^\s*\*\s*Description:\s*(.+)$/im', $content, $matches)) {
                 $meta['description'] = trim($matches[1]);
             } elseif (preg_match('/^\s*\*\s*Plugin Description:\s*(.+)$/im', $content, $matches)) {
                 $meta['description'] = trim($matches[1]);
             }
-            
+
             if (preg_match('/^\s*\*\s*Version:\s*(.+)$/im', $content, $matches)) {
                 $meta['version'] = trim($matches[1]);
             }
-            
+
             if (preg_match('/^\s*\*\s*Author:\s*(.+)$/im', $content, $matches)) {
                 $meta['author'] = trim($matches[1]);
             }
-            
+
             if (preg_match('/^\s*\*\s*URI:\s*(.+)$/im', $content, $matches)) {
                 $meta['url'] = trim($matches[1]);
             } elseif (preg_match('/^\s*\*\s*Plugin URI:\s*(.+)$/im', $content, $matches)) {
                 $meta['url'] = trim($matches[1]);
             }
-            
+
             if (preg_match('/^\s*\*\s*Mode:\s*(.+)$/im', $content, $matches)) {
                 $mode = strtolower(trim($matches[1]));
                 if (in_array($mode, ['api', 'cms', 'auto'], true)) {
@@ -418,14 +418,14 @@ class Anon_System_Plugin
             } else {
                 $meta['mode'] = 'api'; // 默认值
             }
-            
+
             if (empty($meta['name'])) {
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
                     Anon_Debug::warn("Plugin meta missing 'name' field in {$pluginFile}");
                 }
                 return null;
             }
-            
+
             return $meta;
         } catch (Throwable $e) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -445,36 +445,36 @@ class Anon_System_Plugin
         $phpArrayStr = preg_replace('/\/\*.*?\*\//s', '', $phpArrayStr);
         $phpArrayStr = preg_replace('/\/\/.*$/m', '', $phpArrayStr);
         $phpArrayStr = trim($phpArrayStr);
-        
+
         $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
-        
+
         if (preg_match($unsafePattern, $phpArrayStr)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 Anon_Debug::debug("Plugin meta contains unsafe code", ['content' => substr($phpArrayStr, 0, 100)]);
             }
             return null;
         }
-        
+
         if (!preg_match('/\[[\s\S]*\]/', $phpArrayStr)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
                 Anon_Debug::debug("Plugin meta is not a valid array structure", ['content' => substr($phpArrayStr, 0, 200)]);
             }
             return null;
         }
-        
+
         $jsonStr = preg_replace("/(['\"])(.*?)\\1/s", '"$2"', $phpArrayStr);
         $jsonStr = preg_replace('/\s*=>\s*/', ':', $jsonStr);
         $jsonStr = preg_replace('/([a-zA-Z_][a-zA-Z0-9_]*)\s*:/', '"$1":', $jsonStr);
-        
+
         $jsonStr = preg_replace('/\btrue\b/i', 'true', $jsonStr);
         $jsonStr = preg_replace('/\bfalse\b/i', 'false', $jsonStr);
         $jsonStr = preg_replace('/\bnull\b/i', 'null', $jsonStr);
-        
+
         $testDecode = json_decode($jsonStr, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($testDecode)) {
             return json_encode($testDecode, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-        
+
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             Anon_Debug::debug("Plugin meta JSON conversion failed", [
                 'error' => json_last_error_msg(),
@@ -482,7 +482,7 @@ class Anon_System_Plugin
                 'converted' => substr($jsonStr, 0, 200)
             ]);
         }
-        
+
         return null;
     }
 
@@ -493,7 +493,7 @@ class Anon_System_Plugin
     private static function getActivePlugins(): array
     {
         $appMode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
-        
+
         // CMS 模式下从 options 表读取
         if ($appMode === 'cms' && class_exists('Anon_Cms_Options')) {
             $active = Anon_Cms_Options::get('plugins:active', []);
@@ -505,7 +505,7 @@ class Anon_System_Plugin
             }
             return array_map('strtolower', $active);
         }
-        
+
         // API 模式下从 useApp.php 读取
         if (Anon_System_Env::isInitialized()) {
             $active = Anon_System_Env::get('app.plugins.active', []);
@@ -514,7 +514,7 @@ class Anon_System_Plugin
             }
             return array_map('strtolower', $active);
         }
-        
+
         return [];
     }
 
@@ -705,14 +705,14 @@ class Anon_System_Plugin
     private static function findClassCaseInsensitive(string $className): ?string
     {
         $allClasses = get_declared_classes();
-        
+
         $lowerClassName = strtolower($className);
         foreach ($allClasses as $declaredClass) {
             if (strtolower($declaredClass) === $lowerClassName) {
                 return $declaredClass;
             }
         }
-        
+
         return null;
     }
 
@@ -829,7 +829,7 @@ class Anon_System_Plugin
     {
         // 更新激活列表
         self::$activePlugins = self::getActivePlugins();
-        
+
         $pluginDir = self::PLUGIN_DIR;
         $resolvedDir = self::resolvePluginDir($pluginDir, $pluginSlug);
         if ($resolvedDir === null) {
@@ -907,7 +907,8 @@ class Anon_System_Plugin
 }
 
 /**
- * 插件基类，继承后可调用 $this->options()->get()，默认优先级 plugin > theme > system
+ * 插件基类，继承后统一通过 $this 调用：$this->options()、$this->user()、$this->theme()
+ * 默认选项优先级 plugin > theme > system
  */
 abstract class Anon_Plugin_Base
 {
@@ -934,7 +935,7 @@ abstract class Anon_Plugin_Base
     }
 
     /**
-     * 返回选项代理，默认优先级 plugin > theme > system
+     * 选项代理，默认优先级 plugin > theme > system
      * @return Anon_Cms_Options_Proxy|null
      */
     public function options()
@@ -943,5 +944,30 @@ abstract class Anon_Plugin_Base
             return null;
         }
         return new Anon_Cms_Options_Proxy('plugin', $this->slug, null);
+    }
+
+    /**
+     * 当前登录用户对象，未登录为 null
+     * @return Anon_Cms_User|null
+     */
+    public function user()
+    {
+        if (!class_exists('Anon_Cms') || !method_exists('Anon_Cms', 'getCurrentUser')) {
+            return null;
+        }
+        $user = Anon_Cms::getCurrentUser();
+        return $user !== null && class_exists('Anon_Cms_User') ? new Anon_Cms_User($user) : null;
+    }
+
+    /**
+     * 主题辅助对象，仅读当前主题名与主题选项
+     * @return Anon_Cms_Theme_Helper|null
+     */
+    public function theme()
+    {
+        if (!class_exists('Anon_Cms_Theme_Helper') || !class_exists('Anon_Cms_Theme')) {
+            return null;
+        }
+        return new Anon_Cms_Theme_Helper(Anon_Cms_Theme::getCurrentTheme());
     }
 }

@@ -18,14 +18,18 @@ class Anon_Cms_Admin_UI_Navbar
                 'key' => '/manage/posts',
                 'label' => '文章管理',
             ],
+            [
+                'key' => '/manage/comments',
+                'label' => '评论管理',
+            ],
         ];
-        
+
         /**
          * 允许插件通过钩子扩展顶部导航
          * 钩子名称 admin_navbar_header，参数 $items 数组，返回修改后的 $items 数组
          */
         $items = Anon_System_Hook::apply_filters('admin_navbar_header', $items);
-        
+
         return $items;
     }
 
@@ -72,6 +76,11 @@ class Anon_Cms_Admin_UI_Navbar
                         'label' => '文章',
                     ],
                     [
+                        'key' => '/manage/comments',
+                        'icon' => 'CommentOutlined',
+                        'label' => '评论',
+                    ],
+                    [
                         'key' => '/manage/users',
                         'icon' => 'UserOutlined',
                         'label' => '用户',
@@ -104,6 +113,11 @@ class Anon_Cms_Admin_UI_Navbar
                         'label' => '常规设置',
                     ],
                     [
+                        'key' => '/settings/page',
+                        'icon' => 'LinkOutlined',
+                        'label' => '链接设置',
+                    ],
+                    [
                         'key' => '/settings/permission',
                         'icon' => 'SettingOutlined',
                         'label' => '权限设置',
@@ -111,13 +125,13 @@ class Anon_Cms_Admin_UI_Navbar
                 ],
             ],
         ];
-        
+
         /**
          * 允许插件通过钩子扩展侧边导航
          * 钩子名称 admin_navbar_sidebar，参数 $items 数组，返回修改后的 $items 数组
          */
         $items = Anon_System_Hook::apply_filters('admin_navbar_sidebar', $items);
-        
+
         return $items;
     }
 

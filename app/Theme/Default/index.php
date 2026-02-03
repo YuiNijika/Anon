@@ -3,7 +3,8 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $this->components('head');
 
-$posts = $this->posts(12);
+$post_count = (int)$this->options()->get('post_count', 10, false);
+$posts = $this->posts($post_count);
 $nav = $this->pageNav();
 ?>
 
@@ -11,8 +12,8 @@ $nav = $this->pageNav();
   <!-- 站点介绍 -->
   <div class="card bg-base-100 shadow-md">
     <div class="card-body">
-      <h1 class="card-title text-4xl mb-2"><?php $this->options()->get('title', true); ?></h1>
-        <p class="text-lg text-base-content/70 mb-2"><?php $this->options()->get('subtitle', true); ?></p>
+      <h1 class="card-title text-4xl mb-2"><?php echo $this->options()->get('title', null, false); ?></h1>
+        <p class="text-lg text-base-content/70 mb-2"><?php echo $this->options()->get('subtitle', null, false); ?></p>
     </div>
   </div>
 

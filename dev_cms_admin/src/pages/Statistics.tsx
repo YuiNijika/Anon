@@ -478,18 +478,26 @@ export default function Statistics() {
                   }
                   className="w-full"
                 />
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={handleStartDateChange}
-                  className="w-full"
-                />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={handleEndDateChange}
-                  className="w-full"
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">开始日期</label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={handleStartDateChange}
+                    className="w-full"
+                    aria-label="开始日期"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">结束日期</label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={handleEndDateChange}
+                    className="w-full"
+                    aria-label="结束日期"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSearch}>
                     <Search className="mr-2 h-4 w-4" />

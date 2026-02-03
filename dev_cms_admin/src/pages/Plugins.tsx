@@ -18,6 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { OptionField } from '@/components/OptionField'
+
+const DISPLAY_ONLY_OPTION_TYPES = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'] as const
 import {
   Table,
   TableBody,
@@ -32,6 +35,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 export default function Plugins() {
@@ -51,6 +63,14 @@ export default function Plugins() {
   const [pluginOptionsSchema, setPluginOptionsSchema] = useState<Record<string, PluginOptionSchema>>({})
   const [pluginOptionsValues, setPluginOptionsValues] = useState<Record<string, any>>({})
   const [pluginOptionsSaving, setPluginOptionsSaving] = useState(false)
+  const [overwriteDialog, setOverwriteDialog] = useState<{
+    open: boolean
+    name: string
+    existingVersion: string
+    newVersion: string
+    upgrade: boolean
+    pendingFile: File | null
+  }>({ open: false, name: '', existingVersion: '', newVersion: '', upgrade: false, pendingFile: null })
   const fetchingRef = useRef(false)
   const optionsFetchingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -117,11 +137,40 @@ export default function Plugins() {
     if (!file) return
     setUploading(true)
     try {
-      await uploadPlugin(file)
+      const result = await uploadPlugin(file)
+      if (result?.needConfirm) {
+        setOverwriteDialog({
+          open: true,
+          name: result.name ?? result.slug ?? '',
+          existingVersion: result.existingVersion ?? '',
+          newVersion: result.newVersion ?? '',
+          upgrade: result.upgrade ?? false,
+          pendingFile: file,
+        })
+        e.target.value = ''
+        return
+      }
       await loadPlugins()
     } finally {
       setUploading(false)
       e.target.value = ''
+    }
+  }
+
+  const handleOverwriteConfirm = async () => {
+    const file = overwriteDialog.pendingFile
+    if (!file) {
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
+      return
+    }
+    setUploading(true)
+    try {
+      const result = await uploadPlugin(file, true)
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
+      if (result && !result.needConfirm) await loadPlugins()
+    } finally {
+      setUploading(false)
+      setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))
     }
   }
 
@@ -177,9 +226,16 @@ export default function Plugins() {
   const handlePluginOptionsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!optionsSlug) return
+    const valuesToSave: Record<string, any> = {}
+    Object.keys(pluginOptionsSchema).forEach((key) => {
+      const opt = pluginOptionsSchema[key]
+      if (opt && !DISPLAY_ONLY_OPTION_TYPES.includes(opt.type as any) && pluginOptionsValues[key] !== undefined) {
+        valuesToSave[key] = pluginOptionsValues[key]
+      }
+    })
     setPluginOptionsSaving(true)
     try {
-      await AdminApi.updatePluginOptions(apiAdmin, { slug: optionsSlug, values: pluginOptionsValues })
+      await AdminApi.updatePluginOptions(apiAdmin, { slug: optionsSlug, values: valuesToSave })
       toast.success('插件设置已保存')
     } catch (err) {
       toast.error(getErrorMessage(err, '保存插件设置失败'))
@@ -192,142 +248,15 @@ export default function Plugins() {
     setPluginOptionsValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const renderPluginOptionField = (key: string, option: PluginOptionSchema) => {
-    const { type, label, description, options: selectOptions, default: defaultValue } = option
-    const value = pluginOptionsValues[key]
-
-    switch (type) {
-      case 'text':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Input
-              id={key}
-              value={value ?? ''}
-              onChange={(e) => setPluginOptionValue(key, e.target.value)}
-              placeholder={defaultValue}
-              className="w-full"
-            />
-          </div>
-        )
-      case 'textarea':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <textarea
-              id={key}
-              rows={4}
-              value={value ?? ''}
-              onChange={(e) => setPluginOptionValue(key, e.target.value)}
-              placeholder={defaultValue}
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-        )
-      case 'select':
-        return (
-          <div key={key} className="space-y-2">
-            <Label className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Select
-              value={value ?? ''}
-              onValueChange={(v) => setPluginOptionValue(key, v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="请选择" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(selectOptions || {}).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )
-      case 'checkbox':
-        return (
-          <div key={key} className="flex items-center justify-between space-x-2">
-            <Label htmlFor={key} className="text-sm flex-1">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Switch
-              id={key}
-              checked={!!value}
-              onCheckedChange={(checked) => setPluginOptionValue(key, checked)}
-            />
-          </div>
-        )
-      case 'number':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <Input
-              id={key}
-              type="number"
-              value={value ?? ''}
-              onChange={(e) => {
-                const v = e.target.value
-                setPluginOptionValue(key, v === '' ? undefined : Number(v))
-              }}
-              placeholder={defaultValue}
-              className="w-full"
-            />
-          </div>
-        )
-      case 'color':
-        return (
-          <div key={key} className="space-y-2">
-            <Label htmlFor={key} className="text-sm">
-              {label}
-              {description && (
-                <span className="ml-1 font-normal text-muted-foreground">({description})</span>
-              )}
-            </Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                id={key}
-                value={typeof value === 'string' && value.startsWith('#') ? value : '#000000'}
-                onChange={(e) => setPluginOptionValue(key, e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded border border-input bg-background p-1"
-              />
-              <Input
-                value={value ?? ''}
-                onChange={(e) => setPluginOptionValue(key, e.target.value)}
-                placeholder="#000000"
-                className="flex-1 font-mono text-sm"
-              />
-            </div>
-          </div>
-        )
-      default:
-        return null
-    }
-  }
+  const renderPluginOptionField = (key: string, option: PluginOptionSchema) => (
+    <OptionField
+      key={key}
+      name={key}
+      option={option}
+      value={pluginOptionsValues[key]}
+      onChange={(v) => setPluginOptionValue(key, v)}
+    />
+  )
 
   const getModeClass = (mode: string) => {
     switch (mode) {
@@ -548,6 +477,26 @@ export default function Plugins() {
           </CardContent>
         </Card>
       )}
+      <AlertDialog open={overwriteDialog.open} onOpenChange={(open) => !open && setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{overwriteDialog.upgrade ? '更新插件' : '覆盖插件'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {overwriteDialog.upgrade ? (
+                <>发现新版本：已安装 <strong>{overwriteDialog.existingVersion || '—'}</strong>，上传包版本 <strong>{overwriteDialog.newVersion || '—'}</strong>。是否覆盖并更新插件「{overwriteDialog.name}」？</>
+              ) : (
+                <>当前已安装版本 <strong>{overwriteDialog.existingVersion || '—'}</strong>，上传包版本 <strong>{overwriteDialog.newVersion || '—'}</strong> 较低或相同。仍要覆盖插件「{overwriteDialog.name}」吗？</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <Button variant={overwriteDialog.upgrade ? 'default' : 'destructive'} onClick={handleOverwriteConfirm}>
+              确认覆盖
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

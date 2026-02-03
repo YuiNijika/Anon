@@ -63,6 +63,7 @@ export default defineConfig({
           { text: "CMS 模式概述", link: "/guide/cms/overview" },
           { text: "路由与页面", link: "/guide/cms/routes" },
           { text: "主题系统", link: "/guide/cms/theme-system" },
+          { text: "评论功能", link: "/guide/cms/comments" },
           { text: "插件系统", link: "/guide/cms/plugin-system" },
           { text: "管理后台", link: "/guide/cms/admin" },
         ]
@@ -107,6 +108,7 @@ export default defineConfig({
             { text: 'CMS 模式概述', link: 'overview' },
             { text: '路由与页面', link: 'routes' },
             { text: '主题系统与开发', link: 'theme-system' },
+            { text: '评论功能', link: 'comments' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '管理后台', link: 'admin' },
           ]

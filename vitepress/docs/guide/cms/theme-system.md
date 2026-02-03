@@ -22,7 +22,8 @@ app/Theme/
     ├── category.php      # 分类页模板
     ├── components/
     │   ├── head.php      # 头部组件
-    │   └── foot.php      # 底部组件
+    │   ├── foot.php      # 底部组件
+    │   └── comments.php  # 评论区组件（可选，见 [评论功能](./comments.md)）
     ├── pages/
     │   └── test.php      # 自动注册为 /test
     ├── partials/
@@ -50,6 +51,30 @@ app/Theme/
 - 定义主题辅助函数和类
 
 主题设置项在 `app/setup.php` 中通过 return 数组定义，见下文。
+
+**模板中统一通过 `$this` 调用（类似 Typecho）：**
+
+- **$this->post()** / **$this->page()** — 当前文章/页面对象（`Anon_Cms_Post`），无则 null
+- **$this->user()** — 当前登录用户（`Anon_Cms_User`），未登录为 null  
+  - `$this->user()->uid()`、`name()`、`email()`、`displayName()`、`avatar()`、`url()`（作者页链接）、`get($key, $default)`
+- **$this->theme()** — 主题辅助（`Anon_Cms_Theme_Helper`）  
+  - `$this->theme()->name()` 当前主题名  
+  - `$this->theme()->get('key', $default)` 仅读主题选项  
+  - `$this->theme()->siteUrl($suffix)` 站点根 URL，带参为拼接路径  
+  - `$this->theme()->themeUrl($path)` / `$this->theme()->url($path)` 主题资源 URL  
+  - `$this->theme()->index()` 站点首页 URL  
+  - `$this->theme()->options()` 统一选项代理
+- **$this->options()** — 统一选项代理（theme > plugin > system），`$this->options()->get('name', $default)`
+- **$this->header($overrides)** — 输出 HTML 头部（同 headMeta），类似 Typecho header()
+- **$this->archiveTitle()** — 当前归档标题（文章/页面标题或站点标题）
+- **$this->keywords($separator, $default, $output)** / **$this->description($default, $output)** — 关键词、描述，可输出或仅返回
+- **$this->permalink($post)**、**$this->posts()**、**$this->assets()**、**$this->components()**、**$this->escape()** 等见下文
+- **$this->siteUrl($suffix = '')** — 获取站点 URL，可选拼接路径
+  - `$this->siteUrl()` 返回站点根 URL（如 `https://example.com`）
+  - `$this->siteUrl('/about')` 返回拼接后的完整 URL（如 `https://example.com/about`）
+  - 自动从配置中读取站点 URL 或根据当前请求生成
+
+插件基类中同样支持 **$this->options()**、**$this->user()**、**$this->theme()**。
 
 **示例文件位置：** `server/app/Theme/Default/app/code.php`
 
@@ -163,12 +188,81 @@ return [
 ];
 ```
 
+**setup.php 中的 $this 上下文**
+
+从 v1.1.0 开始，`app/setup.php` 支持使用 `$this` 上下文调用辅助方法，方便在配置中使用动态值：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+return [
+    '基础设置' => [
+        'navbar_links' => [
+            'type' => 'text_list',
+            'label' => '顶部导航',
+            'description' => '网站顶部导航, 格式为 title|url',
+            'default' => [
+                '首页|' . $this->siteUrl(),
+                '关于|' . $this->siteUrl('/about'),
+            ],
+            'listPlaceholder' => 'GitHub|https://github.com/YuiNijika/Anon',
+        ],
+        'logo_url' => [
+            'type' => 'upload',
+            'label' => 'Logo 图片',
+            'default' => $this->themeUrl('logo.png'),
+        ],
+    ],
+];
+```
+
+**setup.php 中可用的 $this 方法：**
+
+- **$this->siteUrl($suffix = '')** - 获取站点 URL，可选拼接路径
+  - `$this->siteUrl()` 返回 `https://example.com`
+  - `$this->siteUrl('/about')` 返回 `https://example.com/about`
+- **$this->themeUrl($path = '')** - 获取主题资源 URL
+  - `$this->themeUrl('logo.png')` 返回主题资源完整 URL
+- **$this->options()** - 获取选项代理对象
+  - `$this->options()->get('title')` 读取站点选项
+- **$this->theme()** - 获取主题辅助对象
+  - `$this->theme()->name()` 获取主题名称
+
 **设置项类型：**
 
-- `text`: 文本输入框
-- `textarea`: 多行文本域
-- `select`: 下拉选择框，需提供 options 数组
-- `checkbox`: 复选框，布尔值
+| 类型 | 说明 |
+|------|------|
+| `text` | 单行文本输入框 |
+| `textarea` | 多行文本域 |
+| `select` | 下拉选择，需提供 `options` 键值对 |
+| `checkbox` | 开关，布尔值 |
+| `number` | 数字输入框，可设 `min`、`max`、`step` |
+| `color` | 颜色选择器 |
+| `date` / `time` / `datetime` | 日期、时间、日期时间 |
+| `radio` | 单选组，需提供 `options` |
+| `button_group` | 按钮组（多选一），需提供 `options` |
+| `slider` | 滑块，可设 `min`、`max`、`step` |
+| `badge` | 徽标展示（不保存） |
+| `divider` | 分隔线（不保存） |
+| `alert` | 警报块，可带 `actions` 打开对话框（不保存） |
+| `notice` | 可关闭的提示（不保存） |
+| `alert_dialog` | 警报 +「查看详情」按钮弹出对话框（不保存） |
+| `content` | 说明文字块（不保存） |
+| `heading` | 分组标题，可设 `level` 为 2/3/4（不保存） |
+| `accordion` | 手风琴折叠块（不保存） |
+| `result` | 结果空状态（不保存） |
+| `card` | 卡片展示（不保存） |
+| `tree_select` | 树形选择，需提供 `treeData` 或 `options` |
+| `transfer` | 穿梭框，左右列表勾选，需 `transferOptions` 或 `options`，值为 key 数组 |
+| `upload` | 输入框 + 本地上传，可设 `uploadAccept`、`uploadMultiple` |
+| `description_list` | 描述列表展示，需 `descItems`（label/value 数组）（不保存） |
+| `virtual_select` | 虚拟化选择器，大量选项时使用，需 `options` |
+| `table` | 表格展示，需 `tableColumns`、`tableRows`（不保存） |
+| `tooltip` | 文字提示，悬停显示，需 `tooltipContent`（不保存） |
+| `tag` | 标签展示，需 `tags` 数组或 `text`（不保存） |
+| `autocomplete` | 自动补全输入框，需 `options` 作为候选 |
+| `text_list` | 动态文本列表：多行文本框，每行左侧输入、右侧可删；最后一行左侧输入 + 右侧「+1」按钮新增一项，值为字符串数组 |
 
 **参数说明：**
 
@@ -176,9 +270,274 @@ return [
 - `label`: 显示标签
 - `description`: 描述信息
 - `default`: 默认值
-- `sanitize_callback`: 数据清理回调函数
-- `validate_callback`: 数据验证回调函数
-- `options`: 选择项数组，仅 select 类型需要
+- `options`: 选择项键值对，`select` / `radio` / `button_group` 需要
+- `min` / `max` / `step`: `number`、`slider` 使用
+- `variant`: 展示型组件样式，如 `default`、`destructive`、`success`、`warning`
+- `actions`: `alert` 使用，数组 `[{ label, dialog?, dialogTitle?, dialogMessage? }]`，带 `dialog: true` 的项会弹出确认对话框
+- `dismissible`: `notice` 是否可关闭
+- `buttonText` / `dialogTitle` / `dialogDescription` / `dialogConfirmText`: `alert_dialog` 使用
+- `level`: `heading` 标题级别 2|3|4
+- `message` / `title` / `text`: 各展示型组件的正文
+- `treeData`: `tree_select` 树节点数组，每项 `{ value, label, children? }`
+- `transferOptions`: `transfer` 选项键值对，值为选中 key 数组
+- `uploadAccept`: `upload` 接受类型，如 `image/*`
+- `uploadMultiple`: `upload` 是否多选
+- `descItems`: `description_list` 描述项 `[{ label, value }]`
+- `tableColumns`: `table` 列定义 `[{ key, title }]`
+- `tableRows`: `table` 行数据对象数组
+- `tooltipContent`: `tooltip` 悬停提示内容
+- `tags`: `tag` 标签文案数组
+- `listPlaceholder`: `text_list` 每行输入框的占位文案
+- `sanitize_callback`: 数据清理回调
+- `validate_callback`: 数据验证回调
+
+### 设置项 Demo 示例
+
+以下为可在 `app/setup.php` 中直接使用的**完整示例**，覆盖所有设置项类型，便于在管理后台「主题设置」中查看各组件效果：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+return [
+    '基本输入' => [
+        'intro' => [
+            'type' => 'content',
+            'label' => '说明',
+            'message' => '以下为所有类型的演示，修改后点击保存即可生效。',
+        ],
+        'site_title' => [
+            'type' => 'text',
+            'label' => '网站标题',
+            'description' => '显示在页面中的标题',
+            'default' => '我的网站',
+        ],
+        'site_description' => [
+            'type' => 'textarea',
+            'label' => '网站描述',
+            'description' => '多行文本',
+            'default' => '',
+        ],
+        'post_count' => [
+            'type' => 'number',
+            'label' => '首页文章数',
+            'default' => 10,
+            'min' => 1,
+            'max' => 50,
+        ],
+        'show_sidebar' => [
+            'type' => 'checkbox',
+            'label' => '显示侧边栏',
+            'default' => true,
+        ],
+        'custom_links' => [
+            'type' => 'text_list',
+            'label' => '自定义链接列表',
+            'description' => '每行一个链接或文案，左侧输入、右侧 +1 新增一项',
+            'default' => [],
+            'listPlaceholder' => '输入链接或名称，点击右侧 +1 新增',
+        ],
+    ],
+    '选择类' => [
+        'color_scheme' => [
+            'type' => 'select',
+            'label' => '配色方案',
+            'default' => 'light',
+            'options' => ['light' => '浅色', 'dark' => '深色', 'auto' => '自动'],
+        ],
+        'list_style' => [
+            'type' => 'radio',
+            'label' => '列表样式',
+            'default' => 'list',
+            'options' => ['list' => '列表', 'card' => '卡片', 'grid' => '网格'],
+        ],
+        'sidebar_pos' => [
+            'type' => 'button_group',
+            'label' => '侧边栏位置',
+            'default' => 'right',
+            'options' => ['left' => '左侧', 'right' => '右侧', 'none' => '无'],
+        ],
+        'category_pick' => [
+            'type' => 'tree_select',
+            'label' => '分类（树形）',
+            'default' => 'tech',
+            'treeData' => [
+                ['value' => 'news', 'label' => '新闻', 'children' => [
+                    ['value' => 'tech', 'label' => '科技'],
+                    ['value' => 'sport', 'label' => '体育'],
+                ]],
+                ['value' => 'blog', 'label' => '博客'],
+            ],
+        ],
+        'enabled_features' => [
+            'type' => 'transfer',
+            'label' => '启用功能（穿梭框）',
+            'default' => ['search', 'comment'],
+            'transferOptions' => [
+                'search' => '站内搜索',
+                'comment' => '评论',
+                'rss' => 'RSS',
+                'sitemap' => '站点地图',
+            ],
+        ],
+        'virtual_demo' => [
+            'type' => 'virtual_select',
+            'label' => '虚拟化选择（大量选项）',
+            'default' => 'opt1',
+            'options' => [
+                'opt1' => '选项 1', 'opt2' => '选项 2', 'opt3' => '选项 3',
+                'opt4' => '选项 4', 'opt5' => '选项 5', 'opt6' => '选项 6',
+                'opt7' => '选项 7', 'opt8' => '选项 8', 'opt9' => '选项 9', 'opt10' => '选项 10',
+            ],
+        ],
+        'keyword_hint' => [
+            'type' => 'autocomplete',
+            'label' => '关键词提示（自动补全）',
+            'default' => '',
+            'options' => ['主题' => '主题', '插件' => '插件', '设置' => '设置', '文章' => '文章', '评论' => '评论'],
+        ],
+    ],
+    '其它输入' => [
+        'theme_color' => [
+            'type' => 'color',
+            'label' => '主题色',
+            'default' => '#3b82f6',
+        ],
+        'publish_date' => [
+            'type' => 'date',
+            'label' => '发布日期',
+            'default' => '',
+        ],
+        'open_time' => [
+            'type' => 'time',
+            'label' => '开放时间',
+            'default' => '09:00',
+        ],
+        'event_at' => [
+            'type' => 'datetime',
+            'label' => '活动时间',
+            'default' => '',
+        ],
+        'opacity' => [
+            'type' => 'slider',
+            'label' => '透明度',
+            'default' => 80,
+            'min' => 0,
+            'max' => 100,
+            'step' => 5,
+        ],
+    ],
+    '上传' => [
+        'logo_url' => [
+            'type' => 'upload',
+            'label' => 'Logo 图片',
+            'description' => '输入 URL 或点击选择本地上传',
+            'default' => '',
+            'uploadAccept' => 'image/*',
+            'uploadMultiple' => false,
+        ],
+    ],
+    '展示组件（不保存）' => [
+        'h2_demo' => [
+            'type' => 'heading',
+            'label' => '展示类组件示例',
+            'level' => 2,
+        ],
+        'alert_with_dialog' => [
+            'type' => 'alert',
+            'label' => '重要提示',
+            'message' => '请先阅读文档再修改高级选项。',
+            'variant' => 'warning',
+            'actions' => [
+                ['label' => '查看说明', 'dialog' => true, 'dialogTitle' => '说明', 'dialogMessage' => '此处为对话框内容。'],
+                ['label' => '仅按钮'],
+            ],
+        ],
+        'danger_zone' => [
+            'type' => 'alert_dialog',
+            'label' => '危险操作',
+            'message' => '执行前请确认已备份数据。',
+            'variant' => 'destructive',
+            'buttonText' => '查看详情',
+            'dialogTitle' => '危险操作说明',
+            'dialogDescription' => '此操作不可恢复，请谨慎执行。',
+            'dialogConfirmText' => '我知道了',
+        ],
+        'dismissible_notice' => [
+            'type' => 'notice',
+            'label' => '新版本可用',
+            'message' => '请到后台检查更新。',
+            'variant' => 'success',
+            'dismissible' => true,
+        ],
+        'faq_block' => [
+            'type' => 'accordion',
+            'label' => '常见问题',
+            'description' => '如何修改主题？在「主题设置」中修改并保存。如何恢复默认？删除对应选项后保存即可。',
+        ],
+        'divider_demo' => ['type' => 'divider'],
+        'badge_demo' => [
+            'type' => 'badge',
+            'label' => '徽标',
+            'variant' => 'secondary',
+            'text' => '仅展示',
+        ],
+        'result_demo' => [
+            'type' => 'result',
+            'label' => '结果空状态',
+            'status' => 'empty',
+            'title' => '暂无数据',
+            'description' => '可设置 status 为 empty / success / info / error。',
+        ],
+        'card_demo' => [
+            'type' => 'card',
+            'label' => '卡片',
+            'title' => '卡片标题',
+            'description' => '卡片描述内容。',
+        ],
+        'desc_list_demo' => [
+            'type' => 'description_list',
+            'label' => '描述列表',
+            'descItems' => [
+                ['label' => '主题版本', 'value' => '1.0.0'],
+                ['label' => '框架', 'value' => 'Anon'],
+                ['label' => 'PHP', 'value' => '8.0+'],
+            ],
+        ],
+        'table_demo' => [
+            'type' => 'table',
+            'label' => '表格展示',
+            'tableColumns' => [
+                ['key' => 'name', 'title' => '名称'],
+                ['key' => 'value', 'title' => '值'],
+            ],
+            'tableRows' => [
+                ['name' => '站点名', 'value' => '示例站'],
+                ['name' => '语言', 'value' => 'zh-CN'],
+            ],
+        ],
+        'tooltip_demo' => [
+            'type' => 'tooltip',
+            'label' => '悬停看提示',
+            'tooltipContent' => '这里是文字提示内容，鼠标悬停在标签上即可看到。',
+        ],
+        'tag_demo' => [
+            'type' => 'tag',
+            'label' => '标签',
+            'tags' => ['PHP', '主题', 'CMS', 'Anon'],
+            'variant' => 'secondary',
+        ],
+    ],
+];
+```
+
+将上述内容放入主题的 `app/setup.php` 后，在管理后台进入「主题 → 主题设置」即可看到全部类型的展示效果：
+
+- **基本输入**：content、text、textarea、number（支持 min/max/step）、checkbox、text_list（动态列表 +1 新增）  
+- **选择类**：select、radio、button_group、tree_select、transfer、virtual_select、autocomplete  
+- **其它输入**：color、date、time、datetime、slider  
+- **上传**：upload（输入框 + 本地上传）  
+- **展示组件**：heading、alert、alert_dialog、notice、accordion、divider、badge、result、card、description_list、table、tooltip、tag（以上展示型不参与保存）
 
 ### 读取设置
 
@@ -196,6 +555,8 @@ $siteTitle = Anon_Theme_Options::get('site_title', '默认标题');
 ```
 
 `$this->options()` 返回统一选项代理 `Anon_Cms_Options_Proxy`。主题内默认优先级：theme > plugin > system。
+
+若只需读**当前主题**的选项（不合并插件/系统），可用 **$this->theme()->get('key', $default)**。
 
 **方法：**
 
@@ -444,6 +805,91 @@ $postData = [
 2. 查找匹配的路由模板
 3. 替换参数
 4. 返回生成的 URL
+
+### siteUrl() 方法
+
+获取站点根 URL 或拼接相对路径，生成完整的 URL：
+
+```php
+$this->siteUrl(string $suffix = ''): string
+```
+
+**参数：**
+
+- `$suffix`: 可选，相对路径后缀，如 `/about`、`/post/1`
+
+**返回值：**
+
+- 返回完整的 URL 字符串
+
+**功能特点：**
+
+1. **自动获取站点 URL**：优先从 `options` 表的 `site_url` 配置读取
+2. **自动生成**：如果未配置，根据当前请求自动生成（包括协议和主机名）
+3. **路径拼接**：自动处理路径分隔符，确保 URL 格式正确
+
+**使用示例：**
+
+```php
+<!-- 获取站点根 URL -->
+<a href="<?php echo $this->siteUrl(); ?>">首页</a>
+<!-- 输出: <a href="https://example.com">首页</a> -->
+
+<!-- 拼接相对路径 -->
+<a href="<?php echo $this->siteUrl('/about'); ?>">关于</a>
+<!-- 输出: <a href="https://example.com/about">关于</a> -->
+
+<a href="<?php echo $this->siteUrl('/post/123'); ?>">文章</a>
+<!-- 输出: <a href="https://example.com/post/123">文章</a> -->
+
+<!-- 在导航菜单中使用 -->
+<nav>
+  <a href="<?php echo $this->siteUrl(); ?>">首页</a>
+  <a href="<?php echo $this->siteUrl('/blog'); ?>">博客</a>
+  <a href="<?php echo $this->siteUrl('/about'); ?>">关于</a>
+</nav>
+
+<!-- 生成 canonical URL -->
+<link rel="canonical" href="<?php echo $this->siteUrl('/post/' . $post->id()); ?>">
+
+<!-- 生成 Open Graph URL -->
+<meta property="og:url" content="<?php echo $this->siteUrl('/post/' . $post->id()); ?>">
+
+<!-- RSS Feed URL -->
+<link rel="alternate" type="application/rss+xml" 
+      href="<?php echo $this->siteUrl('/feed'); ?>">
+```
+
+**与 permalink() 的区别：**
+
+- **siteUrl()**: 简单的 URL 拼接，直接将路径附加到站点根 URL
+- **permalink()**: 智能生成链接，根据路由配置和内容类型自动匹配模板
+
+```php
+<!-- siteUrl() - 简单拼接 -->
+<?php echo $this->siteUrl('/about'); ?>
+<!-- 输出: https://example.com/about -->
+
+<!-- permalink() - 根据路由配置生成 -->
+<?php echo $this->permalink($post); ?>
+<!-- 如果路由配置为 /article/{slug}，输出: https://example.com/article/hello-world -->
+```
+
+**配置站点 URL：**
+
+在管理后台的系统设置中配置 `site_url`，或在 `options` 表中设置：
+
+```php
+Anon_Cms_Options::set('site_url', 'https://example.com');
+```
+
+如果未配置，系统会根据当前请求自动检测：
+
+```php
+// 自动检测示例
+// 如果当前访问 https://example.com/about
+$this->siteUrl()  // 返回: https://example.com
+```
 
 ### posts() 方法 - 分页支持
 

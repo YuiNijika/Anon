@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 ?>
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="<?php $this->options()->get('color_scheme', true) ?>">
+<html lang="zh-CN" data-theme="<?php echo $this->escape($this->theme()->get('color_scheme', 'light')); ?>">
 <head>
 <?php 
     $this->headMeta();
@@ -21,6 +21,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
     } catch (e) {}
   })();
 </script>
+<script src="/anon/static/vue"></script>
 </head>
 <body class="bg-base-200">
 <div class="drawer">
@@ -36,8 +37,26 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
       </div>
       <div class="navbar-end">
         <ul class="menu menu-horizontal px-1 gap-2 hidden md:flex">
-          <li><a href="/" class="btn btn-ghost btn-sm">首页</a></li>
-          <li><a href="/about" class="btn btn-ghost btn-sm">关于</a></li>
+          <?php
+          // 从主题设置获取导航链接
+          $navbarLinks = $this->theme()->get('navbar_links', []);
+          
+          // 如果为空，使用默认首页
+          if (empty($navbarLinks)) {
+              $navbarLinks = ['首页|' . $this->siteUrl()];
+          }
+          
+          // 输出导航链接
+          foreach ($navbarLinks as $link) {
+              $parts = explode('|', $link, 2);
+              $title = isset($parts[0]) ? trim($parts[0]) : '';
+              $url = isset($parts[1]) ? trim($parts[1]) : '/';
+              
+              if (!empty($title)) {
+                  echo '<li><a href="' . $this->escape($url) . '" class="btn btn-ghost btn-sm">' . $this->escape($title) . '</a></li>';
+              }
+          }
+          ?>
           <li>
             <button id="theme-toggle" class="btn btn-ghost btn-sm" aria-label="切换主题" type="button" style="padding: 0.375rem;">
               <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

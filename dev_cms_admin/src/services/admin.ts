@@ -2,14 +2,112 @@ import type { useApiAdmin } from '@/hooks/useApiAdmin'
 
 type ApiClient = ReturnType<typeof useApiAdmin>
 
+/** Alert 上的操作按钮，可触发对话框（仿 CSF） */
+export interface ThemeOptionAlertAction {
+  label: string
+  dialog?: boolean
+  dialogTitle?: string
+  dialogMessage?: string
+}
+
+/** 树节点，用于 tree_select */
+export interface ThemeOptionTreeNode {
+  value: string
+  label: string
+  children?: ThemeOptionTreeNode[]
+}
+
+/** 描述列表项，用于 description_list */
+export interface ThemeOptionDescItem {
+  label: string
+  value: string
+}
+
+/** 表格列，用于 table */
+export interface ThemeOptionTableColumn {
+  key: string
+  title: string
+}
+
 export interface ThemeOptionSchema {
-  type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number' | 'color'
+  type:
+  | 'text'
+  | 'textarea'
+  | 'select'
+  | 'checkbox'
+  | 'number'
+  | 'color'
+  | 'date'
+  | 'time'
+  | 'datetime'
+  | 'radio'
+  | 'button_group'
+  | 'slider'
+  | 'badge'
+  | 'divider'
+  | 'alert'
+  | 'notice'
+  | 'alert_dialog'
+  | 'content'
+  | 'heading'
+  | 'accordion'
+  | 'result'
+  | 'card'
+  | 'tree_select'
+  | 'transfer'
+  | 'upload'
+  | 'description_list'
+  | 'virtual_select'
+  | 'table'
+  | 'tooltip'
+  | 'tag'
+  | 'autocomplete'
+  | 'text_list'
   label: string
   description?: string
-  default?: any
+  default?: unknown
   options?: Record<string, string>
-  sanitize_callback?: (value: any) => any
-  validate_callback?: (value: any) => boolean
+  /** slider: min, max, step */
+  min?: number
+  max?: number
+  step?: number
+  /** badge/alert/result 等展示型 */
+  variant?: string
+  text?: string
+  message?: string
+  title?: string
+  status?: 'empty' | 'success' | 'info' | 'error'
+  /** alert 上的操作按钮，可嵌套 AlertDialog */
+  actions?: ThemeOptionAlertAction[]
+  /** notice 可关闭 */
+  dismissible?: boolean
+  /** alert_dialog: 按钮文案、对话框标题/描述/确认按钮文案 */
+  buttonText?: string
+  dialogTitle?: string
+  dialogDescription?: string
+  dialogConfirmText?: string
+  /** heading 级别 2|3|4 */
+  level?: 2 | 3 | 4
+  /** tree_select: 树形数据 */
+  treeData?: ThemeOptionTreeNode[]
+  /** transfer: 左侧选项列表，value 为选中 key 数组 */
+  transferOptions?: Record<string, string>
+  /** upload: 接受类型如 image/*，是否多选 */
+  uploadAccept?: string
+  uploadMultiple?: boolean
+  /** description_list: 描述项列表 */
+  descItems?: ThemeOptionDescItem[]
+  /** table: 列定义与行数据 */
+  tableColumns?: ThemeOptionTableColumn[]
+  tableRows?: Record<string, unknown>[]
+  /** tooltip: 悬停提示内容 */
+  tooltipContent?: string
+  /** tag: 标签文案数组，或单个 text */
+  tags?: string[]
+  /** text_list: 每行输入框的 placeholder */
+  listPlaceholder?: string
+  sanitize_callback?: (value: unknown) => unknown
+  validate_callback?: (value: unknown) => boolean
 }
 
 /** 树形 schema：分组名 -> 选项名 -> 选项定义 */
@@ -146,6 +244,47 @@ export interface User {
 
 export interface UserListResponse {
   list: User[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface Comment {
+  id: number
+  post_id: number
+  post_title?: string
+  parent_id: number | null
+  reply_to_name?: string | null
+  uid: number | null
+  type: 'user' | 'guest'
+  name: string | null
+  email: string | null
+  avatar?: string | null
+  url: string | null
+  ip: string
+  user_agent?: string | null
+  ua_browser?: string
+  ua_os?: string
+  is_reply?: boolean
+  content: string
+  status: 'pending' | 'approved' | 'spam' | 'trash'
+  created_at: number
+}
+
+export interface CommentListParams {
+  page?: number
+  page_size?: number
+  status?: string
+  post_id?: number
+  type?: 'user' | 'guest'
+  keyword?: string
+  is_reply?: 0 | 1 | 2
+  date_from?: string
+  date_to?: string
+}
+
+export interface CommentListResponse {
+  list: Comment[]
   total: number
   page: number
   page_size: number
@@ -325,6 +464,21 @@ export const AdminApi = {
     return api.admin.delete<{ uid: number }>('/users', { uid })
   },
 
+  // 评论管理
+  getComments: (api: ApiClient, params?: CommentListParams) => {
+    return api.admin.get<CommentListResponse>('/comments', params)
+  },
+
+  updateCommentStatus: (api: ApiClient, id: number, status: 'approved' | 'pending' | 'spam' | 'trash') => {
+    return api.admin.put<unknown>('/comments', { id, status })
+  },
+  updateComment: (api: ApiClient, id: number, payload: { content?: string; status?: 'approved' | 'pending' | 'spam' | 'trash' }) => {
+    return api.admin.put<unknown>('/comments', { id, ...payload })
+  },
+  deleteComment: (api: ApiClient, id: number) => {
+    return api.admin.delete<{ id: number }>('/comments', { id })
+  },
+
   // 附件管理
   getAttachments: (api: ApiClient, params?: { sort?: 'new' | 'old' }) => {
     return api.admin.get<AttachmentListResponse>('/attachments', params)
@@ -345,10 +499,11 @@ export const AdminApi = {
     return api.admin.get<PluginListResponse>('/plugins')
   },
 
-  uploadPlugin: (api: ApiClient, file: File) => {
+  uploadPlugin: (api: ApiClient, file: File, overwrite?: boolean) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.admin.post<{ slug: string }>('/plugins', formData)
+    if (overwrite) formData.append('overwrite', '1')
+    return api.admin.post<{ slug: string; needConfirm?: boolean; name?: string; existingVersion?: string; newVersion?: string; upgrade?: boolean }>('/plugins', formData)
   },
 
   activatePlugin: (api: ApiClient, slug: string) => {
@@ -374,10 +529,11 @@ export const AdminApi = {
   },
 
   // 主题管理
-  uploadTheme: (api: ApiClient, file: File) => {
+  uploadTheme: (api: ApiClient, file: File, overwrite?: boolean) => {
     const formData = new FormData()
     formData.append('file', file)
-    return api.admin.post<{ name: string }>('/themes', formData)
+    if (overwrite) formData.append('overwrite', '1')
+    return api.admin.post<{ name: string; needConfirm?: boolean; existingVersion?: string; newVersion?: string; upgrade?: boolean }>('/themes', formData)
   },
 
   deleteTheme: (api: ApiClient, name: string) => {
@@ -401,14 +557,8 @@ export interface PluginListResponse {
   list: Plugin[]
 }
 
-/** 插件设置 schema 单字段定义，与主题一致 */
-export interface PluginOptionSchema {
-  type: 'text' | 'textarea' | 'select' | 'checkbox' | 'number' | 'color'
-  label: string
-  description?: string
-  default?: any
-  options?: Record<string, string>
-}
+/** 插件设置 schema 单字段定义，与主题 ThemeOptionSchema 一致 */
+export type PluginOptionSchema = ThemeOptionSchema
 
 export interface PluginOptionsData {
   slug: string

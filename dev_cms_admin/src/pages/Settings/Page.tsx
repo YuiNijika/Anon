@@ -33,6 +33,7 @@ const POST_PARAMS = ['{id}', '{slug}', '{category}', '{directory}', '{year}', '{
 const PAGE_PARAMS = ['{id}', '{slug}', '{directory}']
 const CATEGORY_PARAMS = ['{id}', '{slug}', '{directory}']
 const TAG_PARAMS = ['{id}', '{slug}']
+const USER_PARAMS = ['{uid}', '{name}']
 
 const pageSchema = z.object({
   postPathStyle: z.string(),
@@ -40,6 +41,7 @@ const pageSchema = z.object({
   pagePath: z.string().min(1).regex(/^\//).refine((v) => PAGE_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
   categoryPath: z.string().min(1).regex(/^\//).refine((v) => CATEGORY_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
   tagPath: z.string().min(1).regex(/^\//).refine((v) => TAG_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
+  userPath: z.string().min(1).regex(/^\//).refine((v) => USER_PARAMS.some((p) => v.includes(p)), '路径中至少包含 {uid} 或 {name}'),
 })
 
 type PageFormValues = z.infer<typeof pageSchema>
@@ -52,10 +54,11 @@ export default function SettingsPage() {
     resolver: zodResolver(pageSchema),
     defaultValues: {
       postPathStyle: 'default',
-      postPath: '/archives/{id}/',
+      postPath: '/archives/{id}',
       pagePath: '/{slug}.html',
-      categoryPath: '/category/{slug}/',
-      tagPath: '/tag/{slug}/',
+      categoryPath: '/category/{slug}',
+      tagPath: '/tag/{slug}',
+      userPath: '/user/{uid}',
     },
   })
   useEffect(() => {
@@ -74,8 +77,9 @@ export default function SettingsPage() {
         const pagePath = Object.entries(routes).find(([, t]) => t === 'page')?.[0] ?? '/{slug}.html'
         const categoryPath = Object.entries(routes).find(([, t]) => t === 'category')?.[0] ?? '/category/{slug}/'
         const tagPath = Object.entries(routes).find(([, t]) => t === 'tag')?.[0] ?? '/tag/{slug}/'
+        const userPath = Object.entries(routes).find(([, t]) => t === 'user')?.[0] ?? '/user/{uid}/'
         const detectedStyle = PATH_STYLES.find((s) => s.paths.post === postPath && s.paths.page === pagePath && s.paths.category === categoryPath && s.paths.tag === tagPath)?.value ?? 'custom'
-        form.reset({ postPathStyle: detectedStyle, postPath, pagePath, categoryPath, tagPath })
+        form.reset({ postPathStyle: detectedStyle, postPath, pagePath, categoryPath, tagPath, userPath })
       }
     } catch (err) {
       toast.error(getErrorMessage(err, '加载页面设置失败'))
@@ -103,6 +107,7 @@ export default function SettingsPage() {
       if (values.pagePath?.trim()) routes[values.pagePath.trim()] = 'page'
       if (values.categoryPath?.trim()) routes[values.categoryPath.trim()] = 'category'
       if (values.tagPath?.trim()) routes[values.tagPath.trim()] = 'tag'
+      if (values.userPath?.trim()) routes[values.userPath.trim()] = 'user'
       await AdminApi.updatePageSettings(apiAdmin, { routes })
       toast.success('页面设置已保存')
       await loadSettings()
@@ -156,7 +161,7 @@ export default function SettingsPage() {
               <FormItem>
                 <FormLabel>文章路径</FormLabel>
                 <FormControl>
-                  <Input placeholder="/archives/{id}/" {...field} />
+                  <Input placeholder="/archives/{id}" {...field} />
                 </FormControl>
                 <FormDescription>可用参数: {POST_PARAMS.join(', ')}</FormDescription>
                 <FormMessage />
@@ -184,7 +189,7 @@ export default function SettingsPage() {
               <FormItem>
                 <FormLabel>分类路径</FormLabel>
                 <FormControl>
-                  <Input placeholder="/category/{slug}/" {...field} />
+                  <Input placeholder="/category/{slug}" {...field} />
                 </FormControl>
                 <FormDescription>可用参数: {CATEGORY_PARAMS.join(', ')}</FormDescription>
                 <FormMessage />
@@ -198,9 +203,23 @@ export default function SettingsPage() {
               <FormItem>
                 <FormLabel>标签路径</FormLabel>
                 <FormControl>
-                  <Input placeholder="/tag/{slug}/" {...field} />
+                  <Input placeholder="/tag/{slug}" {...field} />
                 </FormControl>
                 <FormDescription>可用参数: {TAG_PARAMS.join(', ')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="userPath"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>用户/作者页路径</FormLabel>
+                <FormControl>
+                  <Input placeholder="/user/{uid}/" {...field} />
+                </FormControl>
+                <FormDescription>可用参数: {USER_PARAMS.join(', ') + '，如 /user/{uid} 或 /author/{name}'}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

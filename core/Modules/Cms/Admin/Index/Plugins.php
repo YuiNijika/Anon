@@ -98,7 +98,7 @@ class Anon_Cms_Admin_Plugins
             self::setActivePlugins($activePlugins);
 
             Anon_System_Plugin::clearScanCache();
-            
+
             // 重新加载插件系统以加载新激活的插件
             Anon_System_Plugin::reloadPlugin($slug);
 
@@ -231,6 +231,7 @@ class Anon_Cms_Admin_Plugins
 
             $zip->close();
 
+            $overwrite = !empty($_POST['overwrite']);
             $pluginName = null;
             $entries = scandir($extractDir);
             foreach ($entries as $entry) {
@@ -245,6 +246,7 @@ class Anon_Cms_Admin_Plugins
             }
 
             $pluginIndexFile = null;
+            $sourcePluginPath = null;
             if ($pluginName) {
                 $pluginIndexFile = $extractDir . '/' . $pluginName . '/Index.php';
                 if (!file_exists($pluginIndexFile)) {
@@ -252,23 +254,13 @@ class Anon_Cms_Admin_Plugins
                     Anon_Http_Response::error('插件必须包含 Index.php 文件', 400);
                     return;
                 }
-                $meta = Anon_System_Plugin::readPluginMeta($pluginIndexFile);
+                $meta = Anon_System_Plugin::readPluginMetaForDir($extractDir . '/' . $pluginName);
                 if (!$meta) {
                     self::deleteDirectory($extractDir);
                     Anon_Http_Response::error('无法读取插件元数据', 400);
                     return;
                 }
-                $targetDir = $pluginDir . $pluginName;
-                if (is_dir($targetDir)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('插件已存在', 400);
-                    return;
-                }
-                if (!rename($extractDir . '/' . $pluginName, $targetDir)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('移动插件文件失败', 500);
-                    return;
-                }
+                $sourcePluginPath = $extractDir . '/' . $pluginName;
             } else {
                 $pluginIndexFile = $extractDir . '/Index.php';
                 if (!file_exists($pluginIndexFile)) {
@@ -284,12 +276,35 @@ class Anon_Cms_Admin_Plugins
                 }
                 $baseName = pathinfo($fileName, PATHINFO_FILENAME);
                 $pluginName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('plugin_' . uniqid());
-                $targetDir = $pluginDir . $pluginName;
-                if (is_dir($targetDir)) {
+            }
+
+            $newVersion = isset($meta['version']) ? trim((string) $meta['version']) : '';
+            $targetDir = $pluginDir . $pluginName;
+            if (is_dir($targetDir)) {
+                $existingMeta = Anon_System_Plugin::readPluginMetaForDir($targetDir);
+                $existingVersion = ($existingMeta && isset($existingMeta['version'])) ? trim((string) $existingMeta['version']) : '';
+                if (!$overwrite) {
                     self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('插件已存在', 400);
+                    Anon_Http_Response::success([
+                        'needConfirm' => true,
+                        'name' => $pluginName,
+                        'slug' => strtolower($pluginName),
+                        'existingVersion' => $existingVersion,
+                        'newVersion' => $newVersion,
+                        'upgrade' => version_compare($newVersion, $existingVersion, '>'),
+                    ], '插件已存在，请确认是否覆盖');
                     return;
                 }
+                self::deleteDirectory($targetDir);
+            }
+
+            if ($sourcePluginPath && is_dir($sourcePluginPath)) {
+                if (!rename($sourcePluginPath, $targetDir)) {
+                    self::deleteDirectory($extractDir);
+                    Anon_Http_Response::error('移动插件文件失败', 500);
+                    return;
+                }
+            } else {
                 if (!mkdir($targetDir, 0755, true)) {
                     self::deleteDirectory($extractDir);
                     Anon_Http_Response::error('无法创建插件目录', 500);
@@ -414,9 +429,15 @@ class Anon_Cms_Admin_Plugins
                     }
                 }
             }
+            /** 仅展示、不参与存储的选项类型，与前端 DISPLAY_ONLY_OPTION_TYPES 一致 */
+            $displayOnlyTypes = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'];
             $finalValues = [];
             foreach ($schema as $key => $def) {
                 if (!is_array($def)) {
+                    continue;
+                }
+                $type = isset($def['type']) ? (string) $def['type'] : 'text';
+                if (in_array($type, $displayOnlyTypes, true)) {
                     continue;
                 }
                 $val = array_key_exists($key, $submitted) ? $submitted[$key]
@@ -537,4 +558,3 @@ class Anon_Cms_Admin_Plugins
         rmdir($dir);
     }
 }
-

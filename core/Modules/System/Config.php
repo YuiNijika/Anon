@@ -244,6 +244,7 @@ class Anon_System_Config
                 $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
                 Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API 前缀成功');
             });
+            self::addRoute('/anon/cms/comments', [Anon_Cms::class, 'handleCommentsRequest'], ['method' => 'GET,POST', 'token' => false]);
             self::addRoute('/admin', function() {
                 Anon_Common::Header(200, false, false);
                 header('Content-Type: text/html; charset=utf-8');

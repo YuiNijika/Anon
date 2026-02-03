@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Lightbox } from '@/components/ui/lightbox'
 import { cn } from '@/lib/utils'
 
 interface MediaLibraryProps {
@@ -53,6 +54,8 @@ export default function MediaLibrary({
   const [imageFormat, setImageFormat] = useState<'original' | 'webp' | 'png' | 'jpg' | 'jpeg'>(
     'original'
   )
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -194,204 +197,238 @@ export default function MediaLibrary({
     )
     : attachments
 
+  const imageAttachments = filteredAttachments.filter((a) => isImage(a.mime_type))
+  const imageUrls = imageAttachments.map((a) => buildPublicUrl(a.url))
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[900px] max-h-[90vh] flex flex-col gap-4">
-        <DialogHeader>
-          <DialogTitle>媒体库</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-[900px] max-h-[90vh] flex flex-col gap-4">
+          <DialogHeader>
+            <DialogTitle>媒体库</DialogTitle>
+          </DialogHeader>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept={accept}
-                onChange={handleUpload}
-              />
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                上传文件
-              </Button>
-              {onSelect && (
-                <Select
-                  value={imageFormat}
-                  onValueChange={(v) =>
-                    setImageFormat(v as 'original' | 'webp' | 'png' | 'jpg' | 'jpeg')
-                  }
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="original">插入原图</SelectItem>
-                    <SelectItem value="webp">插入 WebP</SelectItem>
-                    <SelectItem value="png">插入 PNG</SelectItem>
-                    <SelectItem value="jpg">插入 JPG</SelectItem>
-                    <SelectItem value="jpeg">插入 JPEG</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="搜索文件..."
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="w-[200px] pl-8"
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={accept}
+                  onChange={handleUpload}
                 />
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  上传文件
+                </Button>
+                {onSelect && (
+                  <Select
+                    value={imageFormat}
+                    onValueChange={(v) =>
+                      setImageFormat(v as 'original' | 'webp' | 'png' | 'jpg' | 'jpeg')
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="original">插入原图</SelectItem>
+                      <SelectItem value="webp">插入 WebP</SelectItem>
+                      <SelectItem value="png">插入 PNG</SelectItem>
+                      <SelectItem value="jpg">插入 JPG</SelectItem>
+                      <SelectItem value="jpeg">插入 JPEG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="搜索文件..."
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    className="w-[200px] pl-8"
+                  />
+                </div>
               </div>
+              <RadioGroup
+                value={filterType}
+                onValueChange={setFilterType}
+                className="flex flex-row gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="filter-all" />
+                  <Label htmlFor="filter-all" className="cursor-pointer text-sm">
+                    全部
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="image" id="filter-image" />
+                  <Label htmlFor="filter-image" className="cursor-pointer text-sm">
+                    图片
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="video" id="filter-video" />
+                  <Label htmlFor="filter-video" className="cursor-pointer text-sm">
+                    视频
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="audio" id="filter-audio" />
+                  <Label htmlFor="filter-audio" className="cursor-pointer text-sm">
+                    音频
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
-            <RadioGroup
-              value={filterType}
-              onValueChange={setFilterType}
-              className="flex flex-row gap-2"
+
+            <div
+              className={cn(
+                'grid gap-4 overflow-y-auto rounded-md border border-border bg-muted/30 p-4',
+                'grid-cols-[repeat(auto-fill,minmax(150px,1fr))]',
+                'max-h-[500px]'
+              )}
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="filter-all" />
-                <Label htmlFor="filter-all" className="cursor-pointer text-sm">
-                  全部
-                </Label>
+              {loading ? (
+                <>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div
+                      key={i}
+                      className="rounded-md border border-border bg-background p-2"
+                    >
+                      <Skeleton className="h-[120px] w-full rounded" />
+                      <Skeleton className="mt-2 h-3 w-full" />
+                    </div>
+                  ))}
+                </>
+              ) : filteredAttachments.length === 0 ? (
+                <div className="col-span-full flex min-h-[200px] items-center justify-center py-12 text-muted-foreground">
+                  {searchKeyword ? '暂无匹配的媒体文件' : '暂无媒体文件'}
+                </div>
+              ) : (
+                filteredAttachments.map((attachment) => {
+                  const selected = selectedIds.includes(attachment.id)
+                  return (
+                    <div
+                      key={attachment.id}
+                      className={cn(
+                        'relative cursor-pointer rounded-md border bg-background p-2 transition-colors hover:bg-muted/50',
+                        selected ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                      )}
+                      onClick={() => handleSelect(attachment)}
+                    >
+                      {isImage(attachment.mime_type) ? (
+                        <div className="aspect-[4/3] w-full overflow-hidden rounded">
+                          <img
+                            src={buildPublicUrl(attachment.url)}
+                            alt={displayName(attachment)}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex aspect-[4/3] w-full items-center justify-center text-4xl">
+                          📄
+                        </div>
+                      )}
+                      <p
+                        className="mt-2 truncate text-xs text-muted-foreground"
+                        title={displayName(attachment)}
+                      >
+                        {displayName(attachment)}
+                      </p>
+                      <div className="absolute right-1 top-1 flex gap-0.5">
+                        {isImage(attachment.mime_type) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="放大查看"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const idx = imageAttachments.findIndex((a) => a.id === attachment.id)
+                              setLightboxIndex(idx >= 0 ? idx : 0)
+                              setLightboxOpen(true)
+                            }}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          title="删除"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            confirmDelete(attachment.id)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {total > pageSize && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  上一页
+                </Button>
+                <span>
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  下一页
+                </Button>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="image" id="filter-image" />
-                <Label htmlFor="filter-image" className="cursor-pointer text-sm">
-                  图片
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="video" id="filter-video" />
-                <Label htmlFor="filter-video" className="cursor-pointer text-sm">
-                  视频
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="audio" id="filter-audio" />
-                <Label htmlFor="filter-audio" className="cursor-pointer text-sm">
-                  音频
-                </Label>
-              </div>
-            </RadioGroup>
+            )}
           </div>
 
-          <div
-            className={cn(
-              'grid gap-4 overflow-y-auto rounded-md border border-border bg-muted/30 p-4',
-              'grid-cols-[repeat(auto-fill,minmax(150px,1fr))]',
-              'max-h-[500px]'
-            )}
-          >
-            {loading ? (
-              <>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                  <div
-                    key={i}
-                    className="rounded-md border border-border bg-background p-2"
-                  >
-                    <Skeleton className="h-[120px] w-full rounded" />
-                    <Skeleton className="mt-2 h-3 w-full" />
-                  </div>
-                ))}
-              </>
-            ) : filteredAttachments.length === 0 ? (
-              <div className="col-span-full flex min-h-[200px] items-center justify-center py-12 text-muted-foreground">
-                {searchKeyword ? '暂无匹配的媒体文件' : '暂无媒体文件'}
-              </div>
-            ) : (
-              filteredAttachments.map((attachment) => {
-                const selected = selectedIds.includes(attachment.id)
-                return (
-                  <div
-                    key={attachment.id}
-                    className={cn(
-                      'relative cursor-pointer rounded-md border bg-background p-2 transition-colors hover:bg-muted/50',
-                      selected ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-                    )}
-                    onClick={() => handleSelect(attachment)}
-                  >
-                    {isImage(attachment.mime_type) ? (
-                      <div className="aspect-[4/3] w-full overflow-hidden rounded">
-                        <img
-                          src={buildPublicUrl(attachment.url)}
-                          alt={displayName(attachment)}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex aspect-[4/3] w-full items-center justify-center text-4xl">
-                        📄
-                      </div>
-                    )}
-                    <p
-                      className="mt-2 truncate text-xs text-muted-foreground"
-                      title={displayName(attachment)}
-                    >
-                      {displayName(attachment)}
-                    </p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1 h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        confirmDelete(attachment.id)
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {total > pageSize && (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                上一页
-              </Button>
-              <span>
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                下一页
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            关闭
-          </Button>
-          {multiple && (
-            <Button
-              onClick={handleConfirmSelection}
-              disabled={selectedIds.length === 0}
-            >
-              插入选中 ({selectedIds.length})
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              关闭
             </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {multiple && (
+              <Button
+                onClick={handleConfirmSelection}
+                disabled={selectedIds.length === 0}
+              >
+                插入选中 ({selectedIds.length})
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Lightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        src={imageUrls[lightboxIndex] ?? ''}
+        alt={imageAttachments[lightboxIndex] ? displayName(imageAttachments[lightboxIndex]) : ''}
+        sources={imageUrls}
+        currentIndex={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+      />
+    </>
   )
 }

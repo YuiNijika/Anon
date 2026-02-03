@@ -16,13 +16,13 @@ class Anon_System_Install
     {
         $sqlConfigFile = __DIR__ . '/../../../app/useSQL.php';
         $installSql = file_exists($sqlConfigFile) ? require $sqlConfigFile : [];
-        
+
         $sqlStatements = [];
-        
+
         if (isset($installSql['api']) || isset($installSql['cms'])) {
             $globalTables = [];
             $modeTables = [];
-            
+
             foreach ($installSql as $key => $value) {
                 if ($key === 'api' || $key === 'cms') {
                     continue;
@@ -31,23 +31,23 @@ class Anon_System_Install
                     $globalTables[$key] = $value;
                 }
             }
-            
+
             if (isset($installSql[$mode]) && is_array($installSql[$mode])) {
                 $modeTables = $installSql[$mode];
             }
-            
+
             $allTables = array_merge($globalTables, $modeTables);
         } else {
             $allTables = $installSql;
         }
-        
+
         foreach ($allTables as $tableName => $sql) {
             if (is_string($sql)) {
                 $sql = str_replace('{prefix}', $tablePrefix, $sql);
                 $sqlStatements[] = $sql;
             }
         }
-        
+
         return $sqlStatements;
     }
 
@@ -72,7 +72,7 @@ class Anon_System_Install
 
         // 检查是否已配置安装模式
         $installMode = Anon_System_Env::get('app.install.mode', null);
-        
+
         // 如果已配置模式，则跳过模式选择步骤
         if ($installMode !== null && in_array($installMode, ['api', 'cms'])) {
             if (!isset($_SESSION['install_mode'])) {
@@ -82,7 +82,7 @@ class Anon_System_Install
         } else {
             $defaultStep = 'mode';
         }
-        
+
         // 显示页面
         $step = $_GET['step'] ?? $defaultStep;
         if (!in_array($step, ['mode', 'database', 'overwrite', 'admin'])) {
@@ -158,7 +158,7 @@ class Anon_System_Install
 
         // 优先从配置中读取
         $installMode = Anon_System_Env::get('app.install.mode', null);
-        
+
         // 如果配置中已设置，则使用配置的值
         if ($installMode !== null && in_array($installMode, ['api', 'cms'])) {
             if (!isset($_SESSION['install_mode'])) {
@@ -232,7 +232,7 @@ class Anon_System_Install
 
         try {
             $input = Anon_Http_Request::getInput();
-            
+
             if (!isset($input['csrf_token']) || empty($input['csrf_token'])) {
                 Anon_Http_Response::error('CSRF Token 不能为空', null, 400);
             }
@@ -279,7 +279,7 @@ class Anon_System_Install
             if ($conn->connect_error) {
                 Anon_Http_Response::error('数据库连接失败: ' . $conn->connect_error, null, 500);
             }
-            
+
             // 检测表是否存在
             $existingTables = self::checkExistingTables($conn, $db_prefix, $app_mode);
             $conn->close();
@@ -461,23 +461,23 @@ class Anon_System_Install
     private static function updateConfig($dbHost, $dbUser, $dbPass, $dbName, $dbPrefix, $dbPort = 3306, $appMode = 'api')
     {
         $configFile = self::envfile;
-        
+
         if (!file_exists($configFile)) {
             throw new Exception('配置文件不存在: ' . $configFile);
         }
-        
+
         $lines = file($configFile, FILE_IGNORE_NEW_LINES);
         if ($lines === false) {
             throw new Exception('无法读取配置文件: ' . $configFile);
         }
-        
-        $escapeValue = function($str) {
+
+        $escapeValue = function ($str) {
             return "'" . addcslashes($str, "'\\") . "'";
         };
 
         // 生成随机 APP_KEY
         $appKey = 'base64:' . base64_encode(random_bytes(32));
-        
+
         foreach ($lines as $index => $line) {
             // 每次安装都强制更新 APP_KEY
             if (preg_match("/define\s*\(\s*['\"]ANON_APP_KEY['\"]/", $line)) {
@@ -491,37 +491,37 @@ class Anon_System_Install
                 $lines[$index] = "define('ANON_DB_HOST', " . $escapeValue($dbHost) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_PORT['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PORT', " . $dbPort . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_PREFIX['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PREFIX', " . $escapeValue($dbPrefix) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_USER['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_USER', " . $escapeValue($dbUser) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_PASSWORD['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_PASSWORD', " . $escapeValue($dbPass) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_DB_DATABASE['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_DB_DATABASE', " . $escapeValue($dbName) . ");" . ($comment ? ' ' . $comment : '');
                 continue;
             }
-            
+
             if (preg_match("/define\s*\(\s*['\"]ANON_INSTALLED['\"]/", $line)) {
                 $comment = preg_match('/\/\/.*$/', $line, $matches) ? $matches[0] : '';
                 $lines[$index] = "define('ANON_INSTALLED', true);" . ($comment ? ' ' . $comment : '');
@@ -546,7 +546,7 @@ class Anon_System_Install
         if (!$hasAppMode) {
             $lines[] = "define('ANON_APP_MODE', " . $escapeValue($appMode) . ");";
         }
-        
+
         $content = implode("\n", $lines) . "\n";
         if (file_put_contents($configFile, $content) === false) {
             throw new Exception('无法写入配置文件: ' . $configFile);
@@ -578,7 +578,7 @@ class Anon_System_Install
 
         // 检查是否需要覆盖安装
         $overwrite = isset($_SESSION['install_overwrite']) && $_SESSION['install_overwrite'] === true;
-        
+
         // 执行 SQL
         self::executeSqlStatements($conn, $db_prefix, $app_mode, $overwrite);
 
@@ -586,7 +586,7 @@ class Anon_System_Install
         require_once self::envfile;
         $appConfigFile = __DIR__ . '/../../../app/useApp.php';
         $appConfig = file_exists($appConfigFile) ? require $appConfigFile : [];
-        
+
         $envConfig = [
             'system' => [
                 'db' => [
@@ -602,7 +602,7 @@ class Anon_System_Install
             ],
         ];
         $envConfig = array_merge_recursive($envConfig, $appConfig);
-        
+
         Anon_System_Env::init($envConfig);
 
         // 插入默认 options
@@ -646,7 +646,7 @@ class Anon_System_Install
              * 插入默认分类并获取分类ID
              */
             $categoryId = self::insertDefaultMeta($conn, $db_prefix);
-            
+
             /**
              * 插入默认文章，关联默认分类
              */
@@ -675,7 +675,7 @@ class Anon_System_Install
     {
         $sqlStatements = self::getSqlStatements($tablePrefix, $mode);
         $existingTables = [];
-        
+
         foreach ($sqlStatements as $sql) {
             // 提取表名
             if (preg_match('/CREATE TABLE (?:IF NOT EXISTS )?`?([^`\s]+)`?/i', $sql, $matches)) {
@@ -689,7 +689,7 @@ class Anon_System_Install
                 }
             }
         }
-        
+
         return $existingTables;
     }
 
@@ -708,7 +708,7 @@ class Anon_System_Install
 
         try {
             $input = Anon_Http_Request::getInput();
-            
+
             if (!isset($input['csrf_token']) || empty($input['csrf_token'])) {
                 Anon_Http_Response::error('CSRF Token 不能为空', null, 400);
             }
@@ -740,7 +740,7 @@ class Anon_System_Install
     private static function executeSqlStatements($conn, $tablePrefix, string $mode = 'api', bool $overwrite = false)
     {
         $sqlStatements = self::getSqlStatements($tablePrefix, $mode);
-        
+
         if ($overwrite) {
             // 先删除已存在的表
             foreach ($sqlStatements as $sql) {
@@ -754,7 +754,7 @@ class Anon_System_Install
                 }
             }
         }
-        
+
         foreach ($sqlStatements as $sql) {
             if (!empty($sql) && !$conn->query($sql)) {
                 $errorMsg = self::sanitizeError($conn->error);
@@ -799,18 +799,21 @@ class Anon_System_Install
                 'other' => '',
             ], JSON_UNESCAPED_UNICODE),
             'routes' => json_encode([
-                '/post/{id}' => 'post',
-                '/{slug}' => 'page',
+                '/archives/{id}' => 'post',
+                '/{slug}.html' => 'page',
+                '/category/{slug}' => 'category',
+                '/tag/{slug}' => 'tag',
+                '/user/{uid}' => 'user',
             ], JSON_UNESCAPED_UNICODE),
             'plugins:active' => json_encode([], JSON_UNESCAPED_UNICODE),
         ];
 
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
-        
+
         foreach ($defaultOptions as $name => $value) {
             // 检查选项是否已存在
             $existing = $queryBuilder->where('name', $name)->first();
-            
+
             if ($existing) {
                 // 如果存在则更新
                 $result = $queryBuilder->where('name', $name)->update(['value' => $value]);
@@ -821,13 +824,13 @@ class Anon_System_Install
                     'value' => $value
                 ]);
             }
-            
+
             if (!$result) {
                 $errorMsg = self::sanitizeError($conn->error);
                 error_log("插入选项失败: " . $errorMsg);
                 throw new RuntimeException("插入选项失败: " . $name);
             }
-            
+
             // 重置查询构建器状态，避免影响下一次查询
             $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         }
@@ -850,7 +853,7 @@ class Anon_System_Install
         $tableName = self::getTableName($tablePrefix, 'users');
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
         $now = date('Y-m-d H:i:s');
-        
+
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $userId = $queryBuilder->insert([
             'name' => $username,
@@ -862,7 +865,7 @@ class Anon_System_Install
             'created_at' => $now,
             'updated_at' => $now
         ]);
-        
+
         return $userId;
     }
 
@@ -889,7 +892,7 @@ class Anon_System_Install
     {
         $tableName = self::getTableName($tablePrefix, 'metas');
         $now = date('Y-m-d H:i:s');
-        
+
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $categoryId = $queryBuilder->insert([
             'name' => '默认分类',
@@ -899,7 +902,7 @@ class Anon_System_Install
             'created_at' => $now,
             'updated_at' => $now
         ]);
-        
+
         return $categoryId;
     }
 
@@ -915,12 +918,12 @@ class Anon_System_Install
     {
         $tableName = self::getTableName($tablePrefix, 'posts');
         $now = date('Y-m-d H:i:s');
-        
+
         /**
          * 确保内容以 <!--markdown--> 开头
          */
         $content = '<!--markdown-->欢迎使用 `AnonEcho`';
-        
+
         $insertData = [
             'type' => 'post',
             'title' => 'Hello World!',
@@ -935,10 +938,10 @@ class Anon_System_Install
             'created_at' => $now,
             'updated_at' => $now
         ];
-        
+
         $queryBuilder = new Anon_Database_QueryBuilder($conn, $tableName);
         $result = $queryBuilder->insert($insertData);
-        
+
         return $result !== false;
     }
 
@@ -964,17 +967,17 @@ class Anon_System_Install
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false; // 默认不记录
         }
-        
+
         // 移除敏感路径
         if (!$logDetailed) {
             $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
         }
-        
+
         // 移除敏感数据
         if (!$logDetailed) {
             $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
         }
-        
+
         return $error;
     }
 
@@ -987,4 +990,3 @@ class Anon_System_Install
         Anon_Http_Response::error('发生错误，请稍后重试。', null, 500);
     }
 }
-

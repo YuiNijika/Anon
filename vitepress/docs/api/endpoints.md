@@ -202,6 +202,33 @@
 }
 ```
 
+### 评论管理接口
+
+- `GET /anon/cms/admin/comments` - 获取评论列表，需管理员权限
+- `PUT /anon/cms/admin/comments` - 更新评论：body 传 `id`，可选 `status`（approved/pending/spam/trash）或 `content`（编辑内容），需管理员权限
+- `DELETE /anon/cms/admin/comments` - 删除评论，body 传 `id`，需管理员权限
+
+**评论列表请求参数（GET）：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| page | int | 页码，默认 1 |
+| page_size | int | 每页条数，默认 20，最大 100 |
+| status | string | 状态筛选：pending / approved / spam / trash |
+| post_id | int | 按文章 ID 筛选 |
+| type | string | 类型：user（登录用户）/ guest（游客） |
+| keyword | string | 内容关键词（模糊匹配） |
+| is_reply | int | 1=仅根评论，2=仅回复 |
+| date_from | string | 开始日期（Y-m-d 或时间戳） |
+| date_to | string | 结束日期（Y-m-d 或时间戳） |
+
+**列表项字段**：除基础评论字段外，含 `ip`、`user_agent`、`reply_to_name`（回复关系）、`ua_browser`、`ua_os`（解析后的浏览器与系统）、`is_reply`（是否为回复）。
+
+### 主题评论接口（无需登录）
+
+- `GET /anon/cms/comments?post_id={id}` - 获取某文章已通过评论；已登录时响应带 `currentUser`（displayName、name、avatar）
+- `POST /anon/cms/comments` - 提交评论；body：`post_id`、`content` 必填；未登录需 `name`、`email`；回复传 `parent_id`
+
 ### 配置信息接口
 
 `GET /anon/cms/admin/config` 和 `GET /get-config` 返回相同的配置信息：

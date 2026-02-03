@@ -24,7 +24,7 @@ class Anon_Loader
         if (isset(self::$loadedModules['cms'])) {
             return;
         }
-        
+
         require_once Anon_Main::MODULES_DIR . 'Cms/Cms.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Options.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/PageMeta.php';
@@ -32,8 +32,10 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/FatalError.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Options.php';
+        require_once Anon_Main::WIDGETS_DIR . 'Cms/User.php';
+        require_once Anon_Main::WIDGETS_DIR . 'Cms/ThemeHelper.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
-        
+
         Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;
         Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputCopyright']);
@@ -49,7 +51,7 @@ class Anon_Loader
         if (isset(self::$loadedModules['widgets'])) {
             return;
         }
-        
+
         require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Escape.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Sanitize.php';
@@ -58,7 +60,7 @@ class Anon_Loader
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Format.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Array.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Random.php';
-        
+
         self::$loadedModules['widgets'] = true;
     }
 
@@ -71,7 +73,7 @@ class Anon_Loader
         if (isset(self::$loadedModules['core'])) {
             return;
         }
-        
+
         require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::MODULES_DIR . 'System/Exception.php';
         require_once Anon_Main::MODULES_DIR . 'Database.php';
@@ -88,7 +90,7 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Database/QueryBuilder.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryOptimizer.php';
         require_once Anon_Main::MODULES_DIR . 'Database/Sharding.php';
-        
+
         self::$loadedModules['core'] = true;
     }
 
@@ -108,7 +110,7 @@ class Anon_Loader
             'capability' => Anon_Main::MODULES_DIR . 'Auth/Capability.php',
             'console' => Anon_Main::MODULES_DIR . 'System/Console.php',
         ];
-        
+
         if ($module !== null) {
             $module = strtolower($module);
             if (isset($modules[$module]) && !isset(self::$loadedModules['optional_' . $module])) {
@@ -117,7 +119,7 @@ class Anon_Loader
             }
             return;
         }
-        
+
         foreach ($modules as $key => $path) {
             if (!isset(self::$loadedModules['optional_' . $key])) {
                 require_once $path;
@@ -146,7 +148,7 @@ class Anon_Loader
         if (isset(self::$loadedModules['debug'])) {
             return;
         }
-        
+
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
             require_once Anon_Main::MODULES_DIR . 'Debug.php';
             self::$loadedModules['debug'] = true;
@@ -162,12 +164,11 @@ class Anon_Loader
         if (isset(self::$loadedModules['extensions'])) {
             return;
         }
-        
+
         require_once Anon_Main::MODULES_DIR . 'Anon.php';
         require_once Anon_Main::MODULES_DIR . 'System/Plugin.php';
         require_once Anon_Main::MODULES_DIR . '/../Compatibility.php';
-        
+
         self::$loadedModules['extensions'] = true;
     }
 }
-

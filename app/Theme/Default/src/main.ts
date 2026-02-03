@@ -45,6 +45,8 @@ function initCodeHighlight() {
 function initPage() {
   initLightbox();
   initCodeHighlight();
+  const reloadComments = (window as unknown as { __anonInitComments?: () => void }).__anonInitComments;
+  if (typeof reloadComments === 'function') reloadComments();
 }
 
 function initThemeToggle() {

@@ -488,7 +488,9 @@ class Anon_Http_Router
         }
 
         if (!empty($meta['method'])) {
-            $allowedMethods = is_array($meta['method']) ? $meta['method'] : [$meta['method']];
+            $allowedMethods = is_array($meta['method'])
+                ? $meta['method']
+                : array_values(array_filter(array_map('trim', explode(',', (string) $meta['method']))));
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
             if (!in_array(strtoupper($requestMethod), array_map('strtoupper', $allowedMethods))) {

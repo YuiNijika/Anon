@@ -3,11 +3,13 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 require_once __DIR__ . '/Settings/Basic.php';
 require_once __DIR__ . '/Settings/Permission.php';
+require_once __DIR__ . '/Settings/Page.php';
 require_once __DIR__ . '/Manage/Categories.php';
 require_once __DIR__ . '/Manage/Tags.php';
 require_once __DIR__ . '/Manage/Attachments.php';
 require_once __DIR__ . '/Manage/Posts.php';
 require_once __DIR__ . '/Manage/Users.php';
+require_once __DIR__ . '/Manage/Comments.php';
 require_once __DIR__ . '/Index/Statistics.php';
 require_once __DIR__ . '/Index/Plugins.php';
 require_once __DIR__ . '/Index/Themes.php';
@@ -49,12 +51,12 @@ class Anon_Cms_Admin
         if (!isset($meta['requireAdmin'])) {
             $meta['requireAdmin'] = '需要管理员权限';
         }
-        
+
         // 设置requireAdmin时自动添加requireLogin
         if (!empty($meta['requireAdmin'])) {
             $meta['requireLogin'] = true;
         }
-        
+
         Anon_System_Config::addRoute(self::getRoutePrefix() . $path, $handler, $meta);
     }
 
@@ -77,7 +79,7 @@ class Anon_Cms_Admin
         if (!$userId) {
             return false;
         }
-        
+
         $db = Anon_Database::getInstance();
         return $db->isUserAdmin($userId);
     }
@@ -102,7 +104,7 @@ class Anon_Cms_Admin
                 $statistics['attachments_size'] = Anon_Cms_Statistics::getAttachmentsSize();
                 $statistics['total_views'] = Anon_Cms_Statistics::getTotalViews();
                 $statistics['views_trend'] = Anon_Cms_Statistics::getViewsTrend(7);
-                
+
                 Anon_Http_Response::success($statistics, '获取统计数据成功');
             } catch (Exception $e) {
                 Anon_Http_Response::handleException($e);
@@ -118,9 +120,9 @@ class Anon_Cms_Admin
                 if (!in_array($days, [7, 14, 30])) {
                     $days = 7;
                 }
-                
+
                 $trend = Anon_Cms_Statistics::getViewsTrend($days);
-                
+
                 Anon_Http_Response::success($trend, '获取访问趋势数据成功');
             } catch (Exception $e) {
                 Anon_Http_Response::handleException($e);
@@ -133,7 +135,7 @@ class Anon_Cms_Admin
         self::addRoute('/statistics/access-logs', function () {
             try {
                 $options = [];
-                
+
                 // 分页参数
                 if (isset($_GET['page'])) {
                     $options['page'] = (int)$_GET['page'];
@@ -141,7 +143,7 @@ class Anon_Cms_Admin
                 if (isset($_GET['page_size'])) {
                     $options['page_size'] = (int)$_GET['page_size'];
                 }
-                
+
                 // 筛选参数
                 if (isset($_GET['ip']) && !empty($_GET['ip'])) {
                     $options['ip'] = trim($_GET['ip']);
@@ -164,9 +166,9 @@ class Anon_Cms_Admin
                 if (isset($_GET['end_date']) && !empty($_GET['end_date'])) {
                     $options['end_date'] = trim($_GET['end_date']);
                 }
-                
+
                 $result = Anon_Cms_AccessLog::getLogs($options);
-                
+
                 Anon_Http_Response::success($result, '获取访问日志成功');
             } catch (Exception $e) {
                 Anon_Http_Response::handleException($e);
@@ -179,7 +181,7 @@ class Anon_Cms_Admin
         self::addRoute('/statistics/access-stats', function () {
             try {
                 $options = [];
-                
+
                 // 筛选参数
                 if (isset($_GET['start_date']) && !empty($_GET['start_date'])) {
                     $options['start_date'] = trim($_GET['start_date']);
@@ -196,9 +198,9 @@ class Anon_Cms_Admin
                 if (isset($_GET['type']) && !empty($_GET['type'])) {
                     $options['type'] = trim($_GET['type']);
                 }
-                
+
                 $stats = Anon_Cms_AccessLog::getStatistics($options);
-                
+
                 Anon_Http_Response::success($stats, '获取访问统计成功');
             } catch (Exception $e) {
                 Anon_Http_Response::handleException($e);
@@ -236,6 +238,19 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
+        self::addRoute('/settings/page', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_Settings_Page::get();
+            } elseif ($requestMethod === 'POST') {
+                Anon_Cms_Admin_Settings_Page::save();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST'],
+            'token' => true,
+        ]);
 
         Anon_Cms_Admin_Themes::initStaticRoutes();
 
@@ -359,6 +374,22 @@ class Anon_Cms_Admin
             }
         }, [
             'method' => ['GET', 'POST', 'PUT', 'DELETE'],
+            'token' => true,
+        ]);
+
+        self::addRoute('/comments', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                Anon_Cms_Admin_Comments::getList();
+            } elseif ($requestMethod === 'PUT') {
+                Anon_Cms_Admin_Comments::update();
+            } elseif ($requestMethod === 'DELETE') {
+                Anon_Cms_Admin_Comments::delete();
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'PUT', 'DELETE'],
             'token' => true,
         ]);
 

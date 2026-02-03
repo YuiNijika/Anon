@@ -1,6 +1,8 @@
 # 配置说明
 
-一句话：系统配置在env.php，应用配置在useApp.php，SQL配置在useSQL.php，用Anon_Env获取。
+**本节说明**：系统配置、应用配置与 SQL 配置的存放位置与常用项。**适用**：通用。
+
+系统配置在 `server/.env.php`，应用配置在 `server/app/useApp.php`，SQL 表结构在 `server/app/useSQL.php`，运行时可用 `Anon_Env` 读取环境常量。
 
 ## 系统配置 (.env.php)
 

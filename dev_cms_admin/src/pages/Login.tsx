@@ -61,10 +61,10 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
       <Card className="w-full max-w-[400px] shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-semibold text-primary">
+        <CardHeader className="pb-4 sm:pb-6">
+          <CardTitle className="text-center text-xl sm:text-2xl font-semibold text-primary">
             AnonEcho
           </CardTitle>
         </CardHeader>

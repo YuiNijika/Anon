@@ -634,6 +634,16 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         return $user;
     }
 
+    /**
+     * @param string|null $email
+     * @param int $size
+     * @return string
+     */
+    public function getAvatarByEmail($email = null, $size = 640)
+    {
+        return $this->buildAvatar($email, $size);
+    }
+
     private function buildAvatar($email = null, $size = 640)
     {
         $avatarUrl = 'https://www.cravatar.cn/avatar';

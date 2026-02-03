@@ -39,4 +39,25 @@
     background: hsl(var(--p)) !important;
     height: 4px !important;
   }
+
+  /* 评论表单：文本域与整体样式 */
+  .comment-form .form-control .label {
+    @apply mb-1;
+  }
+
+  .comment-textarea {
+    @apply min-h-[7.5rem] resize-y py-3 px-4 rounded-lg;
+    @apply text-base leading-relaxed;
+    @apply transition-colors duration-150;
+    @apply placeholder:text-base-content/40;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary;
+  }
+
+  .comment-textarea:focus {
+    box-shadow: 0 0 0 2px hsl(var(--b1)), 0 0 0 4px hsl(var(--p) / 0.2);
+  }
+
+  .comments-root .comment-item+.comment-item {
+    @apply pt-4 border-t border-base-300/60;
+  }
 }

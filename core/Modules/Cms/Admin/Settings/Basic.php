@@ -16,7 +16,7 @@ class Anon_Cms_Admin_SettingsBasic
         try {
             $uploadAllowedTypesValue = Anon_Cms_Options::get('upload_allowed_types', '');
             $uploadAllowedTypes = [];
-            
+
             /**
              * 解析上传允许类型配置
              * 如果已经是数组则直接使用，否则尝试解析 JSON 字符串
@@ -29,7 +29,7 @@ class Anon_Cms_Admin_SettingsBasic
                     $uploadAllowedTypes = $decoded;
                 }
             }
-            
+
             /**
              * 新格式为空时从旧字段读取
              */
@@ -41,25 +41,25 @@ class Anon_Cms_Admin_SettingsBasic
                     'other' => Anon_Cms_Options::get('upload_allowed_other', ''),
                 ];
             }
-            
+
             /**
              * 将各种格式的值转换为布尔值
              * @param mixed $value 待转换的值
              * @return bool
              */
-            $toBool = function($value) {
+            $toBool = function ($value) {
                 if ($value === true || $value === 'true' || $value === '1' || $value === 1) {
                     return true;
                 }
                 return false;
             };
-            
+
             /**
              * 获取路由规则配置
              */
             $routesValue = Anon_Cms_Options::get('routes', '');
             $routes = [];
-            
+
             if (is_array($routesValue)) {
                 $routes = $routesValue;
             } elseif (is_string($routesValue) && !empty($routesValue)) {
@@ -68,7 +68,7 @@ class Anon_Cms_Admin_SettingsBasic
                     $routes = $decoded;
                 }
             }
-            
+
             $settings = [
                 'title' => Anon_Cms_Options::get('title', ''),
                 'subtitle' => Anon_Cms_Options::get('subtitle', 'Powered by AnonEcho'),
@@ -77,7 +77,7 @@ class Anon_Cms_Admin_SettingsBasic
                 'upload_allowed_types' => $uploadAllowedTypes,
                 'routes' => $routes,
             ];
-            
+
             Anon_Http_Response::success($settings, '获取基本设置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
@@ -92,7 +92,7 @@ class Anon_Cms_Admin_SettingsBasic
     {
         try {
             $data = Anon_Http_Request::getInput();
-            
+
             if (empty($data)) {
                 Anon_Http_Response::error('请求数据不能为空', 400);
                 return;
@@ -103,7 +103,7 @@ class Anon_Cms_Admin_SettingsBasic
              * @param mixed $value 待转换的值
              * @return string '1' 或 '0'
              */
-            $toBoolString = function($value) {
+            $toBoolString = function ($value) {
                 // 处理布尔值 true/false
                 if ($value === true) {
                     return '1';
@@ -126,12 +126,12 @@ class Anon_Cms_Admin_SettingsBasic
                 // 其他情况默认为 '0'
                 return '0';
             };
-            
+
             $siteName = isset($data['title']) ? trim($data['title']) : '';
             $siteSubtitle = isset($data['subtitle']) ? trim($data['subtitle']) : 'Powered by AnonEcho';
             $siteDescription = isset($data['description']) ? trim($data['description']) : '';
             $keywords = isset($data['keywords']) ? trim($data['keywords']) : '';
-            
+
             /**
              * 处理上传允许类型配置
              */
@@ -155,26 +155,21 @@ class Anon_Cms_Admin_SettingsBasic
                 return;
             }
 
-            /**
-             * 处理路由规则配置
-             */
-            $routes = [];
-            if (isset($data['routes']) && is_array($data['routes'])) {
-                $routes = $data['routes'];
-            }
-
             Anon_Cms_Options::set('title', $siteName);
             Anon_Cms_Options::set('subtitle', $siteSubtitle);
             Anon_Cms_Options::set('description', $siteDescription);
             Anon_Cms_Options::set('keywords', $keywords);
             Anon_Cms_Options::set('upload_allowed_types', json_encode($uploadAllowedTypes, JSON_UNESCAPED_UNICODE));
-            Anon_Cms_Options::set('routes', json_encode($routes, JSON_UNESCAPED_UNICODE));
-            
             /**
-             * 清除选项缓存，确保设置立即生效
+             * 仅当请求中带 routes 时才更新链接设置（链接设置已迁移到「链接设置」页）
              */
+            if (isset($data['routes']) && is_array($data['routes'])) {
+                Anon_Cms_Options::set('routes', json_encode($data['routes'], JSON_UNESCAPED_UNICODE));
+            }
             Anon_Cms_Options::clearCache();
-            
+
+            $routesValue = Anon_Cms_Options::get('routes', '');
+            $routes = is_array($routesValue) ? $routesValue : (is_string($routesValue) && $routesValue !== '' ? (json_decode($routesValue, true) ?: []) : []);
             Anon_Http_Response::success([
                 'title' => $siteName,
                 'subtitle' => $siteSubtitle,
@@ -188,4 +183,3 @@ class Anon_Cms_Admin_SettingsBasic
         }
     }
 }
-

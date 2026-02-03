@@ -109,28 +109,74 @@ export default function ManageCategories() {
           ) : !data?.length ? (
             <div className="py-12 text-center text-muted-foreground">暂无分类</div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">ID</TableHead>
-                    <TableHead>名称</TableHead>
-                    <TableHead>别名</TableHead>
-                    <TableHead>描述</TableHead>
-                    <TableHead className="w-[80px]">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{row.id}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{row.name}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{row.slug}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-muted-foreground">{row.description ?? '-'}</TableCell>
-                      <TableCell>
+            <>
+              {/* 桌面端表格视图 */}
+              <div className="hidden lg:block">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">ID</TableHead>
+                        <TableHead>名称</TableHead>
+                        <TableHead>别名</TableHead>
+                        <TableHead>描述</TableHead>
+                        <TableHead className="w-[80px]">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell>{row.id}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{row.name}</TableCell>
+                          <TableCell className="max-w-[150px] truncate">{row.slug}</TableCell>
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{row.description ?? '-'}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(row)}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  编辑
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(row.id)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  删除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* 移动端卡片视图 */}
+              <div className="lg:hidden space-y-3">
+                {data.map((row) => (
+                  <Card key={row.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-lg">{row.name}</h3>
+                            <span className="text-sm text-muted-foreground">#{row.id}</span>
+                          </div>
+                          {row.slug && (
+                            <p className="text-sm text-muted-foreground font-mono">{row.slug}</p>
+                          )}
+                          {row.description && (
+                            <p className="text-sm text-muted-foreground">{row.description}</p>
+                          )}
+                        </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="sm">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -145,12 +191,12 @@ export default function ManageCategories() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -5,7 +5,7 @@ $post = $this->post();
 $this->components('head');
 ?>
 
-<div class="card bg-base-100 shadow-md">
+<div class="card bg-base-100 shadow-md mb-4">
   <div class="card-body">
     <div class="mb-4">
       <span class="badge badge-outline">文章</span>
@@ -18,4 +18,7 @@ $this->components('head');
   </div>
 </div>
 
-<?php $this->components('foot'); ?>
+<?php 
+$this->components('comments'); 
+$this->components('foot'); 
+?>

@@ -3,6 +3,7 @@ import Layout from '@/layouts/Layout'
 import Login from '@/pages/Login'
 import Console from '@/pages/Console'
 import SettingsBasic from '@/pages/Settings/Basic'
+import SettingsPage from '@/pages/Settings/Page'
 import SettingsPermission from '@/pages/Settings/Permission'
 import Statistics from '@/pages/Statistics'
 import Write from '@/pages/Write'
@@ -13,6 +14,7 @@ import ManageTags from '@/pages/Manage/Tags'
 import ManageFiles from '@/pages/Manage/Files'
 import ManagePosts from '@/pages/Manage/Posts'
 import ManageUsers from '@/pages/Manage/Users'
+import ManageComments from '@/pages/Manage/Comments'
 
 export const routes = [
   {
@@ -68,8 +70,16 @@ export const routes = [
         element: <ManageUsers />,
       },
       {
+        path: 'manage/comments',
+        element: <ManageComments />,
+      },
+      {
         path: 'settings/basic',
         element: <SettingsBasic />,
+      },
+      {
+        path: 'settings/page',
+        element: <SettingsPage />,
       },
       {
         path: 'settings/permission',

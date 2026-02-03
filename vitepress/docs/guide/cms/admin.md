@@ -21,6 +21,7 @@ CMS 模式提供完整的管理后台，用于配置站点、主题、插件、�
 | **主题** | 主题列表、切换主题、主题选项，存于 options 表 theme:主题名 |
 | **插件** | 插件列表、上传、启用、停用、删除，插件设置存于 options 表 plugin:插件名 |
 | **文章** | 文章/页面增删改查，分类与标签关联 |
+| **评论** | 评论列表、高级筛选（状态/类型/根或回复/关键词/日期）、编辑内容、通过/待审核/垃圾/回收站、删除；展示 IP、解析 UA（浏览器·系统）、回复关系与子评论高亮，详见 [评论功能](./comments.md) |
 | **分类** | 分类增删改查 |
 | **标签** | 标签增删改查 |
 | **附件** | 附件上传、列表、删除，按类型分类存储 |
@@ -42,7 +43,8 @@ CMS 模式提供完整的管理后台，用于配置站点、主题、插件、�
 - **附件**：`GET/POST/DELETE /anon/cms/admin/attachments`  
 - **分类**：`GET/POST/PUT/DELETE /anon/cms/admin/metas/categories`  
 - **标签**：`GET/POST/PUT/DELETE /anon/cms/admin/metas/tags`  
-- **文章**：`GET/POST/PUT/DELETE /anon/cms/admin/posts`  
+- **文章**：`GET/POST/PUT/DELETE /anon/cms/admin/posts`
+- **评论**：`GET/PUT/DELETE /anon/cms/admin/comments`（列表、更新状态/内容、删除）  
 
 ### 路由注册与元数据
 

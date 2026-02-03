@@ -8,13 +8,17 @@ export function useThemes() {
   const apiAdmin = useApiAdmin()
   const [loading, setLoading] = useState(false)
 
-  const uploadTheme = useCallback(async (file: File) => {
+  const uploadTheme = useCallback(async (file: File, overwrite = false) => {
     try {
       setLoading(true)
-      const response = await AdminApi.uploadTheme(apiAdmin, file)
+      const response = await AdminApi.uploadTheme(apiAdmin, file, overwrite)
       if (response.code === 200) {
+        const data = response.data
+        if (data?.needConfirm) {
+          return data
+        }
         toast.success('上传成功')
-        return response.data
+        return data
       } else {
         toast.error(response.message || '上传失败')
         return null

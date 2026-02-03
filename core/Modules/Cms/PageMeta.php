@@ -3,7 +3,16 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Cms_PageMeta
 {
+    /**
+     * 元数据缓存
+     * @var array
+     */
     private static $metaCache = [];
+    
+    /**
+     * URL缓存
+     * @var string|null
+     */
     private static $canonicalCache = null;
 
     /**
@@ -15,15 +24,24 @@ class Anon_Cms_PageMeta
     {
         $meta = [];
         if (!empty($GLOBALS['_anon_rendering_error_page'])) {
+            $siteTitle = trim((string) Anon_Cms_Options::get('title', ''));
+            $title = $siteTitle !== '' ? '404 Not Found - ' . $siteTitle : '404 Not Found';
             $meta = [
-                'title' => '404 Not Found',
+                'title' => $title,
                 'description' => '页面不存在或已被删除',
                 'keywords' => ['404', '页面未找到', '错误'],
                 'robots' => 'noindex, nofollow',
             ];
             $defaults = [
-                'title' => null, 'description' => null, 'keywords' => null, 'robots' => 'index, follow',
-                'canonical' => null, 'og' => [], 'twitter' => [], 'code' => null, 'message' => null,
+                'title' => null,
+                'description' => null,
+                'keywords' => null,
+                'robots' => 'index, follow',
+                'canonical' => null,
+                'og' => [],
+                'twitter' => [],
+                'code' => null,
+                'message' => null,
             ];
             $meta = array_merge($defaults, $meta);
             $meta['canonical'] = self::getCanonical();
@@ -39,9 +57,12 @@ class Anon_Cms_PageMeta
             if ($pageType === 'error') {
                 $errorInfo = self::getError($overrides);
                 $meta = [
-                    'title' => $errorInfo['title'], 'description' => $errorInfo['description'],
-                    'keywords' => self::getErrorKeywords($overrides), 'robots' => 'noindex, nofollow',
-                    'code' => $errorInfo['code'], 'message' => $errorInfo['message'],
+                    'title' => $errorInfo['title'],
+                    'description' => $errorInfo['description'],
+                    'keywords' => self::getErrorKeywords($overrides),
+                    'robots' => 'noindex, nofollow',
+                    'code' => $errorInfo['code'],
+                    'message' => $errorInfo['message'],
                 ];
                 $meta = Anon_System_Hook::apply_filters('cms_page_meta_error', $meta, $errorInfo);
             } elseif (defined('Anon_PageMeta')) {
@@ -64,9 +85,28 @@ class Anon_Cms_PageMeta
             }
         }
 
+        $pageType = self::detectPageType();
+        if ($pageType !== 'index') {
+            $siteTitle = trim((string) Anon_Cms_Options::get('title', ''));
+            if ($siteTitle !== '') {
+                if (!empty($meta['title'])) {
+                    $meta['title'] = trim((string) $meta['title']) . ' - ' . $siteTitle;
+                } else {
+                    $meta['title'] = $siteTitle;
+                }
+            }
+        }
+
         $defaults = [
-            'title' => null, 'description' => null, 'keywords' => null, 'robots' => 'index, follow',
-            'canonical' => null, 'og' => [], 'twitter' => [], 'code' => null, 'message' => null,
+            'title' => null,
+            'description' => null,
+            'keywords' => null,
+            'robots' => 'index, follow',
+            'canonical' => null,
+            'og' => [],
+            'twitter' => [],
+            'code' => null,
+            'message' => null,
         ];
         $meta = array_merge($defaults, $meta);
         $meta['canonical'] = self::getCanonical();
@@ -106,13 +146,18 @@ class Anon_Cms_PageMeta
             $metaDescription = Anon_PageMeta['description'] ?? null;
         }
         return [
-            'code' => $statusCode, 'message' => $errorMessage,
+            'code' => $statusCode,
+            'message' => $errorMessage,
             'title' => $metaTitle ?? ($statusCode . ' ' . $text),
             'description' => $metaDescription ?? (!empty($errorMessage) ? $errorMessage : ($statusCode . ' ' . $text)),
             'text' => $text,
         ];
     }
 
+    /**
+     * 获取当前页面URL
+     * @return string 当前页面的完整URL
+     */
     private static function getCanonical(): string
     {
         if (self::$canonicalCache !== null) {
@@ -125,6 +170,11 @@ class Anon_Cms_PageMeta
         return self::$canonicalCache;
     }
 
+    /**
+     * 获取错误页面关键词
+     * @param array $overrides 覆盖值
+     * @return array 关键词数组
+     */
     private static function getErrorKeywords(array $overrides = []): array
     {
         if (defined('Anon_PageMeta') && is_array(Anon_PageMeta) && !empty(Anon_PageMeta['keywords'])) {
@@ -134,6 +184,10 @@ class Anon_Cms_PageMeta
         return ['错误页面', '404', '页面未找到'];
     }
 
+    /**
+     * 获取首页元数据
+     * @return array 首页元数据
+     */
     private static function getIndexMeta(): array
     {
         $siteTitle = Anon_Cms_Options::get('title', '');
@@ -151,6 +205,10 @@ class Anon_Cms_PageMeta
         return ['title' => $fullTitle, 'description' => $siteDesc ?: null, 'keywords' => $kw ?: null];
     }
 
+    /**
+     * 检测当前页面类型
+     * @return string 页面类型
+     */
     private static function detectPageType(): string
     {
         if (isset($GLOBALS['code']) && is_numeric($GLOBALS['code'])) {
@@ -173,6 +231,11 @@ class Anon_Cms_PageMeta
         return 'other';
     }
 
+    /**
+     * 从作用域获取变量值
+     * @param string $varName 变量名
+     * @return mixed 变量值
+     */
     private static function getScopeVariable(string $varName)
     {
         if (isset($GLOBALS[$varName])) {
@@ -196,6 +259,11 @@ class Anon_Cms_PageMeta
         return null;
     }
 
+    /**
+     * 获取文章或页面数据
+     * @param string $type 类型 post或page
+     * @return array|null 文章数据
+     */
     private static function getPostData(string $type): ?array
     {
         $db = Anon_Database::getInstance();
@@ -210,6 +278,12 @@ class Anon_Cms_PageMeta
         return null;
     }
 
+    /**
+     * 从内容中提取描述
+     * @param string $content 内容
+     * @param int $length 长度限制
+     * @return string 描述文本
+     */
     private static function extractDescription(string $content, int $length = 200): string
     {
         if ($content === '') {
@@ -230,25 +304,100 @@ class Anon_Cms_PageMeta
         return mb_strlen($text) <= $length ? $text : mb_substr($text, 0, $length) . '...';
     }
 
+    /**
+     * 获取文章关键词
+     * @param int $postId 文章ID
+     * @return array 关键词数组
+     */
     private static function getPostKeywords(int $postId): array
     {
         if ($postId <= 0) {
             return [];
         }
+        
         try {
-            $rows = Anon_Database::getInstance()->db('post_metas')
-                ->join('metas', 'post_metas.meta_id', '=', 'metas.id')
-                ->where('post_metas.post_id', $postId)
-                ->whereIn('metas.type', ['category', 'tag'])
-                ->get(['metas.name']);
-            $out = [];
-            foreach ($rows as $r) {
-                if (!empty($r['name'])) {
-                    $out[] = $r['name'];
+            $db = Anon_Database::getInstance();
+            $keywords = [];
+            $categories = [];
+            $tags = [];
+            
+            // 获取已发布的文章信息
+            $post = $db->db('posts')
+                ->where('id', $postId)
+                ->where('status', 'publish')
+                ->first(['category_id', 'tag_ids']);
+            
+            if (!$post) {
+                return [];
+            }
+            
+            // 获取分类信息
+            if (!empty($post['category_id'])) {
+                $category = $db->db('metas')
+                    ->where('id', (int)$post['category_id'])
+                    ->where('type', 'category')
+                    ->first(['name']);
+                
+                if ($category && !empty($category['name'])) {
+                    $categories[] = trim($category['name']);
                 }
             }
-            return $out;
+            
+            // 获取标签信息
+            if (!empty($post['tag_ids'])) {
+                $tagIds = json_decode($post['tag_ids'], true);
+                
+                if (is_array($tagIds) && !empty($tagIds)) {
+                    // 过滤有效的标签ID
+                    $validTagIds = array_filter($tagIds, function($id) {
+                        return is_numeric($id) && $id > 0;
+                    });
+                    
+                    if (!empty($validTagIds)) {
+                        $tagRows = $db->db('metas')
+                            ->whereIn('id', $validTagIds)
+                            ->where('type', 'tag')
+                            ->orderBy('name', 'asc')
+                            ->get(['name']);
+                        
+                        foreach ($tagRows as $tag) {
+                            if (!empty($tag['name'])) {
+                                $tags[] = trim($tag['name']);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 组合关键词，分类优先
+            $keywords = array_merge($categories, $tags);
+            
+            // 去重并保持顺序
+            $keywords = array_values(array_unique($keywords));
+            
+            // 记录调试信息
+            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                Anon_Debug::info('文章关键词获取成功', [
+                    'post_id' => $postId,
+                    'category_id' => $post['category_id'],
+                    'tag_ids' => $post['tag_ids'],
+                    'categories' => $categories,
+                    'tags' => $tags,
+                    'keywords' => $keywords
+                ]);
+            }
+            
+            return $keywords;
+            
         } catch (Exception $e) {
+            // 记录错误日志
+            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+                Anon_Debug::error('获取文章关键词失败', [
+                    'post_id' => $postId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
             return [];
         }
     }

@@ -102,6 +102,7 @@ class Anon_Theme_Options
         ];
         $args = array_merge($defaultArgs, $args);
 
+        // 如果设置项不存在，使用默认值
         if (!array_key_exists($key, $settings)) {
             $settings[$key] = $args['default'];
         }
@@ -148,7 +149,7 @@ class Anon_Theme_Options
         if (!is_array($settings)) {
             return $default;
         }
-        return $settings[$key] ?? $default;
+        return array_key_exists($key, $settings) ? $settings[$key] : $default;
     }
 
     /**
