@@ -370,7 +370,6 @@ export function OptionField({ name, option, value, onChange }: OptionFieldProps)
       const placeholder = (option as any).listPlaceholder ?? '输入后点击右侧 +1 新增一项'
       return (
         <TextListField
-          name={name}
           label={label}
           description={description}
           placeholder={placeholder}
