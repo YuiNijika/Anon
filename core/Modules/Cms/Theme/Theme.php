@@ -460,7 +460,7 @@ class Anon_Cms_Theme
         $mimeTypes = self::getMimeTypes();
         $mimeType = $mimeTypes[$fileExt] ?? 'application/octet-stream';
         
-        // 添加缓存参数
+        // 缓存参数
         $cacheParam = self::getAssetCacheParam();
         if ($forceNoCache) {
             // 强制禁止缓存
@@ -528,7 +528,7 @@ class Anon_Cms_Theme
     /**
      * 获取资源缓存参数
      * @param bool|null $dev 是否为开发模式，null 表示自动检测
-     * @return string 缓存参数字符串
+     * @return string 缓存参数字符串，生产环境为 ?ver=主题版本号，版本号变更时浏览器会重新拉取
      */
     public static function getAssetCacheParam(?bool $dev = null): string
     {
@@ -844,6 +844,9 @@ class Anon_Cms_Theme
      */
     public static function headMeta(array $overrides = []): void
     {
+        $charset = Anon_Cms_Options::get('charset', 'UTF-8');
+        echo '<meta charset="' . htmlspecialchars((string) $charset) . '">' . "\n";
+        echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n";
         try {
             $seo = Anon_Cms_PageMeta::getSeo($overrides);
             
@@ -1609,15 +1612,9 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取文章数据对象，仅查询，不存在时不渲染错误页，用于在输出 head 前判断文章是否存在
+     * 获取当前文章对象，不存在时由框架渲染 404 并结束
      * @return Anon_Cms_Post|null
      */
-    public function postIfExists(): ?Anon_Cms_Post
-    {
-        $data = Anon_Cms::getPostIfExists();
-        return $data ? new Anon_Cms_Post($data) : null;
-    }
-
     public function post(): ?Anon_Cms_Post
     {
         $data = Anon_Cms::getPost();
@@ -1625,17 +1622,7 @@ class Anon_Cms_Theme_View
     }
 
     /**
-     * 获取页面数据对象，仅查询，不存在时不渲染错误页，用于在输出 head 前判断页面是否存在
-     * @return Anon_Cms_Post|null
-     */
-    public function pageIfExists(): ?Anon_Cms_Post
-    {
-        $data = Anon_Cms::getPageIfExists();
-        return $data ? new Anon_Cms_Post($data) : null;
-    }
-
-    /**
-     * 获取页面数据对象
+     * 获取当前页面对象，不存在时由框架渲染 404 并结束
      * @return Anon_Cms_Post|null
      */
     public function page(): ?Anon_Cms_Post
@@ -1931,7 +1918,31 @@ class Anon_Cms_Theme_View
             $url = '/' . $url;
         }
 
-        return $url;
+        return self::getSiteBaseUrl() . $url;
+    }
+
+    /**
+     * 获取站点根链接
+     * 优先使用 options 中的 site_url，否则根据当前请求生成
+     * @return string
+     */
+    public static function getSiteBaseUrl(): string
+    {
+        $base = Anon_Cms_Options::get('site_url', '');
+        if ($base === '' || $base === null) {
+            $base = Anon_Cms_Options::get('home', '');
+        }
+        if (is_string($base) && $base !== '') {
+            $base = rtrim($base, '/');
+            if ($base !== '') {
+                return $base;
+            }
+        }
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+            ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        return $scheme . '://' . $host;
     }
 
 }

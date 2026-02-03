@@ -1,6 +1,6 @@
 {
     "name": "anon-theme-default",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "默认主题",
     "author": "YuiNijika",
     "homepage": "https://github.com/YuiNijika/Anon",
@@ -10,10 +10,21 @@
         "screenshot": "screenshot.jpg"
     },
     "scripts": {
-        "build": "tailwindcss -i ./src/input.css -o ./assets/style.css --minify"
+        "build": "pnpm run build:css && pnpm run build:js && pnpm run copy:libs",
+        "build:css": "tailwindcss -i ./src/input.css -o ./assets/style.css --minify",
+        "build:js": "vite build",
+        "copy:libs": "copyfiles -f \"node_modules/@fancyapps/ui/dist/fancybox/fancybox.css\" \"node_modules/prismjs/themes/prism-tomorrow.min.css\" \"node_modules/nprogress/nprogress.css\" assets"
+    },
+    "dependencies": {
+        "@fancyapps/ui": "^5.0.0",
+        "nprogress": "^0.2.0",
+        "prismjs": "^1.29.0",
+        "prismjs-components-importer": "^0.2.0"
     },
     "devDependencies": {
+        "copyfiles": "^2.4.1",
         "daisyui": "^4.12.14",
-        "tailwindcss": "^3.4.17"
+        "tailwindcss": "^3.4.17",
+        "vite": "^5.4.0"
     }
 }

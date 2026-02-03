@@ -607,6 +607,8 @@ class Anon_Cms_Admin_Attachments
                     if (!isset($a['original_name'])) {
                         $a['original_name'] = '';
                     }
+                    $a['name'] = $a['original_name'] !== '' ? $a['original_name'] : ($a['filename'] ?? '');
+                    $a['size'] = isset($a['file_size']) ? (int) $a['file_size'] : 0;
                     if (isset($a['updated_at'])) {
                         if (is_string($a['updated_at'])) {
                             $a['created_at'] = strtotime($a['updated_at']);

@@ -7,6 +7,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 <?php 
     $this->headMeta();
     $this->assets('style.css');
+    $this->assets('fancybox.css');
+    $this->assets('prism-tomorrow.min.css');
+    $this->assets('nprogress.css');
 ?>
 <script>
   (function() {
@@ -19,7 +22,10 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
   })();
 </script>
 </head>
-<body class="bg-base-200 flex flex-col">
+<body class="bg-base-200">
+<div class="drawer">
+  <input id="nav-drawer" type="checkbox" class="drawer-toggle" aria-label="导航菜单" />
+  <div class="drawer-content flex flex-col min-h-screen">
 <header class="sticky top-0 z-10 border-b border-base-300 bg-base-100/95 backdrop-blur">
   <div class="container mx-auto max-w-4xl px-4">
     <div class="navbar px-0 py-3">
@@ -29,7 +35,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
         </a>
       </div>
       <div class="navbar-end">
-        <ul class="menu menu-horizontal px-1 gap-2">
+        <ul class="menu menu-horizontal px-1 gap-2 hidden md:flex">
           <li><a href="/" class="btn btn-ghost btn-sm">首页</a></li>
           <li><a href="/about" class="btn btn-ghost btn-sm">关于</a></li>
           <li>
@@ -40,6 +46,11 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
             </button>
           </li>
         </ul>
+        <label for="nav-drawer" class="btn btn-ghost btn-square drawer-button md:hidden" aria-label="打开菜单">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </label>
       </div>
     </div>
   </div>

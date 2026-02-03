@@ -221,11 +221,11 @@ export default function ManageFiles() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={row.name || '-'}>
-                        {row.name || '-'}
+                      <TableCell className="max-w-[300px] truncate" title={row.name ?? row.original_name ?? row.filename ?? '-'}>
+                        {row.name ?? row.original_name ?? row.filename ?? '-'}
                       </TableCell>
                       <TableCell className="max-w-[120px] truncate text-muted-foreground">{row.mime_type ?? '-'}</TableCell>
-                      <TableCell>{formatFileSize(row.size ?? 0)}</TableCell>
+                      <TableCell>{formatFileSize(row.size ?? row.file_size ?? 0)}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {row.created_at ? new Date(row.created_at * 1000).toLocaleString('zh-CN') : '-'}
                       </TableCell>

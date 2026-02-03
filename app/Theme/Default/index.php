@@ -3,9 +3,6 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $this->components('head');
 
-$siteTitle = (string)$this->options()->get('title', false);
-$subtitle = (string)$this->options()->get('subtitle', false);
-$siteDesc = (string)$this->options()->get('description', false);
 $posts = $this->posts(12);
 $nav = $this->pageNav();
 ?>
@@ -14,14 +11,8 @@ $nav = $this->pageNav();
   <!-- 站点介绍 -->
   <div class="card bg-base-100 shadow-md">
     <div class="card-body">
-      <h1 class="card-title text-4xl mb-2"><?php echo $this->escape($siteTitle); ?></h1>
-      <?php if (!empty($subtitle)) { ?>
-        <p class="text-lg text-base-content/70 mb-2"><?php echo $this->escape($subtitle); ?></p>
-      <?php 
-        } if (!empty($siteDesc)) { 
-      ?>
-        <p class="text-base-content/60"><?php echo $this->escape($siteDesc); ?></p>
-      <?php } ?>
+      <h1 class="card-title text-4xl mb-2"><?php $this->options()->get('title', true); ?></h1>
+        <p class="text-lg text-base-content/70 mb-2"><?php $this->options()->get('subtitle', true); ?></p>
     </div>
   </div>
 

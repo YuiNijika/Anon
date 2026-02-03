@@ -1,3 +1,42 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .prose h1 {
+    @apply text-2xl font-bold mt-6 mb-4;
+  }
+
+  .prose h2 {
+    @apply text-xl font-bold mt-5 mb-3;
+  }
+
+  .prose h3 {
+    @apply text-lg font-bold mt-4 mb-2;
+  }
+
+  .prose h4 {
+    @apply text-base font-bold mt-3 mb-2;
+  }
+
+  .prose h5 {
+    @apply text-sm font-bold mt-2 mb-1;
+  }
+
+  .prose h6 {
+    @apply text-xs font-bold mt-2 mb-1;
+  }
+
+  .prose a {
+    @apply text-primary underline underline-offset-2 decoration-primary/60 hover:decoration-primary hover:opacity-90;
+  }
+
+  .prose img {
+    @apply block mx-auto rounded-lg max-w-full h-auto;
+  }
+
+  #nprogress .bar {
+    background: hsl(var(--p)) !important;
+    height: 4px !important;
+  }
+}

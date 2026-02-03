@@ -159,6 +159,9 @@ export interface Attachment {
   size: number
   mime_type: string
   created_at: number
+  original_name?: string
+  filename?: string
+  file_size?: number
 }
 
 export interface AttachmentListResponse {
