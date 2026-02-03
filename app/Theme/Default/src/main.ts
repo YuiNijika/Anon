@@ -19,13 +19,31 @@ function wrapProseImagesForFancybox() {
     if (!img.hasAttribute('loading')) {
       img.setAttribute('loading', 'lazy');
     }
-    if (img.closest('a[data-fancybox]')) return;
-    const href = img.currentSrc || img.getAttribute('src') || '';
-    if (!href) return;
+
+    const imgSrc = img.currentSrc || img.getAttribute('src') || '';
+    if (!imgSrc) return;
+
+    // 检查图片是否已经在 <a> 标签中
+    const existingLink = img.parentElement;
+
+    if (existingLink && existingLink.tagName === 'A') {
+      // 图片已经在链接中
+      // 如果链接没有 data-fancybox 属性，更新它
+      if (!existingLink.hasAttribute('data-fancybox')) {
+        const anchor = existingLink as HTMLAnchorElement;
+        anchor.href = imgSrc;
+        anchor.setAttribute('data-fancybox', 'prose');
+      }
+      // 如果已经有 data-fancybox，跳过
+      return;
+    }
+
+    // 图片没有被链接包裹，创建新的链接
     const parent = img.parentNode;
     if (!parent) return;
+
     const a = document.createElement('a');
-    a.href = href;
+    a.href = imgSrc;
     a.setAttribute('data-fancybox', 'prose');
     parent.insertBefore(a, img);
     a.appendChild(img);
