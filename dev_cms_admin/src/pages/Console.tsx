@@ -20,7 +20,6 @@ import {
 import { useApiAdmin } from '@/hooks'
 import { AdminApi, type StatisticsData } from '@/services/admin'
 import { getErrorMessage } from '@/lib/utils'
-import { Alert } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 

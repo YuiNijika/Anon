@@ -1,17 +1,16 @@
 /**
  * 获取 API Base URL
- * 开发环境：使用 /anon-dev-server（通过 Vite 代理）
- * 生产环境：使用环境变量 VITE_API_BASE_URL，如果未配置或为空则使用 /（根路径）
- * 如果 baseUrl 缺少协议，自动根据当前页面协议添加
+ * 开发环境使用 /anon-dev-server
+ * 生产环境若配置了 VITE_API_BASE_URL 则用其值，否则返回空字符串，请求为相对路径走当前域名
  */
 export function getApiBaseUrl(): string {
   if (import.meta.env.DEV) {
     return '/anon-dev-server'
   }
-  // 生产环境：如果配置了 VITE_API_BASE_URL 且不为空，使用它；否则使用 /（根路径）
+  // 生产环境未配置或为空时返回空字符串，拼接后为 /anon/... 相对路径，走当前域名
   let baseUrl = import.meta.env.VITE_API_BASE_URL
   if (!baseUrl || baseUrl.trim() === '') {
-    return '/'
+    return ''
   }
 
   baseUrl = baseUrl.trim()

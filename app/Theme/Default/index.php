@@ -3,9 +3,9 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $this->components('head');
 
-$siteTitle = (string)$this->options()->get('title', Anon_Common::NAME);
-$subtitle = (string)$this->options()->get('subtitle', '');
-$siteDesc = (string)$this->options()->get('description', '');
+$siteTitle = (string)$this->options()->get('title', false);
+$subtitle = (string)$this->options()->get('subtitle', false);
+$siteDesc = (string)$this->options()->get('description', false);
 $posts = $this->posts(12);
 $nav = $this->pageNav();
 ?>

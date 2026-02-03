@@ -25,7 +25,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
     <div class="navbar px-0 py-3">
       <div class="navbar-start">
         <a href="/" class="btn btn-ghost text-lg font-bold">
-          <?php echo $this->escape($this->options()->get('title', Anon_Common::NAME)); ?>
+          <?php $this->options()->get('title', true) ?>
         </a>
       </div>
       <div class="navbar-end">
