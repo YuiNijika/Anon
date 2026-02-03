@@ -35,7 +35,6 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Tag } from '@/services/admin'
 import CategoryManager from '@/components/CategoryManager'
-import { Textarea } from '@/components/ui/textarea'
 
 type ContentType = 'post' | 'page'
 
@@ -142,23 +141,22 @@ const writeSchema = z.object({
   slug: z.string().optional(),
   status: z.enum(['draft', 'publish', 'private']).optional(),
   type: z.enum(['post', 'page']),
-  category: z.number().nullable().refine(
-    (data, ctx) => {
-      // 如果是文章且状态为发布，则分类必填
-      const type = ctx.parent?.type as string
-      const status = ctx.parent?.status as string
-      if (type === 'post' && status === 'publish' && data === null) {
-        return false
-      }
-      return true
-    },
-    {
-      message: '发布文章时分类不能为空',
-    }
-  ),
+  category: z.number().nullable(),
   tags: z.array(z.string()).optional(),
   content: z.string().optional(),
-})
+}).refine(
+  (data) => {
+    // 如果是文章且状态为发布，则分类必填
+    if (data.type === 'post' && data.status === 'publish' && data.category === null) {
+      return false
+    }
+    return true
+  },
+  {
+    message: '发布文章时分类不能为空',
+    path: ['category'],
+  }
+)
 
 type WriteFormValues = z.infer<typeof writeSchema>
 

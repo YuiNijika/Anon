@@ -75,7 +75,6 @@ export default function CategoryManager({
       name: formData.name.trim(),
       slug: formData.slug.trim() || generateSlug(formData.name),
       description: formData.description.trim(),
-      type: 'category',
     })
 
     if (result) {

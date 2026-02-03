@@ -112,14 +112,12 @@ function UploadField({
 }
 
 function TextListField({
-  name,
   label,
   description,
   placeholder,
   value,
   onChange,
 }: {
-  name: string
   label: string
   description?: string
   placeholder: string
