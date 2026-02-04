@@ -26,11 +26,11 @@ class Anon_Cms
         $templateNameLower = strtolower($templateName);
         $fileName = pathinfo(basename($templateNameLower), PATHINFO_FILENAME);
         $specialTypes = ['index', 'post', 'page', 'error', 'user', 'author'];
-
+        
         if (in_array($fileName, $specialTypes)) {
             return $fileName;
         }
-
+        
         $pathParts = explode('/', str_replace('\\', '/', $templateNameLower));
         foreach ($pathParts as $part) {
             $part = pathinfo($part, PATHINFO_FILENAME);
@@ -38,7 +38,7 @@ class Anon_Cms
                 return $part;
             }
         }
-
+        
         return 'other';
     }
 
@@ -69,15 +69,15 @@ class Anon_Cms
             self::$fileSystemCache['finddir'][$cacheKey] = $exactPath;
             return $exactPath;
         }
-
+        
         $dirNameLower = strtolower($dirName);
         $items = self::scanDirectory($baseDir);
-
+        
         if ($items === null) {
             self::$fileSystemCache['finddir'][$cacheKey] = null;
             return null;
         }
-
+        
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
             if (self::isDir($itemPath) && strtolower($item) === $dirNameLower) {
@@ -109,9 +109,9 @@ class Anon_Cms
         if (isset(self::$fileSystemCache['findfile'][$cacheKey])) {
             return self::$fileSystemCache['findfile'][$cacheKey];
         }
-
+        
         $fileNameLower = strtolower($fileName);
-
+        
         foreach ($extensions as $ext) {
             $exactPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $fileName . '.' . $ext;
             if (self::fileExists($exactPath)) {
@@ -119,28 +119,28 @@ class Anon_Cms
                 return $exactPath;
             }
         }
-
+        
         $items = self::scanDirectory($baseDir);
         if ($items === null) {
             self::$fileSystemCache['findfile'][$cacheKey] = null;
             return null;
         }
-
+        
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
             if (!self::isFile($itemPath)) {
                 continue;
             }
-
+            
             $itemName = pathinfo($item, PATHINFO_FILENAME);
             $itemExt = strtolower(pathinfo($item, PATHINFO_EXTENSION));
-
+            
             if (strtolower($itemName) === $fileNameLower && in_array($itemExt, $extensions)) {
                 self::$fileSystemCache['findfile'][$cacheKey] = $itemPath;
                 return $itemPath;
             }
         }
-
+        
         self::$fileSystemCache['findfile'][$cacheKey] = null;
         return null;
     }
@@ -161,13 +161,13 @@ class Anon_Cms
             self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
-
+        
         $items = scandir($dir);
         if ($items === false) {
             self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
-
+        
         $result = array_filter($items, function ($item) {
             return $item !== '.' && $item !== '..';
         });
@@ -244,7 +244,7 @@ class Anon_Cms
         if (self::$pageStartTime === null) {
             return 0.0;
         }
-
+        
         return round((microtime(true) - self::$pageStartTime) * 1000, 2);
     }
 
@@ -728,6 +728,34 @@ class Anon_Cms
             }
             $redirect('comment=error');
         }
+
+        // 验证码验证
+        // 确保验证码模块已加载
+        if ($commentType === 'guest' && Anon_System_Env::get('app.captcha.enabled', false)) {
+            if (!class_exists('Anon_Auth_Captcha')) {
+                require_once Anon_Main::MODULES_DIR . 'Auth/Captcha.php';
+            }
+            if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+                $captchaCode = trim((string) ($_POST['captcha'] ?? ''));
+                if ($captchaCode === '') {
+                    if ($isAjax) {
+                        Anon_Http_Response::error('请输入验证码');
+                        return;
+                    }
+                    $redirect('comment=captcha_required');
+                }
+                if (!Anon_Auth_Captcha::verify($captchaCode)) {
+                    if ($isAjax) {
+                        Anon_Http_Response::error('验证码错误，请重新输入');
+                        return;
+                    }
+                    $redirect('comment=captcha_error');
+                }
+                // 验证成功后清除验证码，防止重复使用
+                Anon_Auth_Captcha::clear();
+            }
+        }
+
         $post = self::getPostIfExists($postId);
         if (!$post || ($post['type'] ?? '') !== 'post') {
             if ($isAjax) {
