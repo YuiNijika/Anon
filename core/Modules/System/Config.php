@@ -194,10 +194,22 @@ class Anon_System_Config
      */
     public static function getConfig(): array
     {
+        $isLoggedIn = Anon_Check::isLoggedIn();
+        $token = '';
+
+        if ($isLoggedIn) {
+            $userId = Anon_Http_Request::getUserId();
+            $username = $_SESSION['username'] ?? '';
+            if ($userId && $username) {
+                $token = Anon_Http_Request::getUserToken($userId, $username);
+            }
+        }
+        
         $config = [
-            'token' => class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled(),
-            'captcha' => class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled(),
-            'csrfToken' => class_exists('Anon_Auth_Csrf') ? Anon_Auth_Csrf::generateToken() : ''
+            'token' => Anon_Auth_Token::isEnabled(),
+            'captcha' => Anon_Auth_Captcha::isEnabled(),
+            'userToken' => $token,
+            'csrfToken' => Anon_Auth_Csrf::generateToken(),
         ];
 
         $config = Anon_System_Hook::apply_filters('config', $config);
