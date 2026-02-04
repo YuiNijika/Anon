@@ -6,7 +6,7 @@
 
 ## PHP 版本要求
 
-PHP 7.4 - 8.4
+PHP 7.4 - 8.x
 
 > **注意**：当前分支代码为开发版，生产环境请使用[稳定版](https://github.com/YuiNijika/Anon/releases)
 
