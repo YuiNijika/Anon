@@ -77,6 +77,8 @@ class Anon_Cms_Theme
     }
 
     private static $initialized = false;
+    private static $renderDepth = 0;
+    private static $currentPageType = 'index';
 
     /**
      * 初始化主题系统
@@ -432,6 +434,7 @@ class Anon_Cms_Theme
     public static function render(string $templateName, array $data = []): void
     {
         try {
+            self::$renderDepth++;
             if (!self::$initialized) {
                 self::init();
             }
@@ -472,7 +475,7 @@ class Anon_Cms_Theme
             if ($templatePath === null) {
                 throw new RuntimeException("模板文件未找到: {$templateName}");
             }
-            $view = new Anon_Cms_Theme_View($data);
+            $view = new Anon_Cms_Theme_View($data, $templateName);
 
             $isErrorTemplate = (strtolower($templateName) === 'error');
             if ($isErrorTemplate) {
@@ -480,7 +483,10 @@ class Anon_Cms_Theme
             }
             ob_start();
             try {
-                Anon_Cms_Theme_View::clearRenderedComponents();
+                if (self::$renderDepth === 1) {
+                    self::$currentPageType = $templateName;
+                    Anon_Cms_Theme_View::clearRenderedComponents();
+                }
                 $view->render($templatePath);
             } catch (Error $e) {
                 ob_end_clean();
@@ -504,10 +510,13 @@ class Anon_Cms_Theme
                 $GLOBALS['_anon_rendering_error_page'] = false;
             }
 
+            self::$renderDepth--;
             echo $content;
         } catch (Error $e) {
+            self::$renderDepth--;
             self::handleFatalError($e);
         } catch (Throwable $e) {
+            self::$renderDepth--;
             if (self::isFatalError($e)) {
                 self::handleFatalError($e);
             } else {
@@ -1022,8 +1031,8 @@ class Anon_Cms_Theme
                 self::title();
             }
             self::meta($seo);
-            echo '<script src="/anon/static/vue"></script>' . "\n";
-            echo '<script src="/anon/static/comments"></script>' . "\n";
+            echo '<script src="/anon/static/vue?ver=' . Anon_Common::VERSION . '"></script>' . "\n";
+            echo '<script src="/anon/static/comments?ver=' . Anon_Common::VERSION . '"></script>' . "\n";
             Anon_System_Hook::do_action('theme_head');
         } catch (Error $e) {
             self::handleFatalError($e);
@@ -1337,6 +1346,16 @@ class Anon_Cms_Theme
     }
 
     /**
+     * 判断当前页面类型
+     * @param string $type
+     * @return bool
+     */
+    public static function is(string $type): bool
+    {
+        return self::$currentPageType === $type;
+    }
+
+    /**
      * 输出页面底部 meta 信息
      * 触发 theme_foot 钩子，执行所有注册的回调函数
      * @return void
@@ -1344,6 +1363,72 @@ class Anon_Cms_Theme
     public static function footMeta(): void
     {
         try {
+            $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+            $apiPrefix = rtrim($apiPrefix, '/');
+
+            $userLoggedIn = Anon_Check::isLoggedIn();
+            $userInfo = [];
+            if ($userLoggedIn) {
+                $userInfo = Anon_Http_Request::requireAuth();
+            }
+
+            $config = [
+                'apiPrefix' => $apiPrefix,
+                'token' => Anon_Auth_Token::isEnabled(),
+                'captcha' => Anon_Auth_Captcha::isEnabled(),
+            ];
+
+            $pageInfo = [];
+
+            if (self::is('index')) {
+                $pageInfo = [
+                    'type' => 'index',
+                ];
+            } elseif (self::is('post') || self::is('page')) {
+                $currentObject = Anon_Cms::getPostIfExists();
+                if (!$currentObject) {
+                    $currentObject = Anon_Cms::getPageIfExists();
+                }
+
+                if ($currentObject && isset($currentObject['type']) && in_array($currentObject['type'], ['post', 'page'])) {
+                    $commentCount = 0;
+                    try {
+                        $db = Anon_Database::getInstance();
+                        $commentCount = $db->db('comments')
+                            ->where('post_id', $currentObject['id'])
+                            ->where('status', 'approved')
+                            ->count();
+                    } catch (\Throwable $e) {
+                        // ignore
+                    }
+
+                    $pageInfo = [
+                        'id' => $currentObject['id'],
+                        'title' => $currentObject['title'],
+                        'slug' => $currentObject['slug'],
+                        'type' => $currentObject['type'],
+                        'commentStatus' => $currentObject['comment_status'] ?? 'open',
+                        'commentCount' => $commentCount,
+                    ];
+                } else {
+                    $pageInfo = [
+                        'type' => 'error',
+                    ];
+                }
+            } else {
+                $pageInfo = [
+                    'type' => 'error',
+                ];
+            }
+
+            $anonData = [
+                'config' => $config,
+                'isLoggedIn' => $userLoggedIn,
+                'userInfo' => $userInfo,
+                'pageInfo' => $pageInfo,
+            ];
+            echo '<script>window.Anon = ' . json_encode($anonData) . ';</script>' . "\n";
+
             Anon_System_Hook::do_action('theme_foot');
         } catch (Error $e) {
             self::handleFatalError($e);
