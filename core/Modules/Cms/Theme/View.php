@@ -13,12 +13,7 @@ class Anon_Cms_Theme_View
     private $data = [];
 
     /**
-     * @var string 页面类型
-     */
-    private $pageType = 'index';
-
-    /**
-     * @var array 已渲染组件缓存
+     * @var array 已渲染的组件路径
      */
     private static $renderedComponents = [];
 
@@ -32,22 +27,10 @@ class Anon_Cms_Theme_View
 
     /**
      * @param array $data
-     * @param string $pageType
      */
-    public function __construct(array $data = [], string $pageType = 'index')
+    public function __construct(array $data = [])
     {
         $this->data = $data;
-        $this->pageType = $pageType;
-    }
-
-    /**
-     * 判断页面类型
-     * @param string $type
-     * @return bool
-     */
-    public function is(string $type): bool
-    {
-        return $this->pageType === $type;
     }
 
     /**
@@ -60,7 +43,7 @@ class Anon_Cms_Theme_View
         if (empty($data)) {
             return $this;
         }
-        return new self(array_merge($this->data, $data), $this->pageType);
+        return new self(array_merge($this->data, $data));
     }
 
     /**
@@ -175,6 +158,14 @@ class Anon_Cms_Theme_View
     public function headMeta(array $overrides = []): void
     {
         Anon_Cms_Theme::headMeta($overrides);
+        if ($this->paginator) {
+            if ($this->paginator->hasPrev()) {
+                echo '<link rel="prev" href="' . $this->escape($this->paginator->pageLink($this->paginator->prevPage())) . '">' . "\n";
+            }
+            if ($this->paginator->hasNext()) {
+                echo '<link rel="next" href="' . $this->escape($this->paginator->pageLink($this->paginator->nextPage())) . '">' . "\n";
+            }
+        }
     }
 
     /**
@@ -332,7 +323,17 @@ class Anon_Cms_Theme_View
         $pageSize = max(1, min(100, $pageSize));
 
         if ($page === null) {
-            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            if (isset($_GET['page'])) {
+                $page = max(1, (int)$_GET['page']);
+            } else {
+                $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+                $path = parse_url($requestUri, PHP_URL_PATH);
+                if (preg_match('#/page/(\d+)#', $path, $matches)) {
+                    $page = max(1, (int)$matches[1]);
+                } else {
+                    $page = 1;
+                }
+            }
         } else {
             $page = max(1, $page);
         }

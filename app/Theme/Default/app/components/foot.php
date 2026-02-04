@@ -11,7 +11,7 @@ $icp = $this->options()->get('icp_code', null, false);
       <p>Powered by <?php echo Anon_Common::NAME; ?> v<?php echo Anon_Common::VERSION; ?></p>
       <p>
         &copy; <?php echo date('Y'); ?> <?php $this->options()->get('title', true); ?>
-        <?php if (!empty($icp)) { ?> · <a href="http://www.beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="text-base-content/60"><?php echo $icp; ?></a><?php } ?>
+        <?php if (!empty($icp)) { ?> · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="text-base-content/60"><?php echo $icp; ?></a><?php } ?>
     </p>
     </div>
   </div>

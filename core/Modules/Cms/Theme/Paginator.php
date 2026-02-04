@@ -123,19 +123,31 @@ class Anon_Cms_Paginator
         $currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
         $parsedUrl = parse_url($currentUrl);
         $path = $parsedUrl['path'] ?? '/';
-        $query = [];
 
+        // 移除现有的 /page/X
+        $path = preg_replace('#/page/\d+/?$#', '', $path);
+
+        // 始终移除末尾斜杠，如果是根路径 '/' 会变成空字符串 ''
+        $path = rtrim($path, '/');
+
+        $query = [];
         if (isset($parsedUrl['query'])) {
             parse_str($parsedUrl['query'], $query);
         }
 
-        if ($page <= 1) {
-            unset($query['page']);
-        } else {
-            $query['page'] = $page;
-        }
+        // 移除 page 参数
+        unset($query['page']);
 
         $url = $path;
+        if ($page > 1) {
+            $url .= '/page/' . $page;
+        }
+
+        // 如果 URL 为空（即根路径且 page=1），补回 '/'
+        if ($url === '') {
+            $url = '/';
+        }
+
         if (!empty($query)) {
             $url .= '?' . http_build_query($query);
         }

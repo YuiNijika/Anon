@@ -1,11 +1,11 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-$this->components('head');
-
 $post_count = (int)$this->options()->get('post_count', 10, false);
 $posts = $this->posts($post_count);
 $nav = $this->pageNav();
+
+$this->components('head');
 ?>
 
 <div class="space-y-6">

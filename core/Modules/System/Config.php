@@ -194,22 +194,10 @@ class Anon_System_Config
      */
     public static function getConfig(): array
     {
-        $isLoggedIn = Anon_Check::isLoggedIn();
-        $token = '';
-
-        if ($isLoggedIn) {
-            $userId = Anon_Http_Request::getUserId();
-            $username = $_SESSION['username'] ?? '';
-            if ($userId && $username) {
-                $token = Anon_Http_Request::getUserToken($userId, $username);
-            }
-        }
-        
         $config = [
-            'token' => Anon_Auth_Token::isEnabled(),
-            'captcha' => Anon_Auth_Captcha::isEnabled(),
-            'userToken' => $token,
-            'csrfToken' => Anon_Auth_Csrf::generateToken(),
+            'token' => class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled(),
+            'captcha' => class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled(),
+            'csrfToken' => class_exists('Anon_Auth_Csrf') ? Anon_Auth_Csrf::generateToken() : ''
         ];
 
         $config = Anon_System_Hook::apply_filters('config', $config);
@@ -251,6 +239,33 @@ class Anon_System_Config
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
 
         if (Anon_System_Env::get('app.mode') === 'cms') {
+            // 注册分页路由
+            self::addRoute('/page/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/page/(\d+)#', $path, $matches)) {
+                    $_GET['page'] = (int)$matches[1];
+                }
+                Anon_Cms_Theme::render('index');
+            });
+            self::addRoute('/category/{slug}/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/category/([^/]+)/(\d+)#', $path, $matches)) {
+                    $_GET['slug'] = urldecode($matches[1]);
+                    $_GET['page'] = (int)$matches[2];
+                }
+                $template = Anon_Cms_Theme::findTemplate('category') ? 'category' : 'index';
+                Anon_Cms_Theme::render($template);
+            });
+            self::addRoute('/tag/{slug}/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/tag/([^/]+)/(\d+)#', $path, $matches)) {
+                    $_GET['slug'] = urldecode($matches[1]);
+                    $_GET['page'] = (int)$matches[2];
+                }
+                $template = Anon_Cms_Theme::findTemplate('tag') ? 'tag' : 'index';
+                Anon_Cms_Theme::render($template);
+            });
+
             self::addRoute('/anon/cms/api-prefix', function () {
                 Anon_Common::Header();
                 $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
@@ -271,7 +286,7 @@ class Anon_System_Config
             self::addStaticRoute('/anon/static/admin/css', $staticDir . 'admin/index.css', 'text/css', 31536000, true, ['token' => false]);
             self::addStaticRoute('/anon/static/admin/js', $staticDir . 'admin/index.js', 'application/javascript', 31536000, true, ['token' => false]);
             self::addStaticRoute('/anon/static/comments', $staticDir . 'comments.js', 'application/javascript', 31536000, true, ['token' => false]);
-        } 
+        }
 
         if (Anon_Debug::isEnabled()) {
             self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
