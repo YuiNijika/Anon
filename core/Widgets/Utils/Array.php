@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 数组工具类
  *
@@ -14,7 +15,7 @@ class Anon_Utils_Array
     /**
      * 获取数组中的值，支持点号分隔的键名
      * @param array $array 数组
-     * @param string $key 键名 (e.g., 'a.b.c')
+     * @param string $key 键名，例如 a.b.c
      * @param mixed $default 默认值
      * @return mixed
      */
@@ -22,21 +23,21 @@ class Anon_Utils_Array
     {
         $keys = explode('.', $key);
         $value = $array;
-        
+
         foreach ($keys as $k) {
             if (!isset($value[$k])) {
                 return $default;
             }
             $value = $value[$k];
         }
-        
+
         return $value;
     }
-    
+
     /**
      * 设置数组中的值，支持点号分隔的键名
      * @param array $array 数组引用
-     * @param string $key 键名 (e.g., 'a.b.c')
+     * @param string $key 键名，例如 a.b.c
      * @param mixed $value 值
      * @return void
      */
@@ -44,17 +45,17 @@ class Anon_Utils_Array
     {
         $keys = explode('.', $key);
         $current = &$array;
-        
+
         foreach ($keys as $k) {
             if (!isset($current[$k]) || !is_array($current[$k])) {
                 $current[$k] = [];
             }
             $current = &$current[$k];
         }
-        
+
         $current = $value;
     }
-    
+
     /**
      * 深度合并两个数组
      * @param array $array1 基础数组
@@ -70,7 +71,7 @@ class Anon_Utils_Array
                 $array1[$key] = $value;
             }
         }
-        
+
         return $array1;
     }
 }

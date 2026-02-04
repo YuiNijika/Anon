@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 转义工具类
  *
@@ -20,7 +21,7 @@ class Anon_Utils_Escape
     {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     }
-    
+
     /**
      * 转义 URL
      * @param string $url 原始 URL
@@ -30,7 +31,7 @@ class Anon_Utils_Escape
     {
         return htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
     }
-    
+
     /**
      * 转义 HTML 属性值
      * @param string $text 原始文本
@@ -40,11 +41,11 @@ class Anon_Utils_Escape
     {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     }
-    
+
     /**
      * 转义 JavaScript 字符串
      * @param string $text 原始文本
-     * @return string 转义后的 JSON 字符串（包含引号）
+     * @return string 转义后的 JSON 字符串，包含引号
      */
     public static function js(string $text): string
     {

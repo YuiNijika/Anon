@@ -68,7 +68,7 @@ class Anon_Database_QueryBuilder
     private $cacheEnabled = false;
 
     /**
-     * @var int|null 查询缓存时间（秒）
+     * @var int|null 查询缓存时间，单位为秒
      */
     private $cacheTtl = null;
 
@@ -322,7 +322,7 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
             throw new InvalidArgumentException("无效的表名: {$table}");
         }
-        
+
         // 验证字段名安全性
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $first)) {
             throw new InvalidArgumentException("无效的字段名: {$first}");
@@ -330,20 +330,20 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $second)) {
             throw new InvalidArgumentException("无效的字段名: {$second}");
         }
-        
+
         // 验证操作符
         $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE'];
         if (!in_array(strtoupper($operator), $allowedOps)) {
             throw new InvalidArgumentException("无效的操作符: {$operator}");
         }
-        
+
         // 验证 JOIN 类型
         $allowedTypes = ['INNER', 'LEFT', 'RIGHT', 'FULL'];
         $type = strtoupper($type);
         if (!in_array($type, $allowedTypes)) {
             throw new InvalidArgumentException("无效的 JOIN 类型: {$type}");
         }
-        
+
         $this->joins[] = [
             'type' => $type,
             'table' => $table,
@@ -380,13 +380,13 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
             throw new InvalidArgumentException("无效的字段名: {$column}");
         }
-        
+
         // 验证排序方向
         $direction = strtoupper($direction);
         if ($direction !== 'ASC' && $direction !== 'DESC') {
             throw new InvalidArgumentException("无效的排序方向: {$direction}");
         }
-        
+
         $this->orders[] = [
             'column' => $column,
             'direction' => $direction
@@ -405,7 +405,7 @@ class Anon_Database_QueryBuilder
         if (is_string($columns)) {
             $columns = [$columns];
         }
-        
+
         // 验证所有字段名安全性
         foreach ($columns as $column) {
             if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
@@ -430,13 +430,13 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
             throw new InvalidArgumentException("无效的字段名: {$column}");
         }
-        
+
         // 验证操作符
         $allowedOps = ['=', '!=', '<>', '<', '>', '<=', '>=', 'LIKE'];
         if (!in_array(strtoupper($operator), $allowedOps)) {
             throw new InvalidArgumentException("无效的操作符: {$operator}");
         }
-        
+
         $this->having = "{$column} {$operator} ?";
         $this->bindings[] = $value;
         return $this;
@@ -580,7 +580,7 @@ class Anon_Database_QueryBuilder
 
         $startTime = microtime(true);
         $sql = $this->toSql();
-        
+
         // 如果连接有 prepare 方法，使用预处理语句
         $stmt = $this->prepareStatement($sql, $this->bindings);
         if ($stmt instanceof mysqli_stmt) {
@@ -592,48 +592,48 @@ class Anon_Database_QueryBuilder
             }
             $result->free();
             $stmt->close();
-            
+
             $duration = (microtime(true) - $startTime) * 1000;
-            
+
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
                 Anon_Debug::query($sql, $this->bindings, $duration);
-                
+
                 if ($duration > 100) {
                     self::analyzeSlowQuery($sql, $this->table, $duration);
                 }
             }
-            
+
             // 保存到缓存
             if ($this->cacheEnabled) {
                 $cacheKey = $this->getCacheKey();
                 Anon_Cache::set($cacheKey, $rows, $this->cacheTtl);
             }
-            
+
             return $rows;
         }
-        
+
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
             $result = $this->connection->query($sql);
             $duration = (microtime(true) - $startTime) * 1000;
-            
+
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
                 Anon_Debug::query($sql, $this->bindings, $duration);
-                
+
                 if ($duration > 100) {
                     self::analyzeSlowQuery($sql, $this->table, $duration);
                 }
             }
-            
+
             // 保存到缓存
             if ($this->cacheEnabled && is_array($result)) {
                 $cacheKey = $this->getCacheKey();
                 Anon_Cache::set($cacheKey, $result, $this->cacheTtl);
             }
-            
+
             return $result;
         }
-        
+
         throw new RuntimeException("不支持的数据库连接类型");
     }
 
@@ -641,17 +641,17 @@ class Anon_Database_QueryBuilder
      * 分析慢查询并建议索引
      * @param string $sql SQL 语句
      * @param string $table 表名
-     * @param float $duration 查询耗时（毫秒）
+     * @param float $duration 查询耗时，单位为毫秒
      */
     private static function analyzeSlowQuery(string $sql, string $table, float $duration): void
     {
         // 提取 WHERE 条件中的字段
         $suggestedIndexes = [];
-        
+
         // 检测 WHERE 条件中的字段
         if (preg_match('/WHERE\s+([^ORDER|GROUP|LIMIT]+)/i', $sql, $matches)) {
             $whereClause = $matches[1];
-            
+
             // 提取字段名
             if (preg_match_all('/(\w+)\s*[=<>!]+/i', $whereClause, $fieldMatches)) {
                 foreach ($fieldMatches[1] as $field) {
@@ -662,7 +662,7 @@ class Anon_Database_QueryBuilder
                 }
             }
         }
-        
+
         // 检测 ORDER BY 中的字段
         if (preg_match('/ORDER\s+BY\s+(\w+)/i', $sql, $matches)) {
             $orderField = trim($matches[1]);
@@ -670,10 +670,10 @@ class Anon_Database_QueryBuilder
                 $suggestedIndexes[] = $orderField;
             }
         }
-        
+
         if (!empty($suggestedIndexes)) {
             $indexSuggestion = "CREATE INDEX idx_" . implode('_', $suggestedIndexes) . " ON {$table} (" . implode(', ', $suggestedIndexes) . ")";
-            
+
             if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
                 Anon_Debug::warn("慢查询检测", [
                     'sql' => substr($sql, 0, 200),
@@ -707,7 +707,7 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
             throw new InvalidArgumentException("无效的字段名: {$column}");
         }
-        
+
         $this->selects = [$column];
         $result = $this->first();
         return $result[$column] ?? null;
@@ -724,7 +724,7 @@ class Anon_Database_QueryBuilder
         if ($column !== '*' && !preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
             throw new InvalidArgumentException("无效的列名: {$column}");
         }
-        
+
         $this->selects = ["COUNT({$column}) as count"];
         $result = $this->first();
         return (int)($result['count'] ?? 0);
@@ -741,11 +741,11 @@ class Anon_Database_QueryBuilder
         if (!preg_match('/^[a-zA-Z0-9_`\.]+$/', $column)) {
             throw new InvalidArgumentException("无效的列名: {$column}");
         }
-        
+
         $this->selects = ["COALESCE(SUM({$column}), 0) as sum"];
         $result = $this->first();
         $value = $result['sum'] ?? 0;
-        
+
         // 判断返回整数还是浮点数
         return is_float($value) ? (float)$value : (int)$value;
     }
@@ -778,9 +778,9 @@ class Anon_Database_QueryBuilder
         $columns = array_keys($data);
         $values = array_values($data);
         $placeholders = str_repeat('?,', count($values) - 1) . '?';
-        
+
         // 为字段名添加反引号，避免保留关键字冲突
-        $escapedColumns = array_map(function($col) {
+        $escapedColumns = array_map(function ($col) {
             return "`{$col}`";
         }, $columns);
 
@@ -798,7 +798,7 @@ class Anon_Database_QueryBuilder
             $stmt->close();
             return $insertId !== null ? (int)$insertId : true;
         }
-        
+
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
             $result = $this->connection->query($sql);
@@ -806,7 +806,7 @@ class Anon_Database_QueryBuilder
             $insertId = $conn->insert_id ?? null;
             return $insertId !== null ? (int)$insertId : ($result !== false);
         }
-        
+
         throw new RuntimeException("不支持的数据库连接类型");
     }
 
@@ -833,9 +833,9 @@ class Anon_Database_QueryBuilder
             }
             $placeholders[] = '(' . str_repeat('?,', count($rowValues) - 1) . '?)';
         }
-        
+
         // 为字段名添加反引号，避免保留关键字冲突
-        $escapedColumns = array_map(function($col) {
+        $escapedColumns = array_map(function ($col) {
             return "`{$col}`";
         }, $columns);
 
@@ -849,14 +849,14 @@ class Anon_Database_QueryBuilder
             $stmt->close();
             return $affected;
         }
-        
+
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
             $result = $this->connection->query($sql);
             $conn = $this->getMysqliConnection();
             return $result !== false ? $conn->affected_rows : false;
         }
-        
+
         throw new RuntimeException("不支持的数据库连接类型");
     }
 
@@ -894,14 +894,14 @@ class Anon_Database_QueryBuilder
             $stmt->close();
             return $affected;
         }
-        
+
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
             $result = $this->connection->query($sql);
             $conn = $this->getMysqliConnection();
             return $result !== false ? $conn->affected_rows : false;
         }
-        
+
         throw new RuntimeException("不支持的数据库连接类型");
     }
 
@@ -925,14 +925,14 @@ class Anon_Database_QueryBuilder
             $stmt->close();
             return $affected;
         }
-        
+
         // 回退到直接查询
         if (method_exists($this->connection, 'query')) {
             $result = $this->connection->query($sql);
             $conn = $this->getMysqliConnection();
             return $result !== false ? $conn->affected_rows : false;
         }
-        
+
         throw new RuntimeException("不支持的数据库连接类型");
     }
 
@@ -959,7 +959,7 @@ class Anon_Database_QueryBuilder
         if ($this->connection instanceof mysqli) {
             return $this->connection;
         }
-        
+
         // 如果是 Anon_Database_Connection，尝试通过反射获取 conn 属性
         if ($this->connection instanceof Anon_Database_Connection) {
             $reflection = new ReflectionClass($this->connection);
@@ -967,14 +967,14 @@ class Anon_Database_QueryBuilder
             $property->setAccessible(true);
             return $property->getValue($this->connection);
         }
-        
+
         throw new RuntimeException("无法获取 mysqli 连接对象");
     }
 
     /**
      * 游标分页 - 使用主键游标
      * @param int $limit 每页数量
-     * @param int|string|null $cursor 游标值（主键ID）
+     * @param int|string|null $cursor 游标值，为主键ID
      * @param string $cursorColumn 游标字段名，默认为 id
      * @return array 包含 data 和 next_cursor
      */
@@ -1029,7 +1029,7 @@ class Anon_Database_QueryBuilder
     /**
      * 游标分页 - 使用时间戳游标
      * @param int $limit 每页数量
-     * @param int|string|null $cursor 游标值（时间戳）
+     * @param int|string|null $cursor 游标值，为时间戳
      * @param string $cursorColumn 游标字段名，默认为 created_at
      * @return array 包含 data 和 next_cursor
      */
@@ -1083,7 +1083,7 @@ class Anon_Database_QueryBuilder
 
     /**
      * 启用查询缓存
-     * @param int|null $ttl 缓存时间（秒），null 表示使用默认值
+     * @param int|null $ttl 缓存时间，单位为秒，null 表示使用默认值
      * @param string|null $key 自定义缓存键，null 表示自动生成
      * @return $this
      */
@@ -1208,7 +1208,7 @@ class Anon_Database_QueryBuilder
             if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
                 throw new InvalidArgumentException("无效的字段名: {$name}");
             }
-            
+
             if (is_string($definition)) {
                 // 验证字符串定义中不包含危险字符
                 if (preg_match('/[;\'"]|--|\/\*|\*\/|DROP|DELETE|TRUNCATE/i', $definition)) {
@@ -1226,21 +1226,21 @@ class Anon_Database_QueryBuilder
                 $autoIncrement = isset($definition['autoIncrement']) && $definition['autoIncrement'] ? 'AUTO_INCREMENT' : '';
                 $primary = isset($definition['primary']) && $definition['primary'] ? 'PRIMARY KEY' : '';
                 $comment = isset($definition['comment']) ? "COMMENT '" . $this->escapeComment($definition['comment']) . "'" : '';
-                
+
                 $columnDef = "`{$name}` {$type} {$null}";
                 if ($default) $columnDef .= " {$default}";
                 if ($autoIncrement) $columnDef .= " {$autoIncrement}";
                 if ($primary) $columnDef .= " {$primary}";
                 if ($comment) $columnDef .= " {$comment}";
-                
+
                 $columnDefinitions[] = trim($columnDef);
             }
         }
 
         $ifNotExistsClause = $ifNotExists ? 'IF NOT EXISTS' : '';
-        $sql = "CREATE TABLE {$ifNotExistsClause} `{$this->table}` (" . 
-               implode(', ', $columnDefinitions) . 
-               ") ENGINE={$engine} DEFAULT CHARSET={$charset} COLLATE={$collate}";
+        $sql = "CREATE TABLE {$ifNotExistsClause} `{$this->table}` (" .
+            implode(', ', $columnDefinitions) .
+            ") ENGINE={$engine} DEFAULT CHARSET={$charset} COLLATE={$collate}";
 
         return $this->executeSchemaQuery($sql);
     }
@@ -1249,7 +1249,7 @@ class Anon_Database_QueryBuilder
      * 添加字段
      * @param string $column 字段名
      * @param string|array $definition 字段定义
-     * @param string|null $after 在哪个字段之后（可选）
+     * @param string|null $after 在哪个字段之后，可选
      * @return bool 是否添加成功
      */
     public function addColumn(string $column, $definition, ?string $after = null): bool
@@ -1259,14 +1259,14 @@ class Anon_Database_QueryBuilder
         }
 
         $columnDef = $this->buildColumnDefinition($column, $definition);
-        
+
         // 验证 after 字段名安全性
         if ($after !== null) {
             if (!preg_match('/^[a-zA-Z0-9_]+$/', $after)) {
                 throw new InvalidArgumentException("无效的字段名: {$after}");
             }
         }
-        
+
         $afterClause = $after ? " AFTER `{$after}`" : '';
         $sql = "ALTER TABLE `{$this->table}` ADD COLUMN {$columnDef}{$afterClause}";
 
@@ -1329,7 +1329,7 @@ class Anon_Database_QueryBuilder
         $conn = $this->getMysqliConnection();
         $database = $conn->query("SELECT DATABASE()")->fetch_row()[0];
         $sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ?";
-        
+
         $stmt = $conn->prepare($sql);
         $tableName = $this->table;
         $stmt->bind_param('ss', $database, $tableName);
@@ -1337,7 +1337,7 @@ class Anon_Database_QueryBuilder
         $result = $stmt->get_result();
         $count = $result->fetch_row()[0];
         $stmt->close();
-        
+
         return (int)$count > 0;
     }
 
@@ -1368,13 +1368,13 @@ class Anon_Database_QueryBuilder
             $autoIncrement = isset($definition['autoIncrement']) && $definition['autoIncrement'] ? 'AUTO_INCREMENT' : '';
             $primary = isset($definition['primary']) && $definition['primary'] ? 'PRIMARY KEY' : '';
             $comment = isset($definition['comment']) ? "COMMENT '" . $this->escapeComment($definition['comment']) . "'" : '';
-            
+
             $columnDef = "`{$column}` {$type} {$null}";
             if ($default) $columnDef .= " {$default}";
             if ($autoIncrement) $columnDef .= " {$autoIncrement}";
             if ($primary) $columnDef .= " {$primary}";
             if ($comment) $columnDef .= " {$comment}";
-            
+
             return trim($columnDef);
         }
 
@@ -1448,11 +1448,11 @@ class Anon_Database_QueryBuilder
     {
         $conn = $this->getMysqliConnection();
         $result = $conn->query($sql);
-        
+
         if ($result === false) {
             throw new RuntimeException("SQL 执行失败: " . $conn->error . " | SQL: " . $sql);
         }
-        
+
         return true;
     }
 
@@ -1466,18 +1466,17 @@ class Anon_Database_QueryBuilder
         if (!class_exists('Anon_Database')) {
             throw new RuntimeException('Anon_Database class not found');
         }
-        
+
         $db = Anon_Database::getInstance();
         if (!$db) {
             throw new RuntimeException('Failed to get Anon_Database instance');
         }
-        
+
         $queryBuilder = $db->db($table);
         if (!($queryBuilder instanceof self)) {
             throw new RuntimeException('Failed to create QueryBuilder instance');
         }
-        
+
         return $queryBuilder;
     }
 }
-

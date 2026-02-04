@@ -241,7 +241,7 @@ class Anon
      * 注册路由
      * @param string $path 路由路径
      * @param callable $handler 处理函数
-     * @param array $meta 路由元数据（可选）
+     * @param array $meta 路由元数据，可选
      */
     public static function route(string $path, callable $handler, array $meta = [])
     {
@@ -253,7 +253,7 @@ class Anon
      * @param string $route 路由路径
      * @param string $filePath 文件路径
      * @param string $mimeType MIME类型
-     * @param int $cacheTime 缓存时间（秒）
+     * @param int $cacheTime 缓存时间，单位为秒
      * @param bool $compress 是否压缩
      */
     public static function staticRoute(string $route, string $filePath, string $mimeType, int $cacheTime = 31536000, bool $compress = true)
@@ -381,7 +381,9 @@ class Anon
      */
     public static function debug(string $message, array $context = [])
     {
-        Anon_Debug::debug($message, $context);
+        if (class_exists('Anon_Debug')) {
+            Anon_Debug::debug($message, $context);
+        }
     }
 
     /**
@@ -391,7 +393,9 @@ class Anon
      */
     public static function info(string $message, array $context = [])
     {
-        Anon_Debug::info($message, $context);
+        if (class_exists('Anon_Debug')) {
+            Anon_Debug::info($message, $context);
+        }
     }
 
     /**
@@ -401,7 +405,15 @@ class Anon
      */
     public static function warn(string $message, array $context = [])
     {
-        Anon_Debug::warn($message, $context);
+        if (class_exists('Anon_Debug')) {
+            Anon_Debug::warn($message, $context);
+        } else {
+            // 如果类未加载，使用 error_log 作为后备
+            $logMessage = is_array($context) && !empty($context)
+                ? $message . ' - ' . json_encode($context)
+                : $message;
+            error_log('[WARN] ' . $logMessage);
+        }
     }
 
     /**
@@ -411,7 +423,15 @@ class Anon
      */
     public static function logError(string $message, array $context = [])
     {
-        Anon_Debug::error($message, $context);
+        if (class_exists('Anon_Debug')) {
+            Anon_Debug::error($message, $context);
+        } else {
+            // 如果类未加载，使用 error_log 作为后备
+            $logMessage = is_array($context) && !empty($context)
+                ? $message . ' - ' . json_encode($context)
+                : $message;
+            error_log('[ERROR] ' . $logMessage);
+        }
     }
 
 

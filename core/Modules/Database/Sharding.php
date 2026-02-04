@@ -31,7 +31,7 @@ class Anon_Database_Sharding
      * 根据分片键获取表名
      * @param string $baseTable 基础表名
      * @param mixed $shardKey 分片键值
-     * @param string $strategy 分片策略 (id|time|hash)
+     * @param string $strategy 分片策略，可选值为 id、time 或 hash
      * @return string 实际表名
      */
     public static function getTableName(string $baseTable, $shardKey, string $strategy = 'id'): string
@@ -122,4 +122,3 @@ class Anon_Database_Sharding
         return self::$initialized && isset(self::$config[$table]);
     }
 }
-

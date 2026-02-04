@@ -329,7 +329,7 @@ class Anon_Cms
                         ->update(['views' => $currentViews + 1]);
                 } catch (Exception $e) {
                     if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        error_log("异步增加文章浏览量失败: " . $e->getMessage());
+                        Anon_Debug::error("异步增加文章浏览量失败", ['message' => $e->getMessage()]);
                     }
                 }
             });
@@ -484,7 +484,7 @@ class Anon_Cms
         }
     }
 
-    /** 将扁平评论列表转为树形（根节点带 children） */
+    /** 将扁平评论列表转为树形，根节点带 children */
     private static function flatCommentsToTree(array $rows): array
     {
         $roots = [];
@@ -566,7 +566,7 @@ class Anon_Cms
     }
 
     /**
-     * 获取当前登录用户信息（主题/插件内通过 $this->user() 获取封装对象）
+     * 获取当前登录用户信息，主题或插件内通过 $this->user() 获取封装对象
      * @return array|null 用户数组，含 uid/name/email/display_name/avatar 等；未登录返回 null
      */
     public static function getCurrentUser(): ?array

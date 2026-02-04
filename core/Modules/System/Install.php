@@ -749,7 +749,7 @@ class Anon_System_Install
                     $dropSql = "DROP TABLE IF EXISTS `{$tableName}`";
                     if (!$conn->query($dropSql)) {
                         $errorMsg = self::sanitizeError($conn->error);
-                        error_log("删除表失败: {$tableName} - " . $errorMsg);
+                        Anon_Debug::error("删除表失败", ['table' => $tableName, 'error' => $errorMsg]);
                     }
                 }
             }
@@ -758,7 +758,7 @@ class Anon_System_Install
         foreach ($sqlStatements as $sql) {
             if (!empty($sql) && !$conn->query($sql)) {
                 $errorMsg = self::sanitizeError($conn->error);
-                error_log("SQL 执行错误: " . $errorMsg);
+                Anon_Debug::error("SQL 执行错误", ['error' => $errorMsg]);
                 throw new RuntimeException("SQL 执行错误: " . $conn->error);
             }
         }
@@ -827,7 +827,7 @@ class Anon_System_Install
 
             if (!$result) {
                 $errorMsg = self::sanitizeError($conn->error);
-                error_log("插入选项失败: " . $errorMsg);
+                Anon_Debug::error("插入选项失败", ['error' => $errorMsg]);
                 throw new RuntimeException("插入选项失败: " . $name);
             }
 
@@ -986,7 +986,7 @@ class Anon_System_Install
      */
     private static function handleError($message)
     {
-        error_log($message);
+        Anon_Debug::error("安装错误", ['message' => $message]);
         Anon_Http_Response::error('发生错误，请稍后重试。', null, 500);
     }
 }

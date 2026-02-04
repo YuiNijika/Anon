@@ -35,7 +35,7 @@ class Anon_Server_Manager
 
     /**
      * 创建服务实例
-     * @param string $type 服务类型 (http, tcp, websocket)
+     * @param string $type 服务类型，可选值为 http、tcp 或 websocket
      * @param array $config 配置数组
      * @return Anon_Server_Contract_ServerInterface
      * @throws Exception
@@ -43,7 +43,7 @@ class Anon_Server_Manager
     public function create($type = 'http', $config = [])
     {
         $class = 'Anon_Server_Driver_' . ucfirst($this->driver) . '_' . ucfirst($type);
-        
+
         if (!class_exists($class)) {
             // 自动加载逻辑或假设文件路径约定
             $file = __DIR__ . '/Driver/' . ucfirst($this->driver) . '/' . ucfirst($type) . '.php';

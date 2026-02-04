@@ -19,6 +19,53 @@ class Anon_Cms_AccessLog
     ];
 
     /**
+     * @var array 敏感文件路径模式
+     */
+    private static $sensitiveFilePatterns = [
+        // 配置文件
+        '/Dockerfile',
+        '/docker-compose',
+        '/.nvmrc',
+        '/.yarnrc',
+        '/httpd.conf',
+        '/nginx.conf',
+        '/.htaccess',
+        '/.htpasswd',
+        // 密钥和证书文件
+        '/cert.pem',
+        '/key.pem',
+        '/ssl.key',
+        '/selfsigned.crt',
+        '/selfsigned.key',
+        '/public.key',
+        '/private.key',
+        '/id_rsa',
+        '/id_rsa.pub',
+        '/.ssh/',
+        // 系统文件
+        '/.bash_history',
+        '/.bashrc',
+        '/.DS_Store',
+        '/.git/',
+        '/.hg/',
+        '/.svn/',
+        // 应用配置文件
+        '/wp-config',
+        '/config.php',
+        '/.env',
+        '/.env.local',
+        '/composer.json',
+        '/package.json',
+        '/yarn.lock',
+        '/package-lock.json',
+        // 备份文件
+        '/.bak',
+        '/.backup',
+        '/.old',
+        '/.tmp',
+    ];
+
+    /**
      * 检查是否启用访问日志
      * @return bool
      */
@@ -47,7 +94,7 @@ class Anon_Cms_AccessLog
             $logData = self::collectLogData($options);
             self::saveLog($logData);
         } catch (Exception $e) {
-            error_log("访问日志记录失败: " . $e->getMessage());
+            Anon_Debug::error("访问日志记录失败", ['message' => $e->getMessage()]);
         }
     }
 
@@ -60,7 +107,7 @@ class Anon_Cms_AccessLog
         $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
         $parsedUrl = parse_url($requestUri);
         $path = $parsedUrl['path'] ?? '/';
-        
+
         // 排除静态资源和后台 API
         foreach (self::$excludedPaths as $excludedPath) {
             if (strpos($path, $excludedPath) === 0) {
@@ -83,6 +130,26 @@ class Anon_Cms_AccessLog
             return false;
         }
 
+        // 排除 curl 等工具请求
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if (!empty($userAgent)) {
+            $userAgentLower = strtolower($userAgent);
+            // 排除常见的命令行工具和扫描器
+            $excludedUserAgents = ['curl', 'wget', 'python-requests', 'go-http-client', 'java/', 'scanner', 'bot'];
+            foreach ($excludedUserAgents as $excludedUA) {
+                if (strpos($userAgentLower, $excludedUA) !== false) {
+                    return false;
+                }
+            }
+        }
+
+        // 排除敏感文件路径，通常是扫描攻击
+        foreach (self::$sensitiveFilePatterns as $pattern) {
+            if (strpos($path, $pattern) !== false) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -99,10 +166,10 @@ class Anon_Cms_AccessLog
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
         $referer = $_SERVER['HTTP_REFERER'] ?? null;
         $statusCode = http_response_code() ?: 200;
-        
+
         $parsedUrl = parse_url($requestUri);
         $path = $parsedUrl['path'] ?? '/';
-        
+
         $responseTime = null;
         if (isset($options['start_time'])) {
             $responseTime = (int)((microtime(true) - $options['start_time']) * 1000);
@@ -258,7 +325,7 @@ class Anon_Cms_AccessLog
     private static function buildQueryWithOptions($db, array $options): Anon_Database_QueryBuilder
     {
         $query = $db->db('access_logs');
-        
+
         if (isset($options['start_date'])) {
             $query->where('created_at', '>=', $options['start_date']);
         }
@@ -280,7 +347,7 @@ class Anon_Cms_AccessLog
         if (isset($options['status_code'])) {
             $query->where('status_code', '=', $options['status_code']);
         }
-        
+
         return $query;
     }
 
@@ -292,18 +359,18 @@ class Anon_Cms_AccessLog
     public static function getLogs(array $options = []): array
     {
         $db = Anon_Database::getInstance();
-        
+
         // 分页参数
         $page = isset($options['page']) ? max(1, (int)$options['page']) : 1;
         $pageSize = isset($options['page_size']) ? max(1, min(100, (int)$options['page_size'])) : 20;
         $offset = ($page - 1) * $pageSize;
-        
+
         // 构建查询
         $query = self::buildQueryWithOptions($db, $options);
-        
+
         // 获取总数
         $total = $query->count();
-        
+
         // 获取列表数据
         $listQuery = self::buildQueryWithOptions($db, $options);
         $list = $listQuery
@@ -311,7 +378,7 @@ class Anon_Cms_AccessLog
             ->limit($pageSize)
             ->offset($offset)
             ->get();
-        
+
         return [
             'list' => $list,
             'total' => $total,
@@ -328,11 +395,11 @@ class Anon_Cms_AccessLog
     public static function getStatistics(array $options = []): array
     {
         $db = Anon_Database::getInstance();
-        
+
         // 获取总记录数
         $totalQuery = self::buildQueryWithOptions($db, $options);
         $total = $totalQuery->count();
-        
+
         // 获取独立IP数
         $uniqueIpsQuery = self::buildQueryWithOptions($db, $options);
         $uniqueIpsList = $uniqueIpsQuery
@@ -340,13 +407,13 @@ class Anon_Cms_AccessLog
             ->groupBy('ip')
             ->get();
         $uniqueIps = count($uniqueIpsList);
-        
+
         // 获取热门页面
         $topPagesQuery = self::buildQueryWithOptions($db, $options);
         $allPaths = $topPagesQuery
             ->select(['path'])
             ->get();
-        
+
         // 统计每个路径的访问次数
         $pathCounts = [];
         foreach ($allPaths as $row) {
@@ -356,7 +423,7 @@ class Anon_Cms_AccessLog
             }
             $pathCounts[$path]++;
         }
-        
+
         // 按访问次数排序并取前10
         arsort($pathCounts);
         $topPages = [];
@@ -389,16 +456,15 @@ class Anon_Cms_AccessLog
         try {
             $db = Anon_Database::getInstance();
             $cutoffDate = date('Y-m-d H:i:s', strtotime("-{$days} days"));
-            
+
             $deleted = $db->db('access_logs')
                 ->where('created_at', '<', $cutoffDate)
                 ->delete();
-            
+
             return $deleted;
         } catch (Exception $e) {
-            error_log("清理访问日志失败: " . $e->getMessage());
+            Anon_Debug::error("清理访问日志失败", ['message' => $e->getMessage()]);
             return 0;
         }
     }
 }
-

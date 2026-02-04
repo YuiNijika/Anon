@@ -20,6 +20,8 @@
 		"build:install:js": "esbuild tools/typescript/install.ts --bundle --format=iife --outfile=core/Static/install.js --minify",
 		"watch:install": "pnpm run watch:install:css && pnpm run watch:install:js",
 		"watch:install:css": "sass --watch tools/scss/install.scss:core/Static/install.css --no-source-map",
-		"watch:install:js": "esbuild tools/typescript/install.ts --bundle --format=iife --outfile=core/Static/install.js --watch"
+		"watch:install:js": "esbuild tools/typescript/install.ts --bundle --format=iife --outfile=core/Static/install.js --watch",
+		"build:comments": "esbuild tools/typescript/comments.ts --bundle --format=iife --outfile=core/Static/comments.js --minify",
+		"watch:comments": "esbuild tools/typescript/comments.ts --bundle --format=iife --outfile=core/Static/comments.js --watch"
 	}
 }

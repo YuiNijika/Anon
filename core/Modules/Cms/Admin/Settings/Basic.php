@@ -161,7 +161,7 @@ class Anon_Cms_Admin_SettingsBasic
             Anon_Cms_Options::set('keywords', $keywords);
             Anon_Cms_Options::set('upload_allowed_types', json_encode($uploadAllowedTypes, JSON_UNESCAPED_UNICODE));
             /**
-             * 仅当请求中带 routes 时才更新链接设置（链接设置已迁移到「链接设置」页）
+             * 仅当请求中带 routes 时才更新链接设置，链接设置已迁移到链接设置页
              */
             if (isset($data['routes']) && is_array($data['routes'])) {
                 Anon_Cms_Options::set('routes', json_encode($data['routes'], JSON_UNESCAPED_UNICODE));

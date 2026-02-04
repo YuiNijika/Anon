@@ -34,7 +34,7 @@ class Anon_Http_Response {
         if (php_sapi_name() === 'cli') {
             file_put_contents('php://stderr', $logMessage);
         } else {
-            error_log($logMessage);
+            Anon_Debug::debug($logMessage);
         }
     }
     
@@ -199,9 +199,9 @@ class Anon_Http_Response {
     public static function serverError($message = '服务器内部错误', $data = null) {
         // 记录日志
         if ($data !== null) {
-            error_log('Server Error: ' . $message . ' - Data: ' . json_encode($data));
+            Anon_Debug::error('Server Error', ['message' => $message, 'data' => $data]);
         } else {
-            error_log('Server Error: ' . $message);
+            Anon_Debug::error('Server Error', ['message' => $message]);
         }
         
         // 生产环境隐藏详情
@@ -221,7 +221,11 @@ class Anon_Http_Response {
         $message = $customMessage ?: $exception->getMessage();
         
         // 记录异常
-        error_log('Exception handled: ' . $exception->getMessage() . ' in ' . $exception->getFile() . ':' . $exception->getLine());
+        Anon_Debug::error('Exception handled', [
+            'message' => $exception->getMessage(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine()
+        ]);
         
         // 设置状态码
         $httpCode = 500;

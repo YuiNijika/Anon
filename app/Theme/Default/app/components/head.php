@@ -2,7 +2,7 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 ?>
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="<?php echo $this->escape($this->theme()->get('color_scheme', 'light')); ?>">
+<html lang="zh-CN" data-theme="<?php $this->options()->get('color_scheme', 'light', true); ?>">
 <head>
 <?php 
     $this->headMeta();
@@ -21,7 +21,6 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
     } catch (e) {}
   })();
 </script>
-<script src="/anon/static/vue"></script>
 </head>
 <body class="bg-base-200">
 <div class="drawer">

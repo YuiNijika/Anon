@@ -1,6 +1,12 @@
 <?php
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
+require_once __DIR__ . '/View.php';
+require_once __DIR__ . '/OptionsProxy.php';
+require_once __DIR__ . '/Paginator.php';
+require_once __DIR__ . '/Post.php';
+require_once __DIR__ . '/SetupHelper.php';
+
 class Anon_Cms_Theme
 {
     private static $currentTheme = 'default';
@@ -118,7 +124,111 @@ class Anon_Cms_Theme
         try {
             $codeFile = self::$themeDir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'code.php';
             if (Anon_Cms::fileExists($codeFile)) {
-                require_once $codeFile;
+                $themeName = self::getCurrentTheme();
+                $codeContext = new class($themeName) {
+                    private $themeName;
+                    private $optionsProxy;
+
+                    public function __construct(string $themeName)
+                    {
+                        $this->themeName = $themeName;
+                    }
+
+                    public function options(?string $name = null, $default = null, $outputOrPriority = false, ?string $priority = null)
+                    {
+                        if ($this->optionsProxy === null) {
+                            $this->optionsProxy = new Anon_Cms_Options_Proxy('theme', null, $this->themeName);
+                        }
+                        if ($name === null) {
+                            return $this->optionsProxy;
+                        }
+                        try {
+                            $result = $this->optionsProxy->get($name, $default, $outputOrPriority, $priority);
+
+                            if (Anon_Debug::isEnabled()) {
+                                Anon_Debug::debug('[Theme Code Context] options() 调用结果', [
+                                    'theme' => $this->themeName,
+                                    'option_name' => $name,
+                                    'default' => $default,
+                                    'outputOrPriority' => $outputOrPriority,
+                                    'priority' => $priority,
+                                    'result' => $result,
+                                    'result_type' => gettype($result),
+                                    'result_is_null' => is_null($result),
+                                    'result_is_empty' => empty($result),
+                                    'result_is_object' => is_object($result),
+                                    'result_class' => is_object($result) ? get_class($result) : null
+                                ]);
+                            }
+
+                            if (is_object($result)) {
+                                if ($result instanceof Anon_Cms_Options_Proxy) {
+                                    if (Anon_Debug::isEnabled()) {
+                                        Anon_Debug::error('[Theme Code Context] options() 返回了代理对象', [
+                                            'theme' => $this->themeName,
+                                            'option_name' => $name,
+                                            'default' => $default,
+                                            'outputOrPriority' => $outputOrPriority,
+                                            'priority' => $priority,
+                                            'result_type' => get_class($result),
+                                            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
+                                        ]);
+                                    }
+                                    return $default;
+                                }
+                                if (method_exists($result, '__toString')) {
+                                    $stringValue = (string) $result;
+                                    if (Anon_Debug::isEnabled()) {
+                                        Anon_Debug::warn('[Theme Code Context] options() 返回了对象，已转换为字符串', [
+                                            'theme' => $this->themeName,
+                                            'option_name' => $name,
+                                            'result_type' => get_class($result),
+                                            'converted_value' => $stringValue
+                                        ]);
+                                    }
+                                    return $stringValue;
+                                }
+                                if (Anon_Debug::isEnabled()) {
+                                    Anon_Debug::error('[Theme Code Context] options() 返回了无法转换的对象', [
+                                        'theme' => $this->themeName,
+                                        'option_name' => $name,
+                                        'default' => $default,
+                                        'result_type' => get_class($result),
+                                        'result_methods' => get_class_methods($result),
+                                        'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
+                                    ]);
+                                }
+                                return $default;
+                            }
+                            return $result;
+                        } catch (Throwable $e) {
+                            if (Anon_Debug::isEnabled()) {
+                                Anon_Debug::error('[Theme Code Context] options() 发生异常', [
+                                    'theme' => $this->themeName,
+                                    'option_name' => $name,
+                                    'default' => $default,
+                                    'outputOrPriority' => $outputOrPriority,
+                                    'priority' => $priority,
+                                    'exception_type' => get_class($e),
+                                    'exception_message' => $e->getMessage(),
+                                    'exception_file' => $e->getFile(),
+                                    'exception_line' => $e->getLine(),
+                                    'exception_trace' => $e->getTraceAsString()
+                                ]);
+                            }
+                            return $default;
+                        }
+                    }
+                };
+
+                $code = file_get_contents($codeFile);
+                if ($code !== false) {
+                    $code = preg_replace('/^<\?php\s*/', '', $code);
+                    $executeCode = function () use ($code) {
+                        eval($code);
+                    };
+                    $executeCode->call($codeContext);
+                }
             }
             self::loadThemeSetupFile(self::$themeDir);
         } catch (Error $e) {
@@ -152,7 +262,6 @@ class Anon_Cms_Theme
             define('ANON_ALLOWED_ACCESS', true);
         }
 
-        // 创建辅助对象，提供 $this 上下文
         $helper = new Anon_Cms_Theme_Setup_Helper($themeName);
         $raw = $helper->loadSetupFile($setupFile);
 
@@ -188,14 +297,14 @@ class Anon_Cms_Theme
         $themeDirResolved = realpath(rtrim($themeDir, '/\\'));
         if ($themeDirResolved === false) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Theme] loadThemeSetupFile: themeDir not found: ' . $themeDir);
+                Anon_Debug::warn('[Theme] loadThemeSetupFile: themeDir not found', ['themeDir' => $themeDir]);
             }
             return;
         }
         $setupFile = $themeDirResolved . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'setup.php';
         if (!file_exists($setupFile)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Theme] loadThemeSetupFile: setup.php not found: ' . $setupFile);
+                Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php not found', ['setupFile' => $setupFile]);
             }
             return;
         }
@@ -203,21 +312,20 @@ class Anon_Cms_Theme
             define('ANON_ALLOWED_ACCESS', true);
         }
 
-        // 创建辅助对象，提供 $this 上下文
         $name = $themeName !== null && $themeName !== '' ? $themeName : basename($themeDirResolved);
         $helper = new Anon_Cms_Theme_Setup_Helper($name);
         $schema = $helper->loadSetupFile($setupFile);
 
         if (!is_array($schema)) {
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Theme] loadThemeSetupFile: setup.php did not return array, got: ' . gettype($schema));
+                Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php did not return array', ['got' => gettype($schema)]);
             }
             return;
         }
         Anon_Theme_Options::registerFromSchema($schema, strtolower($name));
         Anon_Cms_Options::clearCache();
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log('[Theme] loadThemeSetupFile: registered schema for theme ' . $name . ', keys: ' . count($schema));
+            Anon_Debug::info('[Theme] loadThemeSetupFile: registered schema for theme', ['theme' => $name, 'keys' => count($schema)]);
         }
     }
 
@@ -272,8 +380,6 @@ class Anon_Cms_Theme
         }
         $keyName = strtolower(basename(rtrim($themeDir, '/\\')));
 
-        // 检查 options 表中是否存在该主题的值
-        // 使用一个特殊对象作为默认值来判断是否存在
         $missing = new stdClass();
         $val = Anon_Cms_Options::get("theme:{$keyName}", $missing);
 
@@ -342,7 +448,6 @@ class Anon_Cms_Theme
                 self::registerAssets();
             }
 
-            // 将路由参数设置到全局变量，供 PageMeta 使用（必须在 startPageLoad 之前设置）
             if (!empty($data)) {
                 foreach (['uid', 'name', 'id', 'slug'] as $key) {
                     if (isset($data[$key])) {
@@ -383,6 +488,7 @@ class Anon_Cms_Theme
             }
             ob_start();
             try {
+                Anon_Cms_Theme_View::clearRenderedComponents();
                 $view->render($templatePath);
             } catch (Error $e) {
                 ob_end_clean();
@@ -503,10 +609,8 @@ class Anon_Cms_Theme
         $mimeTypes = self::getMimeTypes();
         $mimeType = $mimeTypes[$fileExt] ?? 'application/octet-stream';
 
-        // 缓存参数
         $cacheParam = self::getAssetCacheParam();
         if ($forceNoCache) {
-            // 强制禁止缓存
             if ($cacheParam === '') {
                 $cacheParam = '?nocache=1';
             } else {
@@ -607,7 +711,6 @@ class Anon_Cms_Theme
      */
     public static function getAssetCacheParam(?bool $dev = null): string
     {
-        // 如果已设置缓存模式，使用已设置的值
         if (self::$assetCacheMode !== null) {
             $dev = self::$assetCacheMode === 'dev';
         } elseif ($dev === null) {
@@ -778,7 +881,7 @@ class Anon_Cms_Theme
 
             if ($componentsDir === null) {
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    error_log('[Anon Theme components] 静态调用: 组件目录未找到: themeDir=' . $themeDir . ', 查找 app/components');
+                    Anon_Debug::warn('[Anon Theme components] 静态调用: 组件目录未找到', ['themeDir' => $themeDir, 'lookup' => 'app/components']);
                 }
                 self::outputComponentError("组件目录未找到: app/components");
                 return;
@@ -792,7 +895,7 @@ class Anon_Cms_Theme
                 $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
                 if ($foundDir === null) {
                     if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        error_log('[Anon Theme components] 静态调用: 组件子目录未找到: componentPath=' . $componentPath . ', part=' . $part . ', componentDir=' . $componentDir);
+                        Anon_Debug::warn('[Anon Theme components] 静态调用: 组件子目录未找到', ['componentPath' => $componentPath, 'part' => $part, 'componentDir' => $componentDir]);
                     }
                     self::outputComponentError("组件目录未找到: {$componentPath}");
                     return;
@@ -809,7 +912,7 @@ class Anon_Cms_Theme
             }
 
             if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Anon Theme components] 静态调用: 组件文件未找到: componentPath=' . $componentPath . ', componentName=' . $componentName . ', componentDir=' . $componentDir);
+                Anon_Debug::warn('[Anon Theme components] 静态调用: 组件文件未找到', ['componentPath' => $componentPath, 'componentName' => $componentName, 'componentDir' => $componentDir]);
             }
             self::outputComponentError("组件未找到: {$componentPath}");
         } catch (Error $e) {
@@ -930,8 +1033,10 @@ class Anon_Cms_Theme
             } else {
                 self::title();
             }
-
             self::meta($seo);
+            echo '<script src="/anon/static/vue"></script>' . "\n";
+            echo '<script src="/anon/static/comments"></script>' . "\n";
+            Anon_System_Hook::do_action('theme_head');
         } catch (Error $e) {
             self::handleFatalError($e);
         } catch (Throwable $e) {
@@ -1274,13 +1379,11 @@ class Anon_Cms_Theme
         $themeName = self::getCurrentTheme();
         $optionName = "theme:{$themeName}";
 
-        // 获取当前主题设置
         $settings = Anon_Cms_Options::get($optionName, []);
         if (!is_array($settings)) {
             $settings = [];
         }
 
-        // 合并默认参数
         $defaultArgs = [
             'type' => 'text',
             'label' => $key,
@@ -1292,12 +1395,10 @@ class Anon_Cms_Theme
 
         $args = array_merge($defaultArgs, $args);
 
-        // 如果设置项不存在，使用默认值
         if (!isset($settings[$key])) {
             $settings[$key] = $args['default'];
         }
 
-        // 保存设置项定义
         $registeredSettings = Anon_Cms_Options::get("theme:{$themeName}:settings", []);
         if (!is_array($registeredSettings)) {
             $registeredSettings = [];
@@ -1305,7 +1406,6 @@ class Anon_Cms_Theme
         $registeredSettings[$key] = $args;
         Anon_Cms_Options::set("theme:{$themeName}:settings", $registeredSettings);
 
-        // 保存设置值
         Anon_Cms_Options::set($optionName, $settings);
     }
 
@@ -1344,12 +1444,10 @@ class Anon_Cms_Theme
             $settings = [];
         }
 
-        // 获取设置项定义进行验证
         $registeredSettings = Anon_Cms_Options::get("theme:{$themeName}:settings", []);
         if (isset($registeredSettings[$key])) {
             $settingDef = $registeredSettings[$key];
 
-            // 执行验证回调
             if (isset($settingDef['validate_callback']) && is_callable($settingDef['validate_callback'])) {
                 $valid = call_user_func($settingDef['validate_callback'], $value);
                 if ($valid === false) {
@@ -1357,7 +1455,6 @@ class Anon_Cms_Theme
                 }
             }
 
-            // 执行清理回调
             if (isset($settingDef['sanitize_callback']) && is_callable($settingDef['sanitize_callback'])) {
                 $value = call_user_func($settingDef['sanitize_callback'], $value);
             }
@@ -1488,1245 +1585,5 @@ class Anon_Cms_Theme
             }
         }
         echo '</div>';
-    }
-}
-
-/**
- * 主题视图对象
- * 在模板中通过 $this 调用主题方法和读取渲染数据
- */
-class Anon_Cms_Theme_View
-{
-    /**
-     * @var array 模板数据
-     */
-    private $data = [];
-
-    /**
-     * @var array 已渲染的组件路径
-     */
-    private static $renderedComponents = [];
-
-    /**
-     * 清空已渲染组件记录，每次 Theme::render 开始时调用，避免重复引入或跨页误判
-     */
-    public static function clearRenderedComponents(): void
-    {
-        self::$renderedComponents = [];
-    }
-
-    /**
-     * @param array $data
-     */
-    public function __construct(array $data = [])
-    {
-        $this->data = $data;
-    }
-
-    /**
-     * 创建子视图
-     * @param array $data
-     * @return self
-     */
-    private function child(array $data = []): self
-    {
-        if (empty($data)) {
-            return $this;
-        }
-        return new self(array_merge($this->data, $data));
-    }
-
-    /**
-     * 渲染模板文件
-     * @param string $templatePath
-     * @return void
-     */
-    public function render(string $templatePath): void
-    {
-        include $templatePath;
-    }
-
-    /**
-     * 获取模板数据
-     * @param string $key
-     * @param mixed $default
-     * @return mixed
-     */
-    public function get(string $key, $default = null)
-    {
-        return $this->data[$key] ?? $default;
-    }
-
-    /**
-     * 转义输出
-     * @param string $text
-     * @param int $flags
-     * @return string
-     */
-    public function escape($text, int $flags = ENT_QUOTES): string
-    {
-        // 处理 null 和非字符串值，转换为空字符串
-        if ($text === null) {
-            return '';
-        }
-        return Anon_Cms_Theme::escape((string)$text, $flags);
-    }
-
-    /**
-     * 渲染 Markdown
-     * @param string $content
-     * @return string
-     */
-    public function markdown(string $content): string
-    {
-        return Anon_Cms_Theme::markdown($content);
-    }
-
-    /**
-     * 输出组件
-     * @param string $componentPath
-     * @param array $data
-     * @return void
-     */
-    public function components(string $componentPath, array $data = []): void
-    {
-        $componentPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $componentPath);
-
-        $themeDir = Anon_Cms_Theme::getThemeDir();
-        $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
-        if ($componentsDir === null) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Anon Theme components] 组件目录未找到: themeDir=' . $themeDir . ', 查找 app/components');
-            }
-            return;
-        }
-
-        $pathParts = explode(DIRECTORY_SEPARATOR, $componentPath);
-        $componentName = array_pop($pathParts);
-        $componentDir = $componentsDir;
-
-        foreach ($pathParts as $part) {
-            $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
-            if ($foundDir === null) {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    error_log('[Anon Theme components] 组件子目录未找到: componentPath=' . $componentPath . ', part=' . $part . ', componentDir=' . $componentDir);
-                }
-                return;
-            }
-            $componentDir = $foundDir;
-        }
-
-        $componentFile = Anon_Cms::findFileCaseInsensitive($componentDir, $componentName);
-        if ($componentFile === null) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log('[Anon Theme components] 组件文件未找到: componentPath=' . $componentPath . ', componentName=' . $componentName . ', componentDir=' . $componentDir);
-            }
-            return;
-        }
-
-        $componentKey = $componentFile;
-        if (isset(self::$renderedComponents[$componentKey])) {
-            return;
-        }
-
-        self::$renderedComponents[$componentKey] = true;
-        $this->child($data)->render($componentFile);
-    }
-
-    /**
-     * 输出主题资源
-     * @param string $path
-     * @param string|null $type
-     * @param array $attributes
-     * @return string
-     */
-    public function assets(string $path, $forceNoCacheOrType = null, array $attributes = []): string
-    {
-        return Anon_Cms_Theme::assets($path, $forceNoCacheOrType, $attributes);
-    }
-
-    /**
-     * 输出页面头部 meta
-     * @param array $overrides 覆盖项
-     * @return void
-     */
-    public function headMeta(array $overrides = []): void
-    {
-        Anon_Cms_Theme::headMeta($overrides);
-    }
-
-    /**
-     * 输出 HTML 头部，同 headMeta，类似 Typecho header()
-     * @param array $overrides 覆盖项
-     * @return void
-     */
-    public function header(array $overrides = []): void
-    {
-        Anon_Cms_Theme::headMeta($overrides);
-    }
-
-    /**
-     * 当前归档标题：有文章/页面时为其标题，否则为站点标题，类似 Typecho archiveTitle
-     * @return string
-     */
-    public function archiveTitle(): string
-    {
-        $p = $this->post();
-        if ($p !== null) {
-            return $p->title();
-        }
-        $p = $this->page();
-        if ($p !== null) {
-            return $p->title();
-        }
-        return (string) $this->options()->get('title', '', false);
-    }
-
-    /**
-     * 输出或返回关键词，类似 Typecho keywords
-     * @param string $separator 多个关键词分隔符
-     * @param string $default 默认值
-     * @param bool $output true 直接输出，false 仅返回
-     * @return string
-     */
-    public function keywords(string $separator = ',', string $default = '', bool $output = true): string
-    {
-        $kw = $this->options()->get('keywords', $default, false);
-        if (is_array($kw)) {
-            $kw = implode($separator, $kw);
-        }
-        $kw = (string) $kw;
-        if ($output && $kw !== '') {
-            echo $this->escape($kw);
-        }
-        return $kw;
-    }
-
-    /**
-     * 输出或返回站点描述，类似 Typecho description
-     * @param string $default 默认值
-     * @param bool $output true 直接输出，false 仅返回
-     * @return string
-     */
-    public function description(string $default = '', bool $output = true): string
-    {
-        $desc = (string) $this->options()->get('description', $default, false);
-        if ($output && $desc !== '') {
-            echo $this->escape($desc);
-        }
-        return $desc;
-    }
-
-    /**
-     * 输出页面底部 meta
-     * @return void
-     */
-    public function footMeta(): void
-    {
-        Anon_Cms_Theme::footMeta();
-    }
-
-    /**
-     * 输出片段
-     * @param string $partialName
-     * @param array $data
-     * @return void
-     */
-    public function partial(string $partialName, array $data = []): void
-    {
-        $themeDir = Anon_Cms_Theme::getThemeDir();
-        $partialsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'partials');
-        if ($partialsDir === null) {
-            return;
-        }
-
-        $partialPath = Anon_Cms::findFileCaseInsensitive($partialsDir, $partialName);
-        if ($partialPath === null) {
-            return;
-        }
-
-        $this->child($data)->render($partialPath);
-    }
-
-    /**
-     * 获取当前文章对象，不存在时由框架渲染 404 并结束
-     * @return Anon_Cms_Post|null
-     */
-    public function post(): ?Anon_Cms_Post
-    {
-        $data = Anon_Cms::getPost();
-        return $data ? new Anon_Cms_Post($data) : null;
-    }
-
-    /**
-     * 获取当前页面对象，不存在时由框架渲染 404 并结束
-     * @return Anon_Cms_Post|null
-     */
-    public function page(): ?Anon_Cms_Post
-    {
-        $data = Anon_Cms::getPage();
-        return $data ? new Anon_Cms_Post($data) : null;
-    }
-
-    /**
-     * 文章列表缓存
-     * @var array
-     */
-    private static $postsCache = [];
-
-    /**
-     * 分页器实例
-     * @var Anon_Cms_Paginator|null
-     */
-    private $paginator = null;
-
-    /**
-     * 获取最新文章列表
-     * @param int $pageSize 每页数量
-     * @param int|null $page 当前页码
-     * @return Anon_Cms_Post[]
-     */
-    public function posts(int $pageSize = 10, ?int $page = null): array
-    {
-        if ($pageSize <= 0) {
-            $pageSize = 10;
-            $db = Anon_Database::getInstance();
-            $rows = $db->db('posts')
-                ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
-                ->where('type', 'post')
-                ->where('status', 'publish')
-                ->orderBy('created_at', 'DESC')
-                ->limit($pageSize)
-                ->get();
-
-            $rawPosts = is_array($rows) ? $rows : [];
-            $result = [];
-            foreach ($rawPosts as $postData) {
-                $result[] = new Anon_Cms_Post($postData);
-            }
-            return $result;
-        }
-
-        // 分页逻辑
-        $pageSize = max(1, min(100, $pageSize));
-
-        // 获取当前页码
-        if ($page === null) {
-            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-        } else {
-            $page = max(1, $page);
-        }
-
-        $cacheKey = 'posts_' . $pageSize . '_' . $page;
-        if (isset(self::$postsCache[$cacheKey])) {
-            $cached = self::$postsCache[$cacheKey];
-            $this->paginator = $cached['paginator'];
-            return $cached['posts'];
-        }
-
-        $db = Anon_Database::getInstance();
-        $total = $db->db('posts')
-            ->where('type', 'post')
-            ->where('status', 'publish')
-            ->count();
-
-        $totalPages = max(1, (int)ceil($total / $pageSize));
-        $page = min($page, $totalPages);
-        $offset = ($page - 1) * $pageSize;
-        $rows = $db->db('posts')
-            ->select(['id', 'type', 'title', 'slug', 'content', 'status', 'author_id', 'category_id', 'tag_ids', 'views', 'comment_status', 'created_at', 'updated_at'])
-            ->where('type', 'post')
-            ->where('status', 'publish')
-            ->orderBy('created_at', 'DESC')
-            ->offset($offset)
-            ->limit($pageSize)
-            ->get();
-
-        $rawPosts = is_array($rows) ? $rows : [];
-        $result = [];
-        foreach ($rawPosts as $postData) {
-            $result[] = new Anon_Cms_Post($postData);
-        }
-
-        $this->paginator = new Anon_Cms_Paginator($page, $pageSize, $total, $totalPages);
-        self::$postsCache[$cacheKey] = [
-            'posts' => $result,
-            'paginator' => $this->paginator,
-        ];
-
-        return $result;
-    }
-
-    /**
-     * 获取分页导航数据
-     * @return array|null
-     */
-    public function pageNav(): ?array
-    {
-        if ($this->paginator === null || $this->paginator->totalPages() <= 1) {
-            return null;
-        }
-
-        $paginator = $this->paginator;
-        $result = [
-            'prev' => null,
-            'next' => null,
-            'pages' => [],
-            'current' => $paginator->currentPage(),
-            'total' => $paginator->totalPages(),
-        ];
-
-        if ($paginator->hasPrev()) {
-            $result['prev'] = [
-                'page' => $paginator->prevPage(),
-                'link' => $paginator->pageLink($paginator->prevPage()),
-            ];
-        }
-
-        if ($paginator->hasNext()) {
-            $result['next'] = [
-                'page' => $paginator->nextPage(),
-                'link' => $paginator->pageLink($paginator->nextPage()),
-            ];
-        }
-
-        $pageNumbers = $paginator->getPageNumbers();
-        foreach ($pageNumbers as $pageNum) {
-            $result['pages'][] = [
-                'page' => $pageNum,
-                'link' => $paginator->pageLink($pageNum),
-                'current' => $pageNum == $paginator->currentPage(),
-            ];
-        }
-
-        return $result;
-    }
-
-    public function isLoggedIn(): bool
-    {
-        return Anon_Check::isLoggedIn();
-    }
-
-    public function getCommentDisplayName(): string
-    {
-        return Anon_Cms::getCurrentUserDisplayName();
-    }
-
-    public function getPostComments(int $postId): array
-    {
-        return Anon_Cms::getCommentsByPostId($postId);
-    }
-
-    public function getCommentsByPostId(int $postId): array
-    {
-        return Anon_Cms::getCommentsByPostId($postId);
-    }
-
-    public function getPostIfExists(?int $id = null): ?array
-    {
-        return Anon_Cms::getPostIfExists($id);
-    }
-
-    public function getPageIfExists(?string $slug = null): ?array
-    {
-        return Anon_Cms::getPageIfExists($slug);
-    }
-
-    public function getPageType(string $templateName): string
-    {
-        return Anon_Cms::getPageType($templateName);
-    }
-
-    public function getTemplateExtensions(): array
-    {
-        return Anon_Cms::getTemplateExtensions();
-    }
-
-    public function getPageLoadTime(): float
-    {
-        return Anon_Cms::getPageLoadTime();
-    }
-
-    public function findDirectoryCaseInsensitive(string $baseDir, string $dirName): ?string
-    {
-        return Anon_Cms::findDirectoryCaseInsensitive($baseDir, $dirName);
-    }
-
-    public function findFileCaseInsensitive(string $baseDir, string $fileName, ?array $extensions = null): ?string
-    {
-        return Anon_Cms::findFileCaseInsensitive($baseDir, $fileName, $extensions);
-    }
-
-    public function options(): Anon_Cms_Options_Proxy
-    {
-        return new Anon_Cms_Options_Proxy('theme', null, Anon_Cms_Theme::getCurrentTheme());
-    }
-
-    /**
-     * 当前登录用户对象，未登录为 null
-     * @return Anon_Cms_User|null
-     */
-    public function user(): ?Anon_Cms_User
-    {
-        $user = Anon_Cms::getCurrentUser();
-        return $user !== null ? new Anon_Cms_User($user) : null;
-    }
-
-    /**
-     * 用户页当前被访问的用户对象，由路由 uid 或 name 解析，不存在为 null
-     * @return Anon_Cms_User|null
-     */
-    public function profileUser(): ?Anon_Cms_User
-    {
-        $uid = $this->get('uid');
-        $name = $this->get('name');
-        $user = null;
-        if ($uid !== null && $uid !== '') {
-            $user = Anon_Cms::getUserByUid((int) $uid);
-        } elseif (is_string($name) && $name !== '') {
-            $user = Anon_Cms::getUserByName($name);
-        }
-        return $user !== null ? new Anon_Cms_User($user) : null;
-    }
-
-    /**
-     * 主题辅助对象，仅读当前主题名与主题选项
-     * @return Anon_Cms_Theme_Helper
-     */
-    public function theme(): Anon_Cms_Theme_Helper
-    {
-        return new Anon_Cms_Theme_Helper(Anon_Cms_Theme::getCurrentTheme());
-    }
-
-    /**
-     * 生成永久链接
-     * @param Anon_Cms_Post|array|null $post 文章或页面对象
-     * @return string
-     */
-    public function permalink($post = null): string
-    {
-        // 如果没有提供 post，尝试从当前上下文获取
-        if ($post === null) {
-            $post = $this->post();
-            if ($post === null) {
-                $post = $this->page();
-            }
-        }
-
-        // 如果仍然没有 post，返回空字符串
-        if ($post === null) {
-            return '';
-        }
-
-        // 如果是数组，转换为 Anon_Cms_Post 对象
-        if (is_array($post)) {
-            $post = new Anon_Cms_Post($post);
-        }
-
-        // 获取 post 类型
-        $type = $post->type();
-        if (empty($type)) {
-            return '';
-        }
-
-        // 获取路由配置
-        $routesValue = Anon_Cms_Options::get('routes', '');
-        $routes = [];
-
-        if (is_array($routesValue)) {
-            $routes = $routesValue;
-        } elseif (is_string($routesValue) && !empty($routesValue)) {
-            $decoded = json_decode($routesValue, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $routes = $decoded;
-            }
-        }
-
-        // 根据类型查找对应的路由模板
-        $routePattern = null;
-
-        // 优先查找精确匹配的路由
-        foreach ($routes as $pattern => $template) {
-            // 检查模板是否匹配当前类型
-            if ($template === $type) {
-                $routePattern = $pattern;
-                break;
-            }
-        }
-
-        // 如果没有找到，尝试使用类型映射
-        if ($routePattern === null) {
-            $typeMapping = [
-                'post' => 'post',
-                'page' => 'page',
-            ];
-
-            $templateName = $typeMapping[$type] ?? null;
-            if ($templateName !== null) {
-                foreach ($routes as $pattern => $template) {
-                    if ($template === $templateName) {
-                        $routePattern = $pattern;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 如果没有找到匹配的路由，使用默认规则
-        if ($routePattern === null) {
-            if ($type === 'post') {
-                $routePattern = '/post/{id}';
-            } elseif ($type === 'page') {
-                $routePattern = '/{slug}';
-            } else {
-                return '';
-            }
-        }
-
-        // 替换路由参数
-        $url = $routePattern;
-
-        // 替换 {id}（文章/页面 ID）
-        if (strpos($url, '{id}') !== false) {
-            $id = $post->id();
-            $url = str_replace('{id}', $id, $url);
-        }
-
-        // 替换 {slug}（文章/页面 slug）
-        if (strpos($url, '{slug}') !== false) {
-            $slug = $post->slug();
-            $url = str_replace('{slug}', urlencode($slug), $url);
-        }
-
-        // 替换 {category}（分类 slug，需要从分类中获取）
-        if (strpos($url, '{category}') !== false) {
-            $categoryId = $post->categoryId();
-            if ($categoryId) {
-                // TODO: 需要实现获取分类 slug 的方法
-                // 暂时使用分类 ID
-                $url = str_replace('{category}', $categoryId, $url);
-            } else {
-                $url = str_replace('{category}', '', $url);
-            }
-        }
-
-        // 替换 {directory}（多级分类，暂时使用分类 slug）
-        if (strpos($url, '{directory}') !== false) {
-            $categoryId = $post->categoryId();
-            if ($categoryId) {
-                // TODO: 需要实现获取多级分类路径的方法
-                $url = str_replace('{directory}', $categoryId, $url);
-            } else {
-                $url = str_replace('{directory}', '', $url);
-            }
-        }
-
-        // 替换日期相关参数
-        $date = $post->date('Y-m-d');
-        if (!empty($date)) {
-            $dateParts = explode('-', $date);
-            if (count($dateParts) === 3) {
-                $year = $dateParts[0];
-                $month = $dateParts[1];
-                $day = $dateParts[2];
-
-                $url = str_replace('{year}', $year, $url);
-                $url = str_replace('{month}', $month, $url);
-                $url = str_replace('{day}', $day, $url);
-            }
-        }
-
-
-        // 确保 URL 以 / 开头
-        if (strpos($url, '/') !== 0) {
-            $url = '/' . $url;
-        }
-
-        return self::getSiteBaseUrl() . $url;
-    }
-
-    /**
-     * 站点根 URL，带参数时拼接相对路径
-     * @param string $suffix 相对路径，如 /about、/post/1
-     * @return string
-     */
-    public function siteUrl(string $suffix = ''): string
-    {
-        $base = self::getSiteBaseUrl();
-        if ($suffix === '') {
-            return $base;
-        }
-        $suffix = '/' . ltrim($suffix, '/');
-        return $base . $suffix;
-    }
-
-    /**
-     * 获取站点根链接
-     * 优先使用 options 中的 site_url，否则根据当前请求生成
-     * @return string
-     */
-    public static function getSiteBaseUrl(): string
-    {
-        $base = Anon_Cms_Options::get('site_url', '');
-        if ($base === '' || $base === null) {
-            $base = Anon_Cms_Options::get('home', '');
-        }
-        if (is_string($base) && $base !== '') {
-            $base = rtrim($base, '/');
-            if ($base !== '') {
-                return $base;
-            }
-        }
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
-            ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-        return $scheme . '://' . $host;
-    }
-}
-
-/**
- * 统一选项代理，合并插件、主题、系统三源
- * 插件内默认顺序 plugin > theme > system，主题内默认 theme > plugin > system
- */
-class Anon_Cms_Options_Proxy
-{
-    /** @var string 上下文 plugin 或 theme */
-    private $context;
-
-    /** @var string|null 插件 slug */
-    private $pluginSlug;
-
-    /** @var string|null 主题名 */
-    private $themeName;
-
-    public function __construct(string $context, ?string $pluginSlug = null, ?string $themeName = null)
-    {
-        $this->context = $context;
-        $this->pluginSlug = $pluginSlug;
-        $this->themeName = $themeName;
-    }
-
-    /**
-     * 解析优先级得到源顺序
-     * @param string|null $priority plugin 或 theme 或 system，null 时按上下文
-     * @return string[] 源顺序
-     */
-    private function order(?string $priority): array
-    {
-        if ($priority === 'plugin') {
-            return ['plugin', 'theme', 'system'];
-        }
-        if ($priority === 'theme') {
-            return ['theme', 'plugin', 'system'];
-        }
-        if ($priority === 'system') {
-            return ['system'];
-        }
-        return $this->context === 'plugin'
-            ? ['plugin', 'theme', 'system']
-            : ['theme', 'plugin', 'system'];
-    }
-
-    /**
-     * 获取选项值
-     * 第三参可为 bool 或 string：bool 表示是否 echo，string 且为 plugin/theme/system 表示优先级；不传时默认 echo
-     * @param string $name 选项名
-     * @param mixed $default 默认值
-     * @param bool|string|null $outputOrPriority true 先 echo 再返回，false 仅返回；或传 plugin/theme/system 指定优先级并 echo
-     * @param string|null $priority 第四参时有效，指定优先级
-     * @return mixed
-     */
-    public function get(string $name, $default = null, $outputOrPriority = true, ?string $priority = null)
-    {
-        $output = true;
-        $resolvedPriority = null;
-        if (func_num_args() >= 3) {
-            $third = $outputOrPriority;
-            if (is_string($third) && in_array($third, ['plugin', 'theme', 'system'], true)) {
-                $resolvedPriority = $third;
-                $output = func_num_args() >= 4 ? (bool) $priority : true;
-            } else {
-                $output = (bool) $third;
-                $resolvedPriority = func_num_args() >= 4 ? $priority : null;
-            }
-        }
-        $order = $this->order($resolvedPriority);
-        $value = $default;
-
-        foreach ($order as $source) {
-            if ($source === 'plugin' && $this->pluginSlug !== null && $this->pluginSlug !== '') {
-                $all = Anon_System_Plugin::getPluginOptions($this->pluginSlug);
-                if (array_key_exists($name, $all)) {
-                    $value = $all[$name];
-                    break;
-                }
-            }
-            if ($source === 'theme') {
-                $themeName = $this->themeName !== null && $this->themeName !== ''
-                    ? $this->themeName
-                    : (class_exists('Anon_Cms_Theme') ? Anon_Cms_Theme::getCurrentTheme() : '');
-                if ($themeName !== '') {
-                    $all = Anon_Theme_Options::all($themeName);
-                    if (array_key_exists($name, $all)) {
-                        $value = $all[$name];
-                        break;
-                    }
-                }
-            }
-            if ($source === 'system') {
-                $value = Anon_Cms_Options::get($name, $default);
-                break;
-            }
-        }
-
-        if ($output) {
-            echo $value;
-        }
-        return $value;
-    }
-
-    /**
-     * 设置选项值，写入系统 options 表
-     * @param string $name 选项名
-     * @param mixed $value 选项值
-     * @return bool
-     */
-    public function set(string $name, $value): bool
-    {
-        return Anon_Cms_Options::set($name, $value);
-    }
-}
-
-/**
- * 分页器类
- * 提供类似 Typecho 的分页功能
- */
-class Anon_Cms_Paginator
-{
-    /**
-     * @var int 当前页码
-     */
-    private $currentPage;
-
-    /**
-     * @var int 每页数量
-     */
-    private $pageSize;
-
-    /**
-     * @var int 总记录数
-     */
-    private $total;
-
-    /**
-     * @var int 总页数
-     */
-    private $totalPages;
-
-    /**
-     * @param int $currentPage 当前页码
-     * @param int $pageSize 每页数量
-     * @param int $total 总记录数
-     * @param int $totalPages 总页数
-     */
-    public function __construct(int $currentPage, int $pageSize, int $total, int $totalPages)
-    {
-        $this->currentPage = $currentPage;
-        $this->pageSize = $pageSize;
-        $this->total = $total;
-        $this->totalPages = $totalPages;
-    }
-
-    /**
-     * 获取当前页码
-     * @return int
-     */
-    public function currentPage(): int
-    {
-        return $this->currentPage;
-    }
-
-    /**
-     * 获取每页数量
-     * @return int
-     */
-    public function pageSize(): int
-    {
-        return $this->pageSize;
-    }
-
-    /**
-     * 获取总记录数
-     * @return int
-     */
-    public function total(): int
-    {
-        return $this->total;
-    }
-
-    /**
-     * 获取总页数
-     * @return int
-     */
-    public function totalPages(): int
-    {
-        return $this->totalPages;
-    }
-
-    /**
-     * 判断是否有上一页
-     * @return bool
-     */
-    public function hasPrev(): bool
-    {
-        return $this->currentPage > 1;
-    }
-
-    /**
-     * 判断是否有下一页
-     * @return bool
-     */
-    public function hasNext(): bool
-    {
-        return $this->currentPage < $this->totalPages;
-    }
-
-    /**
-     * 获取上一页页码
-     * @return int
-     */
-    public function prevPage(): int
-    {
-        return max(1, $this->currentPage - 1);
-    }
-
-    /**
-     * 获取下一页页码
-     * @return int
-     */
-    public function nextPage(): int
-    {
-        return min($this->totalPages, $this->currentPage + 1);
-    }
-
-    /**
-     * 生成分页链接
-     * @param int $page 页码
-     * @return string
-     */
-    public function pageLink(int $page): string
-    {
-        $currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
-        $parsedUrl = parse_url($currentUrl);
-        $path = $parsedUrl['path'] ?? '/';
-        $query = [];
-
-        if (isset($parsedUrl['query'])) {
-            parse_str($parsedUrl['query'], $query);
-        }
-
-        // 更新页码
-        if ($page <= 1) {
-            unset($query['page']);
-        } else {
-            $query['page'] = $page;
-        }
-
-        // 构建 URL
-        $url = $path;
-        if (!empty($query)) {
-            $url .= '?' . http_build_query($query);
-        }
-
-        return $url;
-    }
-
-    /**
-     * 获取所有页码数组
-     * @param int $range 当前页前后显示的页码数量
-     * @return array
-     */
-    public function getPageNumbers(int $range = 2): array
-    {
-        $pages = [];
-        $start = max(1, $this->currentPage - $range);
-        $end = min($this->totalPages, $this->currentPage + $range);
-
-        for ($i = $start; $i <= $end; $i++) {
-            $pages[] = $i;
-        }
-
-        return $pages;
-    }
-}
-
-/**
- * 文章/页面对象类
- * 提供类似 Typecho 的链式调用 API
- */
-class Anon_Cms_Post
-{
-    /**
-     * @var array 文章数据
-     */
-    private $data;
-
-    /**
-     * @param array $data 文章数据数组
-     */
-    public function __construct(array $data)
-    {
-        $this->data = $data;
-    }
-
-    /**
-     * 获取文章 ID
-     * @return int
-     */
-    public function id(): int
-    {
-        return (int)($this->data['id'] ?? 0);
-    }
-
-    /**
-     * 获取标题
-     * @return string
-     */
-    public function title(): string
-    {
-        return (string)($this->data['title'] ?? '');
-    }
-
-    /**
-     * 获取内容
-     * @return string
-     */
-    public function content(): string
-    {
-        return (string)($this->data['content'] ?? '');
-    }
-
-    /**
-     * 获取摘要
-     * @param int $length 长度
-     * @return string
-     */
-    public function excerpt(int $length = 150): string
-    {
-        $content = $this->content();
-        if (empty($content)) {
-            return '';
-        }
-
-        // 移除 HTML 标签
-        $text = strip_tags($content);
-
-        // 移除 Markdown 标记
-        $text = preg_replace('/<!--markdown-->/', '', $text);
-
-        // 移除 Markdown 语法符号
-        $text = preg_replace('/```[\s\S]*?```/u', ' ', $text);
-        $text = preg_replace('/`[^`]*`/u', ' ', $text);
-        $text = preg_replace('/!\[[^\]]*\]\([^)]+\)/u', ' ', $text);
-        $text = preg_replace('/\[[^\]]*\]\([^)]+\)/u', ' ', $text);
-        $text = preg_replace('/(^|\s)#+\s+/u', ' ', $text);
-        $text = preg_replace('/[*_~>#-]{1,3}/u', ' ', $text);
-
-        // 清理多余空白
-        $text = preg_replace('/\s+/u', ' ', $text);
-        $text = trim($text);
-
-        // 截取指定长度
-        if (mb_strlen($text, 'UTF-8') <= $length) {
-            return $text;
-        }
-
-        return mb_substr($text, 0, $length, 'UTF-8') . '...';
-    }
-
-    /**
-     * 获取 Slug
-     * @return string
-     */
-    public function slug(): string
-    {
-        return (string)($this->data['slug'] ?? '');
-    }
-
-    /**
-     * 获取类型
-     * @return string
-     */
-    public function type(): string
-    {
-        return (string)($this->data['type'] ?? '');
-    }
-
-    /**
-     * 获取状态
-     * @return string
-     */
-    public function status(): string
-    {
-        return (string)($this->data['status'] ?? '');
-    }
-
-    /**
-     * 获取创建时间
-     * @return int
-     */
-    public function created(): int
-    {
-        $createdAt = $this->data['created_at'] ?? null;
-        if (is_string($createdAt)) {
-            return (int)strtotime($createdAt);
-        }
-        return (int)$createdAt;
-    }
-
-    /**
-     * 获取创建时间 格式化
-     * @param string $format 格式，默认 'Y-m-d H:i:s'
-     * @return string
-     */
-    public function date(string $format = 'Y-m-d H:i:s'): string
-    {
-        $timestamp = $this->created();
-        return $timestamp > 0 ? date($format, $timestamp) : '';
-    }
-
-    /**
-     * 获取更新时间
-     * @return int
-     */
-    public function modified(): int
-    {
-        $updatedAt = $this->data['updated_at'] ?? null;
-        if (is_string($updatedAt)) {
-            return (int)strtotime($updatedAt);
-        }
-        return (int)$updatedAt;
-    }
-
-    /**
-     * 获取分类 ID
-     * @return int|null
-     */
-    public function category(): ?int
-    {
-        $categoryId = $this->data['category_id'] ?? null;
-        return $categoryId && $categoryId > 0 ? (int)$categoryId : null;
-    }
-
-    /**
-     * 获取原始数据
-     * @return array
-     */
-    public function toArray(): array
-    {
-        return $this->data;
-    }
-
-    /**
-     * 获取字段值
-     * @param string $key 字段名
-     * @param mixed $default 默认值
-     * @return mixed
-     */
-    public function get(string $key, $default = null)
-    {
-        if (isset($this->data[$key])) {
-            return $this->data[$key];
-        }
-        return $default;
-    }
-
-    /**
-     * 检查字段是否存在
-     * @param string $key 字段名
-     * @return bool
-     */
-    public function has(string $key): bool
-    {
-        return isset($this->data[$key]);
-    }
-}
-
-/**
- * Setup 文件辅助类
- * 为 app/setup.php 提供 $this 上下文，支持调用 siteUrl() 等方法
- */
-class Anon_Cms_Theme_Setup_Helper
-{
-    /**
-     * @var string 主题名
-     */
-    private $themeName;
-
-    /**
-     * @param string $themeName 主题名
-     */
-    public function __construct(string $themeName)
-    {
-        $this->themeName = $themeName;
-    }
-
-    /**
-     * 加载 setup.php 文件
-     * @param string $setupFile setup.php 文件路径
-     * @return mixed
-     */
-    public function loadSetupFile(string $setupFile)
-    {
-        return include $setupFile;
-    }
-
-    /**
-     * 获取站点 URL
-     * @param string $suffix 相对路径
-     * @return string
-     */
-    public function siteUrl(string $suffix = ''): string
-    {
-        $base = Anon_Cms_Theme_View::getSiteBaseUrl();
-        if ($suffix === '') {
-            return $base;
-        }
-        $suffix = '/' . ltrim($suffix, '/');
-        return $base . $suffix;
-    }
-
-    /**
-     * 获取主题 URL
-     * @param string $path 资源路径
-     * @return string
-     */
-    public function themeUrl(string $path = ''): string
-    {
-        $base = Anon_Cms_Theme_View::getSiteBaseUrl();
-        if ($path === '') {
-            return rtrim($base, '/');
-        }
-        $url = Anon_Cms_Theme::getAssetUrl($path);
-        return $url !== '' ? $base . $url : rtrim($base, '/') . '/assets/files/' . ltrim($path, '/');
-    }
-
-    /**
-     * 获取选项代理对象
-     * @return Anon_Cms_Options_Proxy
-     */
-    public function options(): Anon_Cms_Options_Proxy
-    {
-        return new Anon_Cms_Options_Proxy('theme', null, $this->themeName);
-    }
-
-    /**
-     * 获取主题辅助对象
-     * @return Anon_Cms_Theme_Helper
-     */
-    public function theme(): Anon_Cms_Theme_Helper
-    {
-        return new Anon_Cms_Theme_Helper($this->themeName);
     }
 }

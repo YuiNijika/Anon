@@ -34,4 +34,21 @@ return [
             'default' => '',
         ]
     ],
+    '自定义代码' => [
+        'custom_code_head' => [
+            'type' => 'textarea',
+            'label' => '头部代码',
+            'description' => '在 <head> 标签内插入代码',
+            'default' => '',
+        ],
+        'custom_code_foot' => [
+            'type' => 'textarea',
+            'label' => '底部代码',
+            'description' => '在 </body> 标签前插入代码',
+            'default' => '',
+        ],
+    ],
+    '关于主题' => [
+
+    ],
 ];

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Check, ArrowLeftRight, Upload, Trash2 } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Check, ArrowLeftRight, Upload, Trash2, Search, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { useApiAdmin, useThemes } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
@@ -9,8 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 import { OptionField } from '@/components/OptionField'
 import { Lightbox } from '@/components/ui/lightbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -25,7 +33,7 @@ const DISPLAY_ONLY_TYPES = ['badge', 'divider', 'alert', 'notice', 'alert_dialog
 
 const nullSvgUrl = `${getApiBaseUrl()}/anon/static/img/null`
 
-/** 占位图 data URL，onError 时使用，避免 404 时反复请求同一 URL */
+// 占位图 data URL，onError 时使用，避免 404 时反复请求同一 URL
 const PLACEHOLDER_IMG =
   'data:image/svg+xml,' +
   encodeURIComponent(
@@ -48,6 +56,21 @@ export default function SettingsTheme() {
   const [activeTab, setActiveTab] = useState('list')
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [activeGroupTab, setActiveGroupTab] = useState<string>('')
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean
+    groupKey: string
+    key: string
+    option: ThemeOptionSchema | null
+  }>({
+    open: false,
+    groupKey: '',
+    key: '',
+    option: null,
+  })
   const [overwriteDialog, setOverwriteDialog] = useState<{
     open: boolean
     name: string
@@ -105,7 +128,7 @@ export default function SettingsTheme() {
     }
   }
 
-  /** 拉取指定主题的设置项，schema 来自主题 setup 文件，values 来自数据库 */
+  // 拉取指定主题的设置项，schema 来自主题 setup 文件，values 来自数据库
   const loadThemeOptions = async (theme: string) => {
     if (fetchingRef.current) return
     fetchingRef.current = true
@@ -114,7 +137,28 @@ export default function SettingsTheme() {
       const res = await AdminApi.getThemeOptions(apiAdmin, { theme })
       if (res.data) {
         setSchema(res.data.schema || {})
-        setFormValues(res.data.values || {})
+        const values = res.data.values || {}
+        // 确保所有 text_list 类型的字段都被初始化为数组
+        const normalizedValues: Record<string, any> = { ...values }
+        Object.values(res.data.schema || {}).forEach((tab: any) => {
+          if (tab && typeof tab === 'object') {
+            Object.entries(tab).forEach(([key, option]: [string, any]) => {
+              if (option?.type === 'text_list') {
+                const currentValue = normalizedValues[key]
+                if (!Array.isArray(currentValue)) {
+                  // 值不是数组时初始化为空数组或默认值
+                  normalizedValues[key] = Array.isArray(option.default) ? option.default : []
+                }
+              }
+            })
+          }
+        })
+        setFormValues(normalizedValues)
+        // 初始化 activeGroupTab 为第一个分组
+        const firstGroup = Object.keys(res.data.schema || {})[0]
+        if (firstGroup) {
+          setActiveGroupTab(firstGroup)
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err, '加载主题设置失败'))
@@ -142,6 +186,7 @@ export default function SettingsTheme() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentTheme) return
+
     const allKeys = Object.keys(schema).flatMap((tab) => Object.keys(schema[tab] || {}))
     const schemaMap = new Map<string, ThemeOptionSchema>()
     Object.values(schema).forEach((tab) => {
@@ -153,11 +198,22 @@ export default function SettingsTheme() {
       if (!option || DISPLAY_ONLY_TYPES.includes(option.type as any)) return
 
       if (option.type === 'text_list') {
+        // text_list 类型检查所有文本框是否有值，有值则保存无值则不保存
         const raw = formValues[key]
-        const list = Array.isArray(raw) ? raw : raw ? [raw] : []
-        valuesToSave[key] = list
+        let list: string[] = []
+        if (Array.isArray(raw)) {
+          list = raw
+        } else if (raw !== null && raw !== undefined) {
+          list = [String(raw)]
+        }
+        // 过滤空字符串项，仅保留有值的项
+        const filtered = list
           .map((item) => String(item).trim())
           .filter((item) => item !== '')
+        // 有值则保存，无值则跳过
+        if (filtered.length > 0) {
+          valuesToSave[key] = filtered
+        }
         return
       }
 
@@ -178,15 +234,83 @@ export default function SettingsTheme() {
     setFormValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const renderThemeField = (key: string, option: ThemeOptionSchema) => (
-    <OptionField
-      key={key}
-      name={key}
-      option={option}
-      value={formValues[key]}
-      onChange={(v) => setFieldValue(key, v)}
-    />
+  const renderThemeField = (key: string, option: ThemeOptionSchema, groupKey?: string) => (
+    <div key={key} ref={(el) => { if (el) fieldRefs.current[`${groupKey || ''}_${key}`] = el }}>
+      <OptionField
+        name={key}
+        option={option}
+        value={formValues[key]}
+        onChange={(v) => setFieldValue(key, v)}
+      />
+    </div>
   )
+
+  // 搜索设置项
+  const searchResults = useMemo(() => {
+    if (!searchKeyword.trim()) return []
+    const keyword = searchKeyword.toLowerCase().trim()
+    const results: Array<{ groupKey: string; key: string; option: ThemeOptionSchema; matchText: string }> = []
+
+    Object.entries(schema).forEach(([groupKey, groupItems]) => {
+      if (!groupItems || typeof groupItems !== 'object') return
+      Object.entries(groupItems).forEach(([key, option]) => {
+        const label = (option.label || '').toLowerCase()
+        const description = (option.description || '').toLowerCase()
+        const keyLower = key.toLowerCase()
+
+        if (label.includes(keyword) || description.includes(keyword) || keyLower.includes(keyword)) {
+          let matchText = option.label || key
+          if (option.description) {
+            matchText += ` - ${option.description}`
+          }
+          results.push({ groupKey, key, option, matchText })
+        }
+      })
+    })
+
+    return results
+  }, [searchKeyword, schema])
+
+  // 跳转到指定设置项
+  const jumpToField = (groupKey: string, key: string, focusInput = false) => {
+    setSearchOpen(false)
+    setSearchKeyword('')
+
+    // 切换到对应的 tab
+    if (groupKey) {
+      setActiveGroupTab(groupKey)
+    }
+
+    // 等待 DOM 更新后滚动到对应字段
+    setTimeout(() => {
+      const fieldId = `${groupKey}_${key}`
+      const fieldElement = fieldRefs.current[fieldId]
+      if (fieldElement) {
+        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // 高亮显示
+        fieldElement.style.transition = 'background-color 0.3s'
+        fieldElement.style.backgroundColor = 'hsl(var(--accent))'
+        setTimeout(() => {
+          if (fieldElement) {
+            fieldElement.style.backgroundColor = ''
+          }
+        }, 2000)
+
+        // 如果需要聚焦到输入框，查找输入框并聚焦
+        if (focusInput) {
+          const inputElement = fieldElement.querySelector('input, textarea, select') as HTMLElement
+          if (inputElement) {
+            setTimeout(() => {
+              inputElement.focus()
+              if (inputElement instanceof HTMLInputElement || inputElement instanceof HTMLTextAreaElement) {
+                inputElement.select()
+              }
+            }, 300)
+          }
+        }
+      }
+    }, 200)
+  }
 
   const sortedThemes = [...themes].sort((a, b) => {
     if (a.name === currentTheme) return -1
@@ -432,12 +556,21 @@ export default function SettingsTheme() {
                     }
                     if (groupNames.length <= 1) {
                       const items = groupNames.length ? schema[groupNames[0]] || {} : {}
+                      const groupKey = groupNames[0] || ''
                       return (
                         <>
-                          {Object.entries(items).map(([key, option]) => renderThemeField(key, option))}
+                          {Object.entries(items).map(([key, option]) => renderThemeField(key, option, groupKey))}
                           <div className="flex gap-2 justify-end">
                             <Button type="submit" disabled={loading}>
                               保存更改
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setSearchOpen(true)}
+                            >
+                              <Search className="h-4 w-4" />
+                              搜索
                             </Button>
                             <Button
                               type="button"
@@ -452,7 +585,7 @@ export default function SettingsTheme() {
                     }
                     return (
                       <>
-                        <Tabs defaultValue={groupNames[0]} className="w-full">
+                        <Tabs value={activeGroupTab || groupNames[0]} onValueChange={setActiveGroupTab} className="w-full">
                           <TabsList className="mb-4">
                             {groupNames.map((g) => (
                               <TabsTrigger key={g} value={g}>
@@ -463,7 +596,7 @@ export default function SettingsTheme() {
                           {groupNames.map((groupKey) => (
                             <TabsContent key={groupKey} value={groupKey} className="space-y-4 mt-0">
                               {Object.entries(schema[groupKey] || {}).map(([key, option]) =>
-                                renderThemeField(key, option)
+                                renderThemeField(key, option, groupKey)
                               )}
                             </TabsContent>
                           ))}
@@ -471,6 +604,14 @@ export default function SettingsTheme() {
                         <div className="flex gap-2 justify-end">
                           <Button type="submit" disabled={loading}>
                             保存更改
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSearchOpen(true)}
+                          >
+                            <Search className="h-4 w-4" />
+                            搜索
                           </Button>
                           <Button
                             type="button"
@@ -515,6 +656,118 @@ export default function SettingsTheme() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={searchOpen}
+        onOpenChange={(open) => {
+          setSearchOpen(open)
+          if (!open) {
+            setSearchKeyword('')
+          } else {
+            // 打开搜索弹窗时，如果没有 activeGroupTab，设置为第一个分组
+            if (!activeGroupTab) {
+              const firstGroup = Object.keys(schema)[0]
+              if (firstGroup) {
+                setActiveGroupTab(firstGroup)
+              }
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>搜索主题设置项</DialogTitle>
+            <DialogDescription>
+              输入关键词搜索设置项的名称、描述或键名
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="输入搜索关键词..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              autoFocus
+              className="w-full"
+            />
+            <div className="max-h-[400px] overflow-y-auto">
+              {searchKeyword.trim() ? (
+                searchResults.length > 0 ? (
+                  <div className="space-y-1">
+                    {searchResults.map((result) => (
+                      <div
+                        key={`${result.groupKey}_${result.key}`}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted transition-colors group"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => jumpToField(result.groupKey, result.key)}
+                          className="flex-1 text-left"
+                        >
+                          <div className="font-medium">{result.option.label || result.key}</div>
+                          {result.option.description && (
+                            <div className="text-sm text-muted-foreground mt-1">{result.option.description}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            分组：{result.groupKey} | 键名：{result.key}
+                          </div>
+                        </button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditDialog({
+                              open: true,
+                              groupKey: result.groupKey,
+                              key: result.key,
+                              option: result.option,
+                            })
+                          }}
+                          title="编辑此项"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    未找到匹配的设置项
+                  </div>
+                )
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  输入关键词开始搜索
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>编辑设置项</DialogTitle>
+            <DialogDescription>
+              {editDialog.option?.label || editDialog.key}
+              {editDialog.option?.description && ` - ${editDialog.option.description}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {editDialog.option && (
+              <OptionField
+                name={editDialog.key}
+                option={editDialog.option}
+                value={formValues[editDialog.key]}
+                onChange={(v) => setFieldValue(editDialog.key, v)}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

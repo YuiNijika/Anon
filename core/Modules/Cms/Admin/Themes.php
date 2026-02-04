@@ -37,7 +37,7 @@ class Anon_Cms_Admin_Themes
 
     /**
      * 上传主题
-     * 若同名主题已存在，根据 package.json 版本比较返回需确认或直接覆盖（POST overwrite=1）
+     * 若同名主题已存在，根据 package.json 版本比较返回需确认或直接覆盖，POST overwrite=1 时直接覆盖
      * @return void
      */
     public static function upload()
@@ -319,7 +319,7 @@ class Anon_Cms_Admin_Themes
     {
         try {
             $data = Anon_Http_Request::getInput();
-            
+
             if (!is_array($data)) {
                 $data = [];
             }
@@ -329,7 +329,7 @@ class Anon_Cms_Admin_Themes
             $storageKey = 'theme:' . strtolower($canonicalTheme);
 
             $schema = Anon_Cms_Theme::getSchemaFromSetupFile($canonicalTheme);
-            
+
             if (empty($schema)) {
                 Anon_Http_Response::error('当前主题无设置定义(setup.php)，主题名: ' . $canonicalTheme, null, 400);
                 return;
@@ -394,18 +394,18 @@ class Anon_Cms_Admin_Themes
                 if (method_exists($db, 'getLastError')) {
                     $dbError = $db->getLastError();
                 }
-                
+
                 $debugInfo = [
                     'storageKey' => $storageKey,
                     'operation' => ($row && isset($row['name'])) ? 'update' : 'insert',
                     'valueLength' => strlen($valueStr),
                     'dbError' => $dbError,
                 ];
-                
+
                 Anon_Http_Response::error(
-                    '写入数据库失败 - 操作: ' . $debugInfo['operation'] . 
-                    ', Key: ' . $debugInfo['storageKey'] . 
-                    ', 错误: ' . (is_string($dbError) ? $dbError : json_encode($dbError)),
+                    '写入数据库失败 - 操作: ' . $debugInfo['operation'] .
+                        ', Key: ' . $debugInfo['storageKey'] .
+                        ', 错误: ' . (is_string($dbError) ? $dbError : json_encode($dbError)),
                     $debugInfo,
                     500
                 );

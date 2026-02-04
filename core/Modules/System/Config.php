@@ -98,7 +98,7 @@ class Anon_System_Config
      * @param string $route 路由路径
      * @param string|callable $filePath 文件路径或回调函数
      * @param string|callable $mimeType MIME类型或回调函数
-     * @param int $cacheTime 缓存时间（秒）
+     * @param int $cacheTime 缓存时间，单位为秒
      * @param bool $compress 是否启用压缩
      */
     public static function addStaticRoute(string $route, $filePath, $mimeType = 'application/octet-stream', int $cacheTime = 31536000, bool $compress = true, array $meta = [])
@@ -211,7 +211,7 @@ class Anon_System_Config
     public static function initSystemRoutes()
     {
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log("Registering system routes...");
+            Anon_Debug::debug("Registering system routes");
         }
 
         self::addRoute('/anon/common/license', function () {
@@ -258,7 +258,8 @@ class Anon_System_Config
             });
             self::addStaticRoute('/anon/static/admin/css', $staticDir . 'admin/index.css', 'text/css', 31536000, true, ['token' => false]);
             self::addStaticRoute('/anon/static/admin/js', $staticDir . 'admin/index.js', 'application/javascript', 31536000, true, ['token' => false]);
-        }
+            self::addStaticRoute('/anon/static/comments', $staticDir . 'comments.js', 'application/javascript', 31536000, true, ['token' => false]);
+        } 
 
         if (class_exists('Anon_Debug')) {
             self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
@@ -292,7 +293,7 @@ class Anon_System_Config
         });
 
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log("Registered system routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
+            Anon_Debug::info("Registered system routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
         }
     }
 
@@ -302,7 +303,7 @@ class Anon_System_Config
     public static function initAppRoutes()
     {
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log("Registering app routes...");
+            Anon_Debug::debug("Registering app routes");
         }
 
         if (class_exists('Anon_Debug')) {
@@ -318,7 +319,7 @@ class Anon_System_Config
         }
 
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log("Registered app routes: " . json_encode(array_keys(self::$routerConfig['routes'])));
+            Anon_Debug::info("Registered app routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
         }
     }
 

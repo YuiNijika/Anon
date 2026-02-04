@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 调试模块
  *
@@ -191,7 +192,7 @@ class Anon_Debug
      * 记录数据库查询
      * @param string $sql SQL语句
      * @param array $params 参数
-     * @param float $duration 执行耗时(ms)
+     * @param float $duration 执行耗时，单位为毫秒
      * @return void
      */
     public static function query(string $sql, array $params = [], float $duration = 0): void
@@ -371,40 +372,41 @@ class Anon_Debug
         $dateTime = date('Y-m-d H:i:s', (int)$timestamp);
         $microseconds = sprintf('%03d', (int)(($timestamp - (int)$timestamp) * 1000));
         $formattedTime = "{$dateTime}.{$microseconds}";
-        
+
         $requestId = $logData['request_id'] ?? 'unknown';
         $shortRequestId = substr($requestId, 0, 20);
         $memory = self::formatBytes($logData['memory'] ?? 0);
         $peakMemory = self::formatBytes($logData['peak_memory'] ?? 0);
-        
+
         $contextStr = '';
         if (!empty($logData['context'])) {
             $context = $logData['context'];
             unset($context['request_id']);
-            
+
             if (!self::shouldLogDetailedInfo()) {
                 $context = self::sanitizeLogContext($context);
             }
-            
+
             if (!empty($context)) {
                 $contextParts = [];
                 foreach ($context as $key => $value) {
                     if (is_array($value)) {
-                        $jsonStr = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                        if (strlen($jsonStr) > 200) {
-                            $jsonStr = substr($jsonStr, 0, 200) . '...';
-                        }
+                        $jsonStr = self::safeJsonEncode($value, 200);
                         $contextParts[] = "{$key}={$jsonStr}";
                     } elseif (is_object($value)) {
                         $contextParts[] = "{$key}=" . get_class($value);
                     } else {
-                        $contextParts[] = "{$key}={$value}";
+                        $strValue = (string)$value;
+                        if (strlen($strValue) > 200) {
+                            $strValue = substr($strValue, 0, 200) . '...';
+                        }
+                        $contextParts[] = "{$key}={$strValue}";
                     }
                 }
                 $contextStr = ' | ' . implode(' | ', $contextParts);
             }
         }
-        
+
         $logLine = sprintf(
             "[%s] %-12s [%s] %s | mem:%s peak:%s%s\n",
             $formattedTime,
@@ -446,7 +448,7 @@ class Anon_Debug
     {
         $files = glob($logDir . '/debug_*.log.*');
         if (count($files) > self::$config['max_log_files']) {
-            usort($files, function($a, $b) {
+            usort($files, function ($a, $b) {
                 return filemtime($a) - filemtime($b);
             });
             $filesToDelete = array_slice($files, 0, count($files) - self::$config['max_log_files']);
@@ -488,16 +490,43 @@ class Anon_Debug
      * @param array $context 原始上下文
      * @return array
      */
-    private static function sanitizeLogContext(array $context): array
+    private static function sanitizeLogContext(array $context, int $depth = 0, int $maxDepth = 5): array
     {
+        if ($depth >= $maxDepth) {
+            return ['[MAX_DEPTH_REACHED]'];
+        }
+
         $sensitiveKeys = [
-            'password', 'passwd', 'pwd', 'secret', 'token', 'csrf_token', 'api_key',
-            'db_password', 'db_user', 'db_host', 'db_name', 'file_path', 'file', 'path', 'realpath',
-            'sql', 'query', 'connection'
+            'password',
+            'passwd',
+            'pwd',
+            'secret',
+            'token',
+            'csrf_token',
+            'api_key',
+            'db_password',
+            'db_user',
+            'db_host',
+            'db_name',
+            'file_path',
+            'file',
+            'path',
+            'realpath',
+            'sql',
+            'query',
+            'connection'
         ];
-        
+
         $sanitized = [];
+        $count = 0;
+        $maxItems = 50;
         foreach ($context as $key => $value) {
+            if ($count >= $maxItems) {
+                $sanitized['[TRUNCATED]'] = '...';
+                break;
+            }
+            $count++;
+
             $keyLower = strtolower($key);
             $isSensitive = false;
             foreach ($sensitiveKeys as $sensitiveKey) {
@@ -506,13 +535,15 @@ class Anon_Debug
                     break;
                 }
             }
-            
+
             if ($isSensitive) {
                 $sanitized[$key] = '[FILTERED]';
             } elseif (is_array($value)) {
-                $sanitized[$key] = self::sanitizeLogContext($value);
+                $sanitized[$key] = self::sanitizeLogContext($value, $depth + 1, $maxDepth);
             } elseif (is_string($value)) {
-                if (preg_match('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', $value)) {
+                if (strlen($value) > 500) {
+                    $sanitized[$key] = substr($value, 0, 500) . '...[TRUNCATED]';
+                } elseif (preg_match('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', $value)) {
                     $sanitized[$key] = preg_replace('/(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[\'"]([^\'"]+)[\'"]/i', '$1=[FILTERED]', $value);
                 } elseif (preg_match('/[a-zA-Z]:\\\\[^\\\\]+|\\/[^\\/]+/', $value) && strlen($value) > 50) {
                     $sanitized[$key] = '[PATH_FILTERED]';
@@ -526,12 +557,119 @@ class Anon_Debug
         return $sanitized;
     }
 
-    // 便捷方法
-    public static function debug($message, $context = []) { self::log('DEBUG', $message, $context); }
-    public static function info($message, $context = []) { self::log('INFO', $message, $context); }
-    public static function warn($message, $context = []) { self::log('WARN', $message, $context); }
-    public static function error($message, $context = []) { self::log('ERROR', $message, $context); }
-    public static function fatal($message, $context = []) { self::log('FATAL', $message, $context); }
+    private static function safeJsonEncode($data, int $maxLength = 200, int $depth = 0, int $maxDepth = 5): string
+    {
+        if ($depth >= $maxDepth) {
+            return '[MAX_DEPTH]';
+        }
+
+        if (is_array($data)) {
+            $count = 0;
+            $maxItems = 20;
+            $limited = [];
+            foreach ($data as $key => $value) {
+                if ($count >= $maxItems) {
+                    $limited['[TRUNCATED]'] = '...';
+                    break;
+                }
+                $count++;
+                if (is_array($value) || is_object($value)) {
+                    $limited[$key] = self::safeJsonEncode($value, $maxLength, $depth + 1, $maxDepth);
+                } else {
+                    $limited[$key] = $value;
+                }
+            }
+            $jsonStr = @json_encode($limited, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            if ($jsonStr === false || json_last_error() !== JSON_ERROR_NONE) {
+                return '[JSON_ENCODE_ERROR]';
+            }
+            if (strlen($jsonStr) > $maxLength) {
+                return substr($jsonStr, 0, $maxLength) . '...';
+            }
+            return $jsonStr;
+        }
+
+        if (is_object($data)) {
+            return get_class($data);
+        }
+
+        $strValue = (string)$data;
+        if (strlen($strValue) > $maxLength) {
+            return substr($strValue, 0, $maxLength) . '...';
+        }
+        return $strValue;
+    }
+
+    // 便捷方法 - 自动检查是否启用
+    public static function debug($message, $context = [])
+    {
+        if (!self::isEnabled()) {
+            return;
+        }
+        if (!self::$initialized) {
+            self::init();
+        }
+        self::log('DEBUG', $message, $context);
+    }
+
+    public static function info($message, $context = [])
+    {
+        if (!self::isEnabled()) {
+            return;
+        }
+        if (!self::$initialized) {
+            self::init();
+        }
+        self::log('INFO', $message, $context);
+    }
+
+    public static function warn($message, $context = [])
+    {
+        if (!self::isEnabled()) {
+            // 即使调试未启用，警告也应该记录到 error_log
+            $logMessage = is_array($context) && !empty($context)
+                ? $message . ' - ' . self::safeJsonEncode($context, 500)
+                : $message;
+            error_log('[WARN] ' . $logMessage);
+            return;
+        }
+        if (!self::$initialized) {
+            self::init();
+        }
+        self::log('WARN', $message, $context);
+    }
+
+    public static function error($message, $context = [])
+    {
+        if (!self::isEnabled()) {
+            // 即使调试未启用，错误也应该记录到 error_log
+            $logMessage = is_array($context) && !empty($context)
+                ? $message . ' - ' . self::safeJsonEncode($context, 500)
+                : $message;
+            error_log('[ERROR] ' . $logMessage);
+            return;
+        }
+        if (!self::$initialized) {
+            self::init();
+        }
+        self::log('ERROR', $message, $context);
+    }
+
+    public static function fatal($message, $context = [])
+    {
+        if (!self::isEnabled()) {
+            // 即使调试未启用，致命错误也应该记录到 error_log
+            $logMessage = is_array($context) && !empty($context)
+                ? $message . ' - ' . self::safeJsonEncode($context, 500)
+                : $message;
+            error_log('[FATAL] ' . $logMessage);
+            return;
+        }
+        if (!self::$initialized) {
+            self::init();
+        }
+        self::log('FATAL', $message, $context);
+    }
 
     /**
      * 检查是否开启调试
@@ -560,7 +698,7 @@ class Anon_Debug
                     $payload = Anon_Auth_Token::verify($token);
                     if ($payload && isset($payload['data']['user_id'])) {
                         $userId = (int)$payload['data']['user_id'];
-                        
+
                         Anon_Check::startSessionIfNotStarted();
                         $_SESSION['user_id'] = $userId;
                         if (isset($payload['data']['username'])) {
@@ -568,13 +706,14 @@ class Anon_Debug
                         }
                     }
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+            }
         }
-        
+
         if (!$userId && Anon_Check::isLoggedIn()) {
             $userId = Anon_Http_Request::getUserId();
         }
-        
+
         if (!$userId) {
             return 'not_logged_in';
         }
@@ -699,7 +838,7 @@ class Anon_Debug
         Anon_Common::Header();
         $allHooks = Anon_System_Hook::getAllHooks();
         $stats = Anon_System_Hook::getHookStats();
-            
+
         $actions = [];
         $filters = [];
         foreach ($allHooks as $hookName => $priorities) {
@@ -722,7 +861,7 @@ class Anon_Debug
                 }
             }
         }
-            
+
         Anon_Http_Response::success([
             'actions' => $actions,
             'filters' => $filters,
@@ -811,7 +950,7 @@ class Anon_Debug
         }
         self::setCacheHeaders();
         header('Content-Type: text/html; charset=utf-8');
-        
+
         try {
             Anon_Common::Components('Debug/Login');
         } catch (RuntimeException $e) {
@@ -831,7 +970,7 @@ class Anon_Debug
             Anon_Common::Header(403);
             Anon_Http_Response::forbidden('Debug 模式未启用');
         }
-        
+
         $permissionResult = self::checkPermission();
         if ($permissionResult === 'not_logged_in') {
             header('Location: /anon/debug/login');
@@ -862,7 +1001,7 @@ class Anon_Debug
     {
         $cacheEnabled = Anon_System_Env::get('app.debug.cache.enabled', false);
         $cacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
-        
+
         if ($cacheEnabled && $cacheTime > 0) {
             header('Cache-Control: public, max-age=' . $cacheTime);
             header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');

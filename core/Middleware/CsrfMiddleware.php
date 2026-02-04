@@ -8,10 +8,10 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
 {
     /**
-     * @var array 排除的路由（不需要 CSRF 验证）
+     * @var array 排除的路由，不需要 CSRF 验证
      */
     private $excludedRoutes;
-    
+
     /**
      * 构造函数
      * @param array $excludedRoutes 排除的路由列表
@@ -20,7 +20,7 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
     {
         $this->excludedRoutes = $excludedRoutes;
     }
-    
+
     /**
      * 处理请求
      * @param mixed $request 请求对象
@@ -33,12 +33,12 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
         if (!Anon_Auth_Csrf::isEnabled()) {
             return $next($request);
         }
-        
+
         // 检查是否需要验证
         if (!Anon_Auth_Csrf::requiresVerification()) {
             return $next($request);
         }
-        
+
         // 检查是否在排除列表中
         $path = $_SERVER['REQUEST_URI'] ?? '/';
         foreach ($this->excludedRoutes as $excluded) {
@@ -46,14 +46,14 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
                 return $next($request);
             }
         }
-        
+
         // 验证 CSRF Token
         Anon_Auth_Csrf::verify(null, true);
-        
+
         // 继续处理请求
         return $next($request);
     }
-    
+
     /**
      * 创建 CSRF 中间件实例（便捷方法）
      * @param array $excludedRoutes 排除的路由列表
@@ -64,4 +64,3 @@ class Anon_CsrfMiddleware implements Anon_MiddlewareInterface
         return new self($excludedRoutes);
     }
 }
-

@@ -40,8 +40,8 @@ npm run watch:debug:js
 ## 输出文件
 
 构建后的文件会输出到：
-- `../releases/core/Static/debug.css` - 编译后的 CSS
-- `../releases/core/Static/debug.js` - 编译后的 JS
+- `../core/Static/debug.css` - 编译后的 CSS
+- `../core/Static/debug.js` - 编译后的 JS
 
 ## 源码文件
 

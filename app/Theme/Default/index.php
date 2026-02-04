@@ -9,7 +9,6 @@ $nav = $this->pageNav();
 ?>
 
 <div class="space-y-6">
-  <!-- 站点介绍 -->
   <div class="card bg-base-100 shadow-md">
     <div class="card-body">
       <h1 class="card-title text-4xl mb-2"><?php echo $this->options()->get('title', null, false); ?></h1>
@@ -17,7 +16,6 @@ $nav = $this->pageNav();
     </div>
   </div>
 
-  <!-- 文章列表 -->
   <?php if (empty($posts)) { ?>
     <div class="card bg-base-100 shadow-md">
       <div class="card-body text-center">
@@ -40,7 +38,6 @@ $nav = $this->pageNav();
       <?php } ?>
     </div>
 
-    <!-- 分页导航 -->
     <?php if ($nav) { ?>
       <div class="mt-8 flex justify-center gap-2">
         <?php if ($nav['prev']) { ?>

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 数据库连接组件
  *
@@ -41,13 +42,13 @@ class Anon_Database_Connection
             );
 
             if (self::$connInstance->connect_error) {
-                error_log("数据库连接失败: " . self::$connInstance->connect_error);
+                Anon_Debug::error("数据库连接失败", ['error' => self::$connInstance->connect_error]);
                 throw new RuntimeException("数据库连接失败");
             }
 
             self::$connInstance->set_charset(ANON_DB_CHARSET);
         }
-        
+
         $this->conn = self::$connInstance;
     }
 
@@ -72,16 +73,18 @@ class Anon_Database_Connection
     public function query(string $sql)
     {
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            if (preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) && 
-                preg_match('/(\$|%|_|\'|"|`)/', $sql)) {
-                error_log("警告：检测到可疑的 SQL 查询模式: " . substr($sql, 0, 100));
+            if (
+                preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) &&
+                preg_match('/(\$|%|_|\'|"|`)/', $sql)
+            ) {
+                Anon_Debug::warn("警告：检测到可疑的 SQL 查询模式", ['sql_preview' => substr($sql, 0, 100)]);
             }
         }
-        
+
         $result = $this->conn->query($sql);
         if (!$result) {
             $errorMsg = self::sanitizeError($this->conn->error);
-            error_log("SQL 查询错误: " . $errorMsg);
+            Anon_Debug::error("SQL 查询错误", ['error' => $errorMsg]);
             throw new RuntimeException("SQL 查询错误");
         }
 
@@ -109,7 +112,7 @@ class Anon_Database_Connection
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
             $errorMsg = self::sanitizeError($this->conn->error);
-            error_log("SQL 预处理错误: " . $errorMsg);
+            Anon_Debug::error("SQL 预处理错误", ['error' => $errorMsg]);
             throw new RuntimeException("SQL 预处理错误");
         }
 
@@ -136,7 +139,7 @@ class Anon_Database_Connection
             }
             if (!$stmt->bind_param($types, ...$bindParams)) {
                 $errorMsg = self::sanitizeError($this->conn->error);
-                error_log("SQL 参数绑定错误: " . $errorMsg);
+                Anon_Debug::error("SQL 参数绑定错误", ['error' => $errorMsg]);
                 $stmt->close();
                 throw new RuntimeException("SQL 参数绑定错误");
             }
@@ -157,12 +160,12 @@ class Anon_Database_Connection
         } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
             $logDetailed = false;
         }
-        
+
         if (!$logDetailed) {
             $error = preg_replace('/\/[^\s]+\.php:\d+/', '[file]:[line]', $error);
             $error = preg_replace('/\b(?:database|table|column|user|password)\s*[=:]\s*[\'"]?[^\'"\s]+[\'"]?/i', '[sensitive]', $error);
         }
-        
+
         return $error;
     }
 

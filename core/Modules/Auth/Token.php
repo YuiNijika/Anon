@@ -23,7 +23,7 @@ class Anon_Auth_Token
         if ($expire === null) {
             $expire = $isSensitive ? 60 : 300;
         }
-        
+
         $timestamp = time();
         $expireTime = $timestamp + $expire;
         $nonce = bin2hex(random_bytes(16));
@@ -97,18 +97,21 @@ class Anon_Auth_Token
                 if (!hash_equals($expectedSignature, $signature)) {
                     $logDetailed = self::shouldLogDetailedErrors();
                     if ($logDetailed) {
-                        error_log("Token signature mismatch. Expected: " . substr($expectedSignature, 0, 16) . "... Got: " . substr($signature, 0, 16) . "...");
+                        Anon_Debug::warn("Token signature mismatch", [
+                            'expected' => substr($expectedSignature, 0, 16) . '...',
+                            'got' => substr($signature, 0, 16) . '...'
+                        ]);
                     } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        error_log("Token signature mismatch");
+                        Anon_Debug::warn("Token signature mismatch");
                     }
                     return false;
                 }
             } catch (Exception $e) {
                 $logDetailed = self::shouldLogDetailedErrors();
                 if ($logDetailed) {
-                    error_log("Token secret generation failed: " . $e->getMessage());
+                    Anon_Debug::error("Token secret generation failed", ['message' => $e->getMessage()]);
                 } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    error_log("Token secret generation failed");
+                    Anon_Debug::error("Token secret generation failed");
                 }
                 return false;
             }
@@ -118,10 +121,10 @@ class Anon_Auth_Token
             if (self::isRefreshEnabled()) {
                 $timestampDiff = abs(time() - $payload['timestamp']);
                 $maxTimestampDiff = 120; // 2分钟时间窗口
-                
+
                 if ($timestampDiff > $maxTimestampDiff) {
                     if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        error_log("Token timestamp diff too large: {$timestampDiff} seconds, rejected");
+                        Anon_Debug::warn("Token timestamp diff too large", ['diff' => $timestampDiff, 'unit' => 'seconds']);
                     }
                     return false;
                 }
@@ -140,9 +143,9 @@ class Anon_Auth_Token
         } catch (Exception $e) {
             $logDetailed = self::shouldLogDetailedErrors();
             if ($logDetailed) {
-                error_log("Token verification error: " . $e->getMessage());
+                Anon_Debug::error("Token verification error", ['message' => $e->getMessage()]);
             } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
-                error_log("Token verification error");
+                Anon_Debug::error("Token verification error");
             }
             return false;
         }
@@ -188,20 +191,20 @@ class Anon_Auth_Token
         $sessionId = $data['session_id'] ?? null;
         $userId = $data['user_id'] ?? null;
         $username = $data['username'] ?? '';
-        
+
         if (!$sessionId) {
             throw new RuntimeException('无法生成 Token：缺少会话ID');
         }
-        
+
         $serverKey = self::getSecretKey();
-        
+
         $secretData = [
             'session_id' => $sessionId,
             'user_id' => $userId,
             'username' => $username,
             'server_key' => $serverKey
         ];
-        
+
         return hash('sha256', json_encode($secretData, JSON_UNESCAPED_UNICODE));
     }
 
@@ -223,7 +226,7 @@ class Anon_Auth_Token
         }
 
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log('Security Warning: ANON_APP_KEY not configured!');
+            Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
         }
 
         return 'anon_default_insecure_key';
@@ -278,7 +281,7 @@ class Anon_Auth_Token
             '/anon/debug/login',
             '/anon/debug/console',
         ];
-        
+
         if (Anon_System_Env::isInitialized()) {
             $whitelist = Anon_System_Env::get('app.token.whitelist', []);
             if (is_array($whitelist) && !empty($whitelist)) {
@@ -287,7 +290,7 @@ class Anon_Auth_Token
         } elseif (defined('ANON_TOKEN_WHITELIST') && is_array(ANON_TOKEN_WHITELIST) && !empty(ANON_TOKEN_WHITELIST)) {
             return array_merge($defaultWhitelist, ANON_TOKEN_WHITELIST);
         }
-        
+
         return $defaultWhitelist;
     }
 
@@ -318,4 +321,3 @@ class Anon_Auth_Token
         return false;
     }
 }
-

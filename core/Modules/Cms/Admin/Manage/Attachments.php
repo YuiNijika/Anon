@@ -15,7 +15,7 @@ class Anon_Cms_Admin_Attachments
     {
         $db = Anon_Database::getInstance();
         $baseQuery = $db->db('attachments');
-        
+
         if ($mimeType) {
             $extensions = [];
             if ($mimeType === 'image') {
@@ -27,7 +27,7 @@ class Anon_Cms_Admin_Attachments
             } elseif ($mimeType === 'document') {
                 $extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
             }
-            
+
             if (!empty($extensions)) {
                 $baseQuery->where(function ($query) use ($extensions) {
                     $first = true;
@@ -65,7 +65,7 @@ class Anon_Cms_Admin_Attachments
                 }
             }
         }
-        
+
         $countQuery = $db->db('attachments');
         if ($mimeType) {
             $extensions = [];
@@ -78,7 +78,7 @@ class Anon_Cms_Admin_Attachments
             } elseif ($mimeType === 'document') {
                 $extensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
             }
-            
+
             if (!empty($extensions)) {
                 $countQuery->where(function ($query) use ($extensions) {
                     $first = true;
@@ -117,14 +117,14 @@ class Anon_Cms_Admin_Attachments
             }
         }
         $total = $countQuery->count();
-        
+
         $orderDirection = $sort === 'old' ? 'ASC' : 'DESC';
         $attachments = $baseQuery
             ->orderBy('updated_at', $orderDirection)
             ->offset(($page - 1) * $pageSize)
             ->limit($pageSize)
             ->get();
-        
+
         return [
             'list' => $attachments ?: [],
             'total' => $total,
@@ -193,7 +193,7 @@ class Anon_Cms_Admin_Attachments
     {
         $uploadAllowedTypesValue = Anon_Cms_Options::get('upload_allowed_types', '');
         $uploadAllowedTypes = [];
-        
+
         if (is_array($uploadAllowedTypesValue)) {
             $uploadAllowedTypes = $uploadAllowedTypesValue;
         } elseif (is_string($uploadAllowedTypesValue) && !empty($uploadAllowedTypesValue)) {
@@ -202,7 +202,7 @@ class Anon_Cms_Admin_Attachments
                 $uploadAllowedTypes = $decoded;
             }
         }
-        
+
         if (empty($uploadAllowedTypes)) {
             $uploadAllowedTypes = [
                 'image' => Anon_Cms_Options::get('upload_allowed_image', 'gif,jpg,jpeg,png,tiff,bmp,webp,avif'),
@@ -211,14 +211,14 @@ class Anon_Cms_Admin_Attachments
                 'other' => Anon_Cms_Options::get('upload_allowed_other', ''),
             ];
         }
-        
+
         $allowedStr = $uploadAllowedTypes[$fileType] ?? '';
         if (empty($allowedStr)) {
             return [];
         }
-        
+
         $extensions = array_map('trim', explode(',', $allowedStr));
-        return array_filter($extensions, function($ext) {
+        return array_filter($extensions, function ($ext) {
             return !empty($ext);
         });
     }
@@ -233,7 +233,7 @@ class Anon_Cms_Admin_Attachments
         if (!file_exists($filePath) || !is_readable($filePath)) {
             return null;
         }
-        
+
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             if ($finfo) {
@@ -244,19 +244,19 @@ class Anon_Cms_Admin_Attachments
                 }
             }
         }
-        
+
         if (function_exists('mime_content_type')) {
             $mimeType = mime_content_type($filePath);
             if ($mimeType && $mimeType !== 'application/octet-stream') {
                 return $mimeType;
             }
         }
-        
+
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo && isset($imageInfo['mime'])) {
             return $imageInfo['mime'];
         }
-        
+
         return null;
     }
 
@@ -272,12 +272,12 @@ class Anon_Cms_Admin_Attachments
         if (empty($ext)) {
             return false;
         }
-        
+
         $allowedExtensions = self::getAllowedExtensions($fileType);
         if (empty($allowedExtensions)) {
             return true;
         }
-        
+
         return in_array($ext, $allowedExtensions, true);
     }
 
@@ -291,7 +291,7 @@ class Anon_Cms_Admin_Attachments
     {
         $ext = strtolower(trim($ext));
         $mimeType = strtolower(trim($mimeType));
-        
+
         $mimeExtMap = [
             'image/jpeg' => ['jpg', 'jpeg'],
             'image/png' => ['png'],
@@ -316,11 +316,11 @@ class Anon_Cms_Admin_Attachments
             'application/vnd.ms-excel' => ['xls'],
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
         ];
-        
+
         if (!isset($mimeExtMap[$mimeType])) {
             return false;
         }
-        
+
         return in_array($ext, $mimeExtMap[$mimeType], true);
     }
 
@@ -355,17 +355,25 @@ class Anon_Cms_Admin_Attachments
             }
 
             $base = basename($base);
-            $base = preg_replace('/[^a-zA-Z0-9_-]/', '', $base);
-            if (empty($base)) {
+            $pathInfo = pathinfo($base);
+            $filename = isset($pathInfo['filename']) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $pathInfo['filename']) : '';
+            if (empty($filename)) {
                 return null;
             }
 
             $dir = $uploadRoot . $fileType . '/';
             if (!is_dir($dir)) {
-                return null;
+                if (is_dir($uploadRoot)) {
+                    @mkdir($dir, 0755, true);
+                    if (!is_dir($dir)) {
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
             }
 
-            $matches = glob($dir . $base . '.*');
+            $matches = glob($dir . $filename . '.*');
             if (empty($matches)) {
                 return null;
             }
@@ -393,17 +401,33 @@ class Anon_Cms_Admin_Attachments
             }
 
             $info = @getimagesize($originalPath);
-            if (!$info || empty($info['mime'])) {
-                http_response_code(404);
-                exit;
-            }
-            if (strpos($info['mime'], 'image/') !== 0) {
+            if (!$info || empty($info['mime']) || strpos($info['mime'], 'image/') !== 0) {
                 http_response_code(404);
                 exit;
             }
 
             if (!function_exists('imagecreatefromstring')) {
                 http_response_code(500);
+                exit;
+            }
+
+            // 检查浏览器缓存，使用 ETag 和 Last-Modified
+            $originalMtime = filemtime($originalPath);
+            $etag = md5($originalPath . $format . $originalMtime);
+
+            // 设置 ETag
+            header('ETag: "' . $etag . '"');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $originalMtime) . ' GMT');
+
+            // 检查 If-None-Match 和 If-Modified-Since
+            $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? '';
+            $ifModifiedSince = $_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '';
+
+            if (
+                $ifNoneMatch === '"' . $etag . '"' ||
+                (!empty($ifModifiedSince) && strtotime($ifModifiedSince) >= $originalMtime)
+            ) {
+                http_response_code(304);
                 exit;
             }
 
@@ -434,25 +458,21 @@ class Anon_Cms_Admin_Attachments
             $mimeType = $mimeMap[$format] ?? 'application/octet-stream';
             header('Content-Type: ' . $mimeType);
 
-            // 默认缓存1天
+            // 浏览器缓存设置
             $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
             $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
-            $cacheTime = 86400; // 1天
+            $cacheTime = 31536000; // 1年
 
             if ($hasNoCacheParam || $hasVerParam) {
                 header('Cache-Control: no-cache, no-store, must-revalidate');
                 header('Pragma: no-cache');
                 header('Expires: 0');
-                if ($hasVerParam) {
-                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($originalPath)) . ' GMT');
-                }
             } else {
                 header('Cache-Control: public, max-age=' . $cacheTime);
                 header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
-                header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($originalPath)) . ' GMT');
             }
 
-            // 直接输出处理后的图片
+            // 输出处理后的图片
             $ok = false;
             if ($format === 'webp') {
                 $quality = 80;
@@ -473,91 +493,111 @@ class Anon_Cms_Admin_Attachments
             exit;
         };
 
-        Anon_System_Config::addRoute(
-            '/anon/static/upload/{filetype}/{file}/{format}',
-            function () use ($processImageFormat) {
-                $fileType = $_GET['filetype'] ?? '';
-                $file = $_GET['file'] ?? '';
-                $format = $_GET['format'] ?? '';
-                if (empty($fileType) || empty($file) || empty($format)) {
-                    http_response_code(404);
-                    exit;
-                }
-                $processImageFormat($fileType, $file, $format);
-            },
-            [
-                'header' => false,
-                'requireLogin' => false,
-                'requireAdmin' => false,
-                'method' => 'GET',
-                'token' => false,
-            ]
-        );
+        // 先注册格式转换路由
+        // 注意：路由匹配时会按参数数量降序排序，所以即使注册顺序不同，也会优先匹配参数更多的路由
+        try {
+            Anon_System_Config::addRoute(
+                '/anon/static/upload/{filetype}/{file}/{format}',
+                function () use ($processImageFormat) {
+                    $fileType = $_GET['filetype'] ?? '';
+                    $file = $_GET['file'] ?? '';
+                    $format = $_GET['format'] ?? '';
 
-        Anon_System_Config::addStaticRoute(
-            '/anon/static/upload/{filetype}/{file}',
-            /**
-             * 获取附件文件路径
-             * @return string|null 文件路径，失败返回 null
-             */
-            function () use ($resolveOriginalFile) {
-                $fileType = $_GET['filetype'] ?? '';
-                $file = $_GET['file'] ?? '';
-                if (empty($fileType) || empty($file)) {
-                    return null;
-                }
+                    if (empty($fileType) || empty($file) || empty($format)) {
+                        http_response_code(404);
+                        exit;
+                    }
+                    $processImageFormat($fileType, $file, $format);
+                },
+                [
+                    'header' => false,
+                    'requireLogin' => false,
+                    'requireAdmin' => false,
+                    'method' => 'GET',
+                    'token' => false,
+                ]
+            );
+        } catch (Exception $e) {
+            if (class_exists('Anon_Debug')) {
+                Anon_Debug::error("Failed to register image format route", [
+                    'message' => $e->getMessage()
+                ]);
+            }
+        }
 
-                $filePath = $resolveOriginalFile($fileType, $file);
-                if (empty($filePath)) {
-                    return null;
-                }
-                if (!file_exists($filePath) || !is_readable($filePath)) {
-                    return null;
-                }
-                
-                return $filePath;
-            },
-            /**
-             * 获取附件文件的 MIME 类型
-             * @return string MIME 类型
-             */
-            function () use ($resolveOriginalFile) {
-                $fileType = $_GET['filetype'] ?? '';
-                $file = $_GET['file'] ?? '';
-                if (empty($fileType) || empty($file)) {
-                    return 'application/octet-stream';
-                }
+        // 再注册原始文件路由
+        try {
+            Anon_System_Config::addStaticRoute(
+                '/anon/static/upload/{filetype}/{file}',
+                /**
+                 * 获取附件文件路径
+                 * @return string|null 文件路径，失败返回 null
+                 */
+                function () use ($resolveOriginalFile) {
+                    $fileType = $_GET['filetype'] ?? '';
+                    $file = $_GET['file'] ?? '';
+                    if (empty($fileType) || empty($file)) {
+                        return null;
+                    }
 
-                $filePath = $resolveOriginalFile($fileType, $file);
-                if (empty($filePath)) {
-                    return 'application/octet-stream';
-                }
-                
-                $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-                $mimeTypes = [
-                    'jpg' => 'image/jpeg',
-                    'jpeg' => 'image/jpeg',
-                    'png' => 'image/png',
-                    'gif' => 'image/gif',
-                    'webp' => 'image/webp',
-                    'svg' => 'image/svg+xml',
-                    'mp4' => 'video/mp4',
-                    'mp3' => 'audio/mpeg',
-                    'pdf' => 'application/pdf',
-                ];
-                
-                return $mimeTypes[$ext] ?? 'application/octet-stream';
-            },
-            31536000,
-            false,
-            [
-                'header' => false,
-                'requireLogin' => false,
-                'requireAdmin' => false,
-                'method' => 'GET',
-                'token' => false,
-            ]
-        );
+                    $filePath = $resolveOriginalFile($fileType, $file);
+                    if (empty($filePath)) {
+                        return null;
+                    }
+                    if (!file_exists($filePath) || !is_readable($filePath)) {
+                        return null;
+                    }
+
+                    return $filePath;
+                },
+                /**
+                 * 获取附件文件的 MIME 类型
+                 * @return string MIME 类型
+                 */
+                function () use ($resolveOriginalFile) {
+                    $fileType = $_GET['filetype'] ?? '';
+                    $file = $_GET['file'] ?? '';
+                    if (empty($fileType) || empty($file)) {
+                        return 'application/octet-stream';
+                    }
+
+                    $filePath = $resolveOriginalFile($fileType, $file);
+                    if (empty($filePath)) {
+                        return 'application/octet-stream';
+                    }
+
+                    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                    $mimeTypes = [
+                        'jpg' => 'image/jpeg',
+                        'jpeg' => 'image/jpeg',
+                        'png' => 'image/png',
+                        'gif' => 'image/gif',
+                        'webp' => 'image/webp',
+                        'svg' => 'image/svg+xml',
+                        'mp4' => 'video/mp4',
+                        'mp3' => 'audio/mpeg',
+                        'pdf' => 'application/pdf',
+                    ];
+
+                    return $mimeTypes[$ext] ?? 'application/octet-stream';
+                },
+                31536000,
+                false,
+                [
+                    'header' => false,
+                    'requireLogin' => false,
+                    'requireAdmin' => false,
+                    'method' => 'GET',
+                    'token' => false,
+                ]
+            );
+        } catch (Exception $e) {
+            if (class_exists('Anon_Debug')) {
+                Anon_Debug::error("Failed to register static file route", [
+                    'message' => $e->getMessage()
+                ]);
+            }
+        }
     }
 
     /**
@@ -567,27 +607,27 @@ class Anon_Cms_Admin_Attachments
     public static function get()
     {
         try {
-            // GET 请求参数在 $_GET 中，需要合并 $_GET 和 getInput()
+            // GET 请求参数在 $_GET 中，需要合并 $_GET 和 getInput 的结果
             $data = array_merge($_GET, Anon_Http_Request::getInput());
-            
+
             $page = isset($data['page']) ? max(1, (int)$data['page']) : 1;
             $pageSize = isset($data['page_size']) ? max(1, min(100, (int)$data['page_size'])) : 20;
             $mimeType = isset($data['mime_type']) ? trim($data['mime_type']) : null;
             $sort = isset($data['sort']) ? trim($data['sort']) : 'new';
-            
+
             if (!in_array($sort, ['new', 'old'], true)) {
                 $sort = 'new';
             }
-            
+
             $result = self::getAttachmentList($page, $pageSize, $mimeType, $sort);
             $attachments = $result['list'];
-            
+
             if (!empty($attachments) && is_array($attachments)) {
                 foreach ($attachments as &$a) {
                     if (!empty($a['filename']) && is_string($a['filename'])) {
                         $base = pathinfo($a['filename'], PATHINFO_FILENAME);
                         $ext = strtolower(pathinfo($a['filename'], PATHINFO_EXTENSION));
-                        
+
                         $mimeType = '';
                         if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true)) {
                             $mimeType = 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
@@ -598,12 +638,12 @@ class Anon_Cms_Admin_Attachments
                         } elseif ($ext === 'pdf') {
                             $mimeType = 'application/pdf';
                         }
-                        
+
                         $fileType = self::getFileTypeByMime($mimeType);
                         $a['url'] = '/anon/static/upload/' . $fileType . '/' . $base;
                         $a['mime_type'] = $mimeType;
                     }
-                    
+
                     if (!isset($a['original_name'])) {
                         $a['original_name'] = '';
                     }
@@ -623,7 +663,7 @@ class Anon_Cms_Admin_Attachments
                 }
                 unset($a);
             }
-            
+
             Anon_Http_Response::success([
                 'list' => $attachments ?: [],
                 'total' => $result['total'],
@@ -649,13 +689,13 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::error('文件上传失败', 400);
                 return;
             }
-            
+
             $file = $_FILES['file'];
             $originalName = $file['name'];
             $tmpPath = $file['tmp_name'];
             $clientMimeType = $file['type'];
             $fileSize = $file['size'];
-            
+
             /**
              * 获取文件后缀
              */
@@ -664,7 +704,7 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::error('文件必须包含扩展名', 400);
                 return;
             }
-            
+
             /**
              * 通过文件头检测真实的 MIME 类型
              */
@@ -673,7 +713,7 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::error('无法识别文件类型，请确保文件格式正确', 400);
                 return;
             }
-            
+
             /**
              * 验证文件扩展名与真实 MIME 类型是否匹配
              */
@@ -681,12 +721,12 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::error("文件扩展名 .{$ext} 与文件实际类型 ({$realMimeType}) 不匹配，可能存在安全风险", 400);
                 return;
             }
-            
+
             /**
              * 使用真实的 MIME 类型进行分类
              */
             $fileType = self::getFileTypeByMime($realMimeType);
-            
+
             /**
              * 验证文件后缀是否允许
              */
@@ -696,19 +736,19 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::error("不允许上传 {$fileType} 类型的 .{$ext} 文件，允许的后缀：{$allowedStr}", 400);
                 return;
             }
-            
+
             /**
              * 使用真实的 MIME 类型
              */
             $mimeType = $realMimeType;
-            
+
             /**
              * 生成唯一文件名
              */
             $built = self::buildRandomFilename((string)$ext);
             $baseName = $built['base'];
             $filename = $built['filename'];
-            
+
             /**
              * 上传目录
              */
@@ -721,24 +761,24 @@ class Anon_Cms_Admin_Attachments
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
-            
+
             $filePath = $uploadDir . $filename;
             $url = '/anon/static/upload/' . $fileType . '/' . $baseName;
-            
+
             if (!move_uploaded_file($tmpPath, $filePath)) {
                 Anon_Http_Response::error('保存文件失败', 500);
                 return;
             }
-            
+
             $userId = Anon_Http_Request::getUserId();
-            
+
             $id = self::createAttachment([
                 'uid' => $userId,
                 'filename' => $filename,
                 'original_name' => $originalName,
                 'file_size' => $fileSize,
             ]);
-            
+
             if ($id) {
                 $attachment = self::getAttachmentById($id);
                 if (is_array($attachment) && !empty($attachment['filename'])) {
@@ -780,18 +820,18 @@ class Anon_Cms_Admin_Attachments
         try {
             $data = Anon_Http_Request::getInput();
             $id = isset($data['id']) ? (int)$data['id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
-            
+
             if ($id <= 0) {
                 Anon_Http_Response::error('附件 ID 无效', 400);
                 return;
             }
-            
+
             $attachment = self::getAttachmentById($id);
             if (!$attachment) {
                 Anon_Http_Response::error('附件不存在', 404);
                 return;
             }
-            
+
             // 根据文件名推断文件路径
             $filename = $attachment['filename'] ?? '';
             if (empty($filename)) {
@@ -799,15 +839,15 @@ class Anon_Cms_Admin_Attachments
                 Anon_Http_Response::success(null, '删除成功');
                 return;
             }
-            
+
             $base = pathinfo($filename, PATHINFO_FILENAME);
             $ext = pathinfo($filename, PATHINFO_EXTENSION);
             $uploadRoot = Anon_Main::APP_DIR . 'Upload/';
-            
+
             // 尝试所有可能的文件类型目录
             $fileTypes = ['image', 'video', 'audio', 'document', 'other'];
             $filePath = null;
-            
+
             foreach ($fileTypes as $fileType) {
                 $possiblePath = $uploadRoot . $fileType . '/' . $filename;
                 if (file_exists($possiblePath)) {
@@ -815,15 +855,15 @@ class Anon_Cms_Admin_Attachments
                     break;
                 }
             }
-            
+
             // 如果找到文件，删除文件
             if ($filePath && file_exists($filePath)) {
                 @unlink($filePath);
             }
-            
+
             // 删除记录
             $result = self::deleteAttachment($id);
-            
+
             if ($result) {
                 Anon_Http_Response::success(null, '删除成功');
             } else {
@@ -833,6 +873,4 @@ class Anon_Cms_Admin_Attachments
             Anon_Http_Response::handleException($e);
         }
     }
-
 }
-

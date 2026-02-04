@@ -14,16 +14,16 @@ if (!Anon_System_Config::isInstalled() && !$isInstallPath && !$isStaticPath) {
 class Anon_Common
 {
     const NAME = 'Anon Framework';
-    const VERSION = '3.1.0';
+    const VERSION = '3.2.0';
     const AUTHOR = '鼠子(YuiNijika)';
     const AUTHOR_URL = 'https://github.com/YuiNijika';
     const GITHUB = 'https://github.com/YuiNijika/Anon';
     const LICENSE = 'MIT';
-    
+
     public static function LICENSE_TEXT(): string
     {
         $yearRange = '2024-' . date('Y');
-        
+
         return <<<LICENSE
 MIT License
 Copyright (c) {$yearRange} 鼠子(YuiNijika)
@@ -129,11 +129,11 @@ LICENSE;
     public static function Header($code = 200, $response = true, $cors = true): void
     {
         http_response_code($code);
-        
+
         if ($cors) {
             self::setCorsHeaders();
         }
-        
+
         if ($response) {
             header('Content-Type: application/json; charset=utf-8');
         }
@@ -148,13 +148,13 @@ LICENSE;
     {
         if (!Anon_Check::isLoggedIn()) {
             self::Header(401);
-            
+
             // 如果提供了自定义消息，直接使用
             if ($message !== null) {
                 Anon_Http_Response::unauthorized($message);
                 return;
             }
-            
+
             // 尝试通过钩子获取自定义消息
             $customMessage = Anon_System_Hook::apply_filters('require_login_message', '请先登录');
             Anon_Http_Response::unauthorized($customMessage);
@@ -170,7 +170,7 @@ LICENSE;
     {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
         $allowedOrigins = self::getAllowedCorsOrigins();
-        
+
         if ($origin) {
             // 如果配置了允许的来源列表，则验证来源
             if (!empty($allowedOrigins)) {
@@ -204,7 +204,7 @@ LICENSE;
                 header("Access-Control-Allow-Origin: " . $scheme . "://" . $host);
             }
         }
-        
+
         header("Access-Control-Allow-Credentials: true");
         header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH");
         header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-API-Token, X-CSRF-Token");
@@ -224,12 +224,12 @@ LICENSE;
                 return is_array($origins) ? $origins : [$origins];
             }
         }
-        
+
         // 从常量获取
         if (defined('ANON_CORS_ORIGINS') && is_array(ANON_CORS_ORIGINS)) {
             return ANON_CORS_ORIGINS;
         }
-        
+
         return [];
     }
 
@@ -327,7 +327,7 @@ class Anon_Check
             if (self::validateCookie($_COOKIE['user_id'], $_COOKIE['username'])) {
                 // 从Cookie恢复登录时重新生成Session ID防止固定攻击
                 session_regenerate_id(true);
-                
+
                 $_SESSION['user_id'] = (int)$_COOKIE['user_id'];
                 $_SESSION['username'] = $_COOKIE['username'];
                 return true;
@@ -346,7 +346,7 @@ class Anon_Check
     {
         $userId = $_SESSION['user_id'] ?? null;
         Anon_System_Hook::do_action('auth_before_logout', $userId);
-        
+
         self::startSessionIfNotStarted();
 
         $_SESSION = [];
@@ -367,7 +367,7 @@ class Anon_Check
         session_destroy();
 
         self::clearAuthCookies();
-        
+
         Anon_System_Hook::do_action('auth_after_logout', $userId ?? null);
     }
 
@@ -381,9 +381,9 @@ class Anon_Check
     public static function setAuthCookies(int $userId, string $username, bool $rememberMe = false): void
     {
         Anon_System_Hook::do_action('auth_before_set_cookies', $userId, $username, $rememberMe);
-        
+
         $isHttps = defined('ANON_SITE_HTTPS') && ANON_SITE_HTTPS;
-        
+
         $cookieOptions = [
             'path'     => '/',
             'httponly' => true,
@@ -403,12 +403,12 @@ class Anon_Check
         $secret = self::getCookieSecret();
         $expires = $cookieOptions['expires'] ?? 0;
         $signature = hash_hmac('sha256', (string)$userId . '|' . $username . '|' . $expires, $secret);
-        
+
         setcookie('user_id', (string)$userId, $cookieOptions);
         setcookie('username', $username, $cookieOptions);
         setcookie('auth_signature', $signature, $cookieOptions);
         setcookie('auth_expires', (string)$expires, $cookieOptions);
-        
+
         Anon_System_Hook::do_action('auth_after_set_cookies', $userId, $username, $rememberMe);
     }
 
@@ -459,7 +459,7 @@ class Anon_Check
         $cookieExpires = isset($_COOKIE['user_id']) ? ($_COOKIE['auth_expires'] ?? 0) : 0;
         $secret = self::getCookieSecret();
         $expectedSignature = hash_hmac('sha256', (string)$userId . '|' . $username . '|' . $cookieExpires, $secret);
-        
+
         if (!hash_equals($expectedSignature, $signature)) {
             return false;
         }
@@ -499,9 +499,9 @@ class Anon_Check
 
         // 严重安全警告：未配置 APP_KEY
         if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            error_log('Security Warning: ANON_APP_KEY not configured!');
+            Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
         }
-            
+
         return 'anon_default_insecure_key';
     }
 
@@ -512,7 +512,7 @@ class Anon_Check
     {
         if (session_status() === PHP_SESSION_NONE) {
             $isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on';
-            
+
             session_start([
                 'cookie_httponly' => true,
                 'cookie_secure'   => $isHttps,
@@ -521,5 +521,4 @@ class Anon_Check
             ]);
         }
     }
-
 }

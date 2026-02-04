@@ -11,6 +11,7 @@ class Anon_Http_Router
     private static $cachedRequestPath = null;
     private static $routerMetaCache = [];
     private static $usePersistentMetaCache = null;
+    private static $sortedParamRoutesCache = null;
 
     /**
      * 初始化
@@ -33,7 +34,7 @@ class Anon_Http_Router
         try {
             Anon_System_Hook::do_action('router_before_init');
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::info('Router system initializing');
                 Anon_Debug::startPerformance('router_init');
             }
@@ -44,17 +45,17 @@ class Anon_Http_Router
                 if (!class_exists('Anon_Cms_Theme')) {
                     Anon_Loader::loadCmsModules();
                 }
-                
+
                 Anon_Cms_Theme::init();
                 Anon_Cms_Theme::registerAssets();
-                
+
                 self::registerThemeTemplates();
-                
+
                 $cmsRoutes = Anon_System_Env::get('app.cms.routes', []);
                 if (is_array($cmsRoutes) && !empty($cmsRoutes)) {
                     self::registerCmsRouteMappings($cmsRoutes);
                 }
-                
+
                 self::registerApiRoutesWithPrefix();
             } else {
                 $autoRouter = Anon_System_Env::get('app.autoRouter', false);
@@ -74,7 +75,7 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('router_config_loaded', self::$routes, self::$errorHandlers);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::endPerformance('router_init');
                 Anon_Debug::info('Router system initialized successfully');
             }
@@ -83,14 +84,14 @@ class Anon_Http_Router
         } catch (RuntimeException $e) {
             Anon_System_Hook::do_action('router_init_error', $e);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Router ERROR: " . $e->getMessage(), [
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString()
                 ]);
-                self::logError("Router ERROR: " . $e->getMessage(), $e->getFile(), $e->getLine());
             }
+            self::logError("Router ERROR: " . $e->getMessage(), $e->getFile(), $e->getLine());
 
             self::handleError(500);
         }
@@ -108,9 +109,9 @@ class Anon_Http_Router
 
         // 记录请求开始时间，用于访问日志
         $startTime = microtime(true);
-        
+
         // 注册关闭函数，在请求结束时记录访问日志
-        register_shutdown_function(function() use ($startTime) {
+        register_shutdown_function(function () use ($startTime) {
             try {
                 Anon_Cms_AccessLog::log(['start_time' => $startTime]);
             } catch (Throwable $e) {
@@ -134,6 +135,10 @@ class Anon_Http_Router
 
         self::$routes = $routerConfig['routes'] ?? [];
         self::$errorHandlers = $routerConfig['error_handlers'] ?? [];
+
+
+        // 清除参数路由排序缓存，因为路由已重新加载
+        self::$sortedParamRoutesCache = null;
     }
 
     /**
@@ -216,30 +221,30 @@ class Anon_Http_Router
         if (preg_match('/const\s+Anon_RouterMeta\s*=\s*(\[[\s\S]*?\]);/i', $content, $matches)) {
             try {
                 $arrayStr = trim($matches[1]);
-                
+
                 $metaArray = null;
                 $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
                 $hasKeywords = preg_match('/(true|false|null)/i', $arrayStr);
                 $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
-                
+
                 if ((preg_match($safePattern, $arrayStr) || $hasKeywords) && !preg_match($unsafePattern, $arrayStr)) {
                     try {
                         $metaArray = eval('return ' . $arrayStr . ';');
                     } catch (Throwable $e) {
-                        if (self::isDebugEnabled()) {
+                        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                             Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                         }
                     }
                 }
-                
+
                 if (is_array($metaArray)) {
                     $allowedKeys = ['header', 'requireLogin', 'requireAdmin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
                     $metaArray = array_intersect_key($metaArray, array_flip($allowedKeys));
-                    
+
                     if (isset($metaArray['cache']) && is_array($metaArray['cache'])) {
                         $cacheAllowedKeys = ['enabled', 'time'];
                         $metaArray['cache'] = array_intersect_key($metaArray['cache'], array_flip($cacheAllowedKeys));
-                        
+
                         if (isset($metaArray['cache']['enabled']) && !is_bool($metaArray['cache']['enabled'])) {
                             unset($metaArray['cache']['enabled']);
                         }
@@ -247,18 +252,18 @@ class Anon_Http_Router
                             unset($metaArray['cache']['time']);
                         }
                     }
-                    
+
                     $result = array_merge($defaultMeta, $metaArray);
                 }
             } catch (Throwable $e) {
-                if (self::isDebugEnabled()) {
+                if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                     Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                 }
             }
         }
 
         self::$routerMetaCache[$cacheKey] = $result;
-        
+
         if (self::shouldUsePersistentMetaCache()) {
             self::savePersistentMetaCache($filePath, $result);
         }
@@ -278,7 +283,7 @@ class Anon_Http_Router
 
         $isDebug = defined('ANON_DEBUG') && ANON_DEBUG;
         self::$usePersistentMetaCache = !$isDebug;
-        
+
         return self::$usePersistentMetaCache;
     }
 
@@ -292,7 +297,7 @@ class Anon_Http_Router
         try {
             $cacheKey = 'router_meta_' . md5($filePath);
             $cached = Anon_Cache::get($cacheKey);
-            
+
             if (!is_array($cached) || !isset($cached['meta']) || !isset($cached['mtime'])) {
                 return null;
             }
@@ -322,7 +327,7 @@ class Anon_Http_Router
                 'meta' => $meta,
                 'mtime' => filemtime($filePath)
             ];
-            
+
             Anon_Cache::set($cacheKey, $cacheData, 86400);
         } catch (Throwable $e) {
             // 忽略
@@ -335,8 +340,8 @@ class Anon_Http_Router
     public static function clearMetaCache(): void
     {
         self::$routerMetaCache = [];
-        
-        if (self::isDebugEnabled()) {
+
+        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
             Anon_Debug::info('Router meta cache cleared (memory cache only, file cache will expire naturally)');
         }
     }
@@ -351,28 +356,28 @@ class Anon_Http_Router
         $phpArrayStr = preg_replace('/\/\*.*?\*\//s', '', $phpArrayStr);
         $phpArrayStr = preg_replace('/\/\/.*$/m', '', $phpArrayStr);
         $phpArrayStr = trim($phpArrayStr);
-        
+
         $safePattern = '/^[\s\[\]"\',:\-0-9a-zA-Z_\.\s]+$/';
         $hasKeywords = preg_match('/(true|false|null)/i', $phpArrayStr);
         $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
-        
+
         if (!((preg_match($safePattern, $phpArrayStr) || $hasKeywords) && !preg_match($unsafePattern, $phpArrayStr))) {
             return null;
         }
-        
+
         $jsonStr = preg_replace("/(['\"])(.*?)\\1/", '"$2"', $phpArrayStr);
-        
+
         $jsonStr = preg_replace('/\btrue\b/i', 'true', $jsonStr);
         $jsonStr = preg_replace('/\bfalse\b/i', 'false', $jsonStr);
         $jsonStr = preg_replace('/\bnull\b/i', 'null', $jsonStr);
-        
+
         $jsonStr = preg_replace('/"([a-zA-Z_][a-zA-Z0-9_]*)":/', '$1:', $jsonStr);
-        
+
         $testDecode = json_decode($jsonStr, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($testDecode)) {
             return json_encode($testDecode, JSON_UNESCAPED_UNICODE);
         }
-        
+
         return null;
     }
 
@@ -385,7 +390,7 @@ class Anon_Http_Router
     private static function getRouteFilePath(string $routeKey, callable $handler): ?string
     {
         $routerBaseDir = __DIR__ . '/../../../app/Router';
-        
+
         if ($handler instanceof Closure) {
             $reflection = new ReflectionFunction($handler);
             $uses = $reflection->getStaticVariables();
@@ -397,29 +402,29 @@ class Anon_Http_Router
                 }
             }
         }
-        
+
         $filePath = trim($routeKey, '/');
         if (empty($filePath)) {
             $filePath = 'Index';
         } else {
             $segments = explode('/', $filePath);
-            $segments = array_map(function($segment) {
+            $segments = array_map(function ($segment) {
                 $segment = str_replace('-', '_', $segment);
                 return ucfirst(strtolower($segment));
             }, $segments);
             $filePath = implode('/', $segments);
         }
-        
+
         $fullPath = $routerBaseDir . '/' . $filePath . '.php';
         if (file_exists($fullPath)) {
             return realpath($fullPath);
         }
-        
+
         $indexPath = $routerBaseDir . '/' . $filePath . '/Index.php';
         if (file_exists($indexPath)) {
             return realpath($indexPath);
         }
-        
+
         return null;
     }
 
@@ -433,7 +438,7 @@ class Anon_Http_Router
             $code = $meta['code'] ?? 200;
             $response = isset($meta['response']) && $meta['response'] !== null ? $meta['response'] : true;
             $cors = isset($meta['cors']) && $meta['cors'] !== null ? $meta['cors'] : true;
-            
+
             // CMS 模式下，如果不是明确要求 JSON，设置 HTML 响应头
             $mode = Anon_System_Env::get('app.mode', 'api');
             if ($mode === 'cms' && !Anon_Http_Request::wantsJson()) {
@@ -458,7 +463,7 @@ class Anon_Http_Router
             if (!class_exists('Anon_Auth_Token')) {
                 Anon_Loader::loadOptionalModules('token');
             }
-            
+
             if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
                 Anon_Http_Request::requireToken(true, false);
             }
@@ -477,7 +482,7 @@ class Anon_Http_Router
                 Anon_Http_Response::unauthorized('请先登录');
                 exit;
             }
-            
+
             $db = Anon_Database::getInstance();
             if (!$db->isUserAdmin($userId)) {
                 $message = is_string($meta['requireAdmin']) ? $meta['requireAdmin'] : '需要管理员权限';
@@ -520,12 +525,12 @@ class Anon_Http_Router
             $cacheEnabled = Anon_System_Env::get('app.cache.enabled', false);
             $cacheTime = Anon_System_Env::get('app.cache.time', 0);
         }
-        
+
         if (self::shouldExcludeFromCache($meta)) {
             $cacheEnabled = false;
             $cacheTime = 0;
         }
-        
+
         if ($cacheEnabled && $cacheTime > 0) {
             header('Cache-Control: public, max-age=' . $cacheTime);
             header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
@@ -545,13 +550,13 @@ class Anon_Http_Router
     {
         $requestPath = self::getRequestPath();
         $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        
+
         $excludePatterns = Anon_System_Env::get('app.cache.exclude', [
             '/auth/',
             '/anon/debug/',
             '/anon/install',
         ]);
-        
+
         if (is_array($excludePatterns)) {
             foreach ($excludePatterns as $pattern) {
                 if (strpos($requestPath, $pattern) === 0) {
@@ -559,15 +564,15 @@ class Anon_Http_Router
                 }
             }
         }
-        
+
         if ($meta['requireLogin'] ?? false) {
             return true;
         }
-        
+
         if ($requestMethod === 'POST') {
             return true;
         }
-        
+
         return false;
     }
 
@@ -577,12 +582,13 @@ class Anon_Http_Router
      */
     private static function logRouteDebug(string $requestPath): void
     {
-        error_log("Router: Processing request path: " . $requestPath);
-        error_log("Router: Available routes: " . json_encode(array_keys(self::$routes)));
-        if (isset(self::$routes[$requestPath])) {
-            error_log("Router: Exact match found for: " . $requestPath);
-        } else {
-            error_log("Router: No exact match for: " . $requestPath);
+        if (class_exists('Anon_Debug')) {
+            Anon_Debug::debug("Router: Processing request path", ['path' => $requestPath, 'available_routes' => array_keys(self::$routes)]);
+            if (isset(self::$routes[$requestPath])) {
+                Anon_Debug::debug("Router: Exact match found", ['path' => $requestPath]);
+            } else {
+                Anon_Debug::debug("Router: No exact match", ['path' => $requestPath]);
+            }
         }
     }
 
@@ -594,7 +600,7 @@ class Anon_Http_Router
      */
     private static function endRouteMatching(string $message, string $level = 'info', array $context = []): void
     {
-        if (self::isDebugEnabled()) {
+        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
             Anon_Debug::endPerformance('route_matching');
             if ($level === 'warn') {
                 Anon_Debug::warn($message, $context);
@@ -612,10 +618,10 @@ class Anon_Http_Router
     public static function registerAppRoutes(array $routeTree, string $basePath = ''): void
     {
         $mode = Anon_System_Env::get('app.mode', 'api');
-        
+
         foreach ($routeTree as $key => $value) {
             $currentPath = $basePath ? $basePath . '/' . $key : $key;
-            
+
             if (strpos($currentPath, '/') !== 0) {
                 $currentPath = '/' . $currentPath;
             }
@@ -634,7 +640,7 @@ class Anon_Http_Router
             if ($mode === 'cms') {
                 $handler = function () use ($view, $currentPath) {
                     $isParamRoute = strpos($currentPath, '{') !== false;
-                    
+
                     if ($isParamRoute) {
                         $requestPath = self::getRequestPath();
                         $params = self::extractRouteParams($currentPath, $requestPath);
@@ -668,23 +674,23 @@ class Anon_Http_Router
         if (!class_exists('Anon_Cms_Theme')) {
             Anon_Loader::loadCmsModules();
         }
-        
+
         $themeDir = Anon_Cms_Theme::getThemeDir();
         $indexFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'index');
-        
+
         if ($indexFile !== null) {
             Anon_System_Hook::do_action('app_before_register_route', '/', 'index', false);
-            
+
             $handler = function () {
                 Anon_Cms_Theme::render('index', []);
             };
-            
+
             Anon_System_Config::addRoute('/', $handler);
-            
+
             if (self::isDebugEnabled()) {
                 self::debugLog("Registered theme template route: / -> index");
             }
-            
+
             Anon_System_Hook::do_action('app_after_register_route', '/', 'index', false);
         }
     }
@@ -699,13 +705,13 @@ class Anon_Http_Router
         if (!class_exists('Anon_Cms_Options')) {
             Anon_Loader::loadCmsModules();
         }
-        
+
         $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
         $apiPrefix = rtrim($apiPrefix, '/');
         if (empty($apiPrefix) || $apiPrefix === '/') {
             return;
         }
-        
+
         $autoRouter = Anon_System_Env::get('app.autoRouter', false);
         if ($autoRouter) {
             self::autoRegisterRoutesWithPrefix($apiPrefix);
@@ -718,7 +724,7 @@ class Anon_Http_Router
     }
 
     /**
-     * 注册应用路由（带前缀）
+     * 注册应用路由
      * @param array $routeTree 路由树
      * @param string $prefix 路由前缀
      * @param string $basePath 基础路径
@@ -728,11 +734,11 @@ class Anon_Http_Router
     {
         foreach ($routeTree as $key => $value) {
             $currentPath = $basePath ? $basePath . '/' . $key : $key;
-            
+
             if (strpos($currentPath, '/') !== 0) {
                 $currentPath = '/' . $currentPath;
             }
-            
+
             $prefixedPath = $prefix . $currentPath;
 
             if (is_string($value)) {
@@ -761,14 +767,14 @@ class Anon_Http_Router
     }
 
     /**
-     * 自动注册路由（带前缀）
+     * 自动注册路由
      * @param string $prefix 路由前缀
      * @return void
      */
     private static function autoRegisterRoutesWithPrefix(string $prefix): void
     {
         $routerDir = __DIR__ . '/../../../app/Router';
-        
+
         if (!is_dir($routerDir)) {
             return;
         }
@@ -781,7 +787,7 @@ class Anon_Http_Router
     }
 
     /**
-     * 递归扫描目录（带前缀）
+     * 递归扫描目录
      * @param string $dir 目录路径
      * @param string $basePath 基础路径
      * @param string $prefix 路由前缀
@@ -834,12 +840,12 @@ class Anon_Http_Router
             if (strpos($routePath, '/') !== 0) {
                 $routePath = '/' . $routePath;
             }
-            
+
             Anon_System_Hook::do_action('app_before_register_route', $routePath, $templateName, false);
-            
+
             $handler = function () use ($templateName, $routePath) {
                 $isParamRoute = strpos($routePath, '{') !== false;
-                
+
                 if ($isParamRoute) {
                     $requestPath = self::getRequestPath();
                     $params = self::extractRouteParams($routePath, $requestPath);
@@ -848,37 +854,37 @@ class Anon_Http_Router
                     Anon_Cms_Theme::render($templateName, []);
                 }
             };
-            
+
             Anon_System_Config::addRoute($routePath, $handler);
-            
+
             if (self::isDebugEnabled()) {
                 self::debugLog("Registered CMS route mapping: {$routePath} -> {$templateName}");
             }
-            
+
             Anon_System_Hook::do_action('app_after_register_route', $routePath, $templateName, false);
         }
     }
 
     /**
      * 从请求路径中提取路由参数
-     * @param string $routePattern 路由模式（如 /post/{id}）
-     * @param string $requestPath 请求路径（如 /post/123）
+     * @param string $routePattern 路由模式
+     * @param string $requestPath 请求路径
      * @return array
      */
     private static function extractRouteParams(string $routePattern, string $requestPath): array
     {
         $params = [];
-        
+
         // 将路由模式转换为正则表达式
         $pattern = preg_quote($routePattern, '/');
         $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
         $pattern = '/^' . $pattern . '$/';
-        
+
         if (preg_match($pattern, $requestPath, $matches)) {
             // 提取参数名
             preg_match_all('/\{([^\/]+)\}/', $routePattern, $paramNames);
             $paramNames = $paramNames[1];
-            
+
             // 匹配参数值
             for ($i = 0; $i < count($paramNames); $i++) {
                 if (isset($matches[$i + 1])) {
@@ -886,7 +892,7 @@ class Anon_Http_Router
                 }
             }
         }
-        
+
         return $params;
     }
 
@@ -1083,7 +1089,7 @@ class Anon_Http_Router
             $requestPath = Anon_System_Hook::apply_filters('router_request_path', $requestPath);
             Anon_System_Hook::do_action('router_before_request', $requestPath);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::info("Processing request: " . $requestPath, [
                     'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
                     'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
@@ -1142,22 +1148,22 @@ class Anon_Http_Router
             }
         } catch (Anon_System_Exception $e) {
             Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
-            
-            if (self::isDebugEnabled()) {
+
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString()
                 ]);
             }
-            
+
             Anon_Common::Header($e->getHttpCode());
             Anon_Http_Response::handleException($e);
             exit;
         } catch (Throwable $e) {
             Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
@@ -1184,7 +1190,7 @@ class Anon_Http_Router
         if (!is_callable($handler)) {
             self::debugLog("Invalid handler for route: " . $routeKey);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Invalid handler for route: " . $routeKey);
             }
 
@@ -1200,13 +1206,13 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('router_before_dispatch', $routeKey, $handler);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::startPerformance('route_execution_' . $routeKey);
             }
 
             $handler();
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::endPerformance('route_execution_' . $routeKey);
                 Anon_Debug::info("Route executed successfully: " . $routeKey);
             }
@@ -1214,22 +1220,22 @@ class Anon_Http_Router
             Anon_System_Hook::do_action('router_after_dispatch', $routeKey, $handler);
         } catch (Anon_System_Exception $e) {
             Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
-            
-            if (self::isDebugEnabled()) {
+
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString()
                 ]);
             }
-            
+
             Anon_Common::Header($e->getHttpCode());
             Anon_Http_Response::handleException($e);
             exit;
         } catch (Throwable $e) {
             Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
 
-            if (self::isDebugEnabled()) {
+            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
                 Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
@@ -1284,27 +1290,109 @@ class Anon_Http_Router
      */
     private static function matchParameterRoute(string $requestPath): ?array
     {
-        foreach (self::$routes as $routePattern => $handler) {
-            if (strpos($routePattern, '{') !== false) {
-                $pattern = preg_quote($routePattern, '/');
-                $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
-                $pattern = '/^' . $pattern . '$/';
-
-                if (preg_match($pattern, $requestPath, $matches)) {
-                    preg_match_all('/\{([^\/]+)\}/', $routePattern, $paramNames);
-                    $paramNames = $paramNames[1];
-
-                    $params = [];
-                    for ($i = 0; $i < count($paramNames); $i++) {
-                        $params[$paramNames[$i]] = $matches[$i + 1];
-                    }
-
-                    return [
-                        'route' => $routePattern,
-                        'params' => $params
+        // 使用缓存避免每次请求都重新排序路由
+        if (self::$sortedParamRoutesCache === null) {
+            // 收集所有带参数的路由，并按参数数量排序
+            $paramRoutes = [];
+            foreach (self::$routes as $routePattern => $handler) {
+                if (strpos($routePattern, '{') !== false) {
+                    // 计算参数数量
+                    $paramCount = substr_count($routePattern, '{');
+                    $paramRoutes[] = [
+                        'pattern' => $routePattern,
+                        'handler' => $handler,
+                        'param_count' => $paramCount
                     ];
                 }
             }
+
+            // 按参数数量降序排序，确保更具体的路由优先匹配
+            usort($paramRoutes, function ($a, $b) {
+                return $b['param_count'] - $a['param_count'];
+            });
+
+            self::$sortedParamRoutesCache = $paramRoutes;
+
+            // 记录路由排序结果，仅在调试模式下
+            if (self::isDebugEnabled()) {
+                $routeList = array_map(function ($r) {
+                    return $r['pattern'] . ' (' . $r['param_count'] . ' params)';
+                }, $paramRoutes);
+                self::debugLog("Sorted parameter routes: " . implode(', ', $routeList));
+            }
+        }
+
+        // 遍历排序后的路由进行匹配
+        foreach (self::$sortedParamRoutesCache as $route) {
+            $routePattern = $route['pattern'];
+
+            // 将路由模式转换为正则表达式
+            $pattern = preg_quote($routePattern, '/');
+            $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
+            $pattern = '/^' . $pattern . '$/';
+
+            if (preg_match($pattern, $requestPath, $matches)) {
+                // 提取参数名
+                preg_match_all('/\{([^\/]+)\}/', $routePattern, $paramNames);
+                $paramNames = $paramNames[1];
+
+                // 验证路径段数：计算路由模式和请求路径的段数
+                // 使用 trim 去掉首尾的 /，然后按 / 分割，过滤空字符串
+                $routeParts = array_filter(explode('/', trim($routePattern, '/')), function ($part) {
+                    return $part !== '';
+                });
+                $requestParts = array_filter(explode('/', trim($requestPath, '/')), function ($part) {
+                    return $part !== '';
+                });
+                $routeSegments = count($routeParts);
+                $requestSegments = count($requestParts);
+
+                // 路由段数必须等于请求路径段数
+                if ($routeSegments !== $requestSegments) {
+                    if (self::isDebugEnabled()) {
+                        self::debugLog("Route pattern {$routePattern} matched regex but segment count mismatch. Route segments: {$routeSegments}, Request segments: {$requestSegments}");
+                    }
+                    continue;
+                }
+
+                // 验证匹配的段数是否正确
+                $expectedMatches = count($paramNames) + 1;
+                if (count($matches) < $expectedMatches) {
+                    // 匹配的段数不对，继续下一个路由
+                    if (self::isDebugEnabled()) {
+                        self::debugLog("Route pattern {$routePattern} matched but match count mismatch. Expected: {$expectedMatches}, Got: " . count($matches));
+                    }
+                    continue;
+                }
+
+                $params = [];
+                for ($i = 0; $i < count($paramNames); $i++) {
+                    if (isset($matches[$i + 1])) {
+                        $params[$paramNames[$i]] = $matches[$i + 1];
+                    }
+                }
+
+                // 验证所有参数都已提取
+                if (count($params) !== count($paramNames)) {
+                    if (self::isDebugEnabled()) {
+                        self::debugLog("Route pattern {$routePattern} matched but param extraction failed. Expected: " . count($paramNames) . ", Got: " . count($params));
+                    }
+                    continue;
+                }
+
+                if (self::isDebugEnabled()) {
+                    self::debugLog("Route matched: {$routePattern} with params: " . json_encode($params));
+                }
+
+                return [
+                    'route' => $routePattern,
+                    'params' => $params
+                ];
+            }
+        }
+
+        if (self::isDebugEnabled()) {
+            self::debugLog("No parameter route matched for: {$requestPath}. Tried " . count(self::$sortedParamRoutesCache) . " routes.");
         }
 
         return null;
@@ -1378,7 +1466,7 @@ class Anon_Http_Router
     private static function showDefaultError(int $statusCode): void
     {
         $mode = Anon_System_Env::get('app.mode', 'api');
-        
+
         if ($mode === 'cms' && !Anon_Http_Request::wantsJson()) {
             // CMS 模式
             try {
@@ -1402,9 +1490,9 @@ class Anon_Http_Router
                 // 检查是否是严重错误
                 $message = $e->getMessage();
                 $isFatal = strpos($message, 'Call to undefined') !== false ||
-                          strpos($message, 'not found') !== false ||
-                          strpos($message, 'Class') !== false;
-                
+                    strpos($message, 'not found') !== false ||
+                    strpos($message, 'Class') !== false;
+
                 if ($isFatal && class_exists('Anon_Cms_Theme_FatalError')) {
                     Anon_Cms_Theme_FatalError::render(
                         $message,
@@ -1454,7 +1542,7 @@ class Anon_Http_Router
     {
         http_response_code($statusCode);
         header('Content-Type: text/html; charset=utf-8');
-        
+
         $statusText = [
             400 => 'Bad Request',
             401 => 'Unauthorized',
@@ -1465,7 +1553,7 @@ class Anon_Http_Router
         ];
         $text = $statusText[$statusCode] ?? 'Error';
         $errorMessage = $message ? htmlspecialchars($message) : $text;
-        
+
         echo "<!DOCTYPE html>
         <html>
         <head>

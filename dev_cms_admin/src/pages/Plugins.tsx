@@ -293,9 +293,9 @@ export default function Plugins() {
             ) : schemaEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground">该插件暂无设置项。</p>
             ) : (
-              <form onSubmit={handlePluginOptionsSubmit} className="space-y-6 max-w-xl">
+              <form onSubmit={handlePluginOptionsSubmit} className="space-y-6">
                 {schemaEntries.map(([key, def]) => renderPluginOptionField(key, def))}
-                <div className="flex gap-2 justify-end">
+                <div className="mt-4 flex gap-2 justify-end">
                   <Button type="submit" disabled={pluginOptionsSaving}>
                     {pluginOptionsSaving ? '保存中...' : '保存'}
                   </Button>

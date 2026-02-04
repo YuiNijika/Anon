@@ -35,7 +35,7 @@ class Anon_Server_Driver_Swoole_Crontab implements Anon_Server_Contract_ServerIn
 
     /**
      * 添加定时任务
-     * @param int $intervalMs 间隔时间（毫秒）
+     * @param int $intervalMs 间隔时间，单位为毫秒
      * @param callable $callback 回调函数
      * @return void
      */
@@ -63,12 +63,12 @@ class Anon_Server_Driver_Swoole_Crontab implements Anon_Server_Contract_ServerIn
             $timerId = Swoole\Timer::tick($task['interval'], $task['callback']);
             $this->timerIds[] = $timerId;
         }
-        
+
         // 保持进程运行
         // 在 Swoole 环境下，如果只有 Timer，进程可能会退出，通常需要 EventLoop
         if (php_sapi_name() === 'cli') {
-             // 简单的保持运行机制，实际可能集成在 Server 中
-             Swoole\Event::wait();
+            // 简单的保持运行机制，实际可能集成在 Server 中
+            Swoole\Event::wait();
         }
     }
 

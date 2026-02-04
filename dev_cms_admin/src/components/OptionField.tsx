@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { Result } from '@/components/ui/result'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -43,7 +44,7 @@ import type {
 import { cn } from '@/lib/utils'
 import { buildPublicUrl } from '@/utils/api'
 import MediaLibrary from '@/components/MediaLibrary'
-import { ChevronDown, X, ArrowRight, ArrowLeft, Upload, HelpCircle, Plus } from 'lucide-react'
+import { ChevronDown, X, ArrowRight, ArrowLeft, Upload, HelpCircle, Plus, MoreVertical } from 'lucide-react'
 
 const desc = (description?: string) =>
   description ? <span className="ml-1 font-normal text-muted-foreground">({description})</span> : null
@@ -124,62 +125,113 @@ function TextListField({
   value: string[]
   onChange: (list: string[]) => void
 }) {
-  const [draft, setDraft] = useState('')
-  const updateList = (next: string[]) => onChange(next)
-  const addItem = () => {
-    const v = draft.trim()
-    const next = v ? [...value, v] : [...value, '']
-    updateList(next)
-    setDraft('')
+  // 确保 value 始终是数组，至少保留一个空项用于输入
+  const list = Array.isArray(value) && value.length > 0 ? value : ['']
+  const [popoverOpen, setPopoverOpen] = useState(false)
+
+  // 更新指定索引的列表项值
+  const updateItem = (index: number, newValue: string) => {
+    const newList = [...list]
+    newList[index] = newValue
+    onChange(newList)
   }
+
+  // 删除指定索引的列表项，删除后列表为空时保留一个空项
+  const removeItem = (index: number) => {
+    const newList = list.filter((_, i) => i !== index)
+    onChange(newList.length > 0 ? newList : [''])
+    setPopoverOpen(false)
+  }
+
+  // 在列表末尾添加新的空项
+  const addItem = () => {
+    const newList = [...list, '']
+    onChange(newList)
+    setPopoverOpen(false)
+  }
+
+
   return (
     <div className="space-y-2">
       <Label>{label}{desc(description)}</Label>
       <div className="space-y-2">
-        {value.map((item, i) => (
-          <div key={i} className="flex gap-2 items-center">
-            <Input
-              value={item}
-              onChange={(e) => {
-                const next = [...value]
-                next[i] = e.target.value
-                // 实时更新，不过滤，让用户可以编辑
-                onChange(next)
-              }}
-              placeholder={placeholder}
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              onClick={() => updateList(value.filter((_, j) => j !== i))}
-              title="删除此项"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-        <div className="flex gap-2 items-center">
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addItem())}
-            placeholder={placeholder}
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={addItem}
-            title="+1 新增一项"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
+        {list.map((item, i) => {
+          const isLast = i === list.length - 1
+          return (
+            <div key={i} className="flex gap-2 items-center">
+              <Input
+                value={item}
+                onChange={(e) => updateItem(i, e.target.value)}
+                placeholder={placeholder}
+                className="flex-1"
+              />
+              {isLast ? (
+                (() => {
+                  const lastItemHasValue = list[list.length - 1]?.trim()
+                  return lastItemHasValue ? (
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          title="选择操作"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="end">
+                        <div className="space-y-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={addItem}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            新增一项
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start text-destructive hover:text-destructive"
+                            onClick={() => removeItem(list.length - 1)}
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            删除此项
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={addItem}
+                      title="新增一项"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )
+                })()
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => removeItem(i)}
+                  title="删除此项"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -253,7 +305,7 @@ function AutocompleteField({
   )
 }
 
-/** 可关闭的 Notice */
+// 可关闭的 Notice 组件
 function NoticeField({ option }: { name: string; option: ThemeOptionSchema }) {
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null

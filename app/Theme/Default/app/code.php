@@ -9,3 +9,17 @@
  */
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+$customCodeHead = $this->options('custom_code_head', '', false);
+$customCodeFoot = $this->options('custom_code_foot', '', false);
+
+if ($customCodeHead) {
+    Anon_Hook::add_action('theme_head', function () use ($customCodeHead) {
+        echo $customCodeHead;
+    });
+}
+if ($customCodeFoot) {
+    Anon_Hook::add_action('theme_foot', function () use ($customCodeFoot) {
+        echo $customCodeFoot;
+    });
+}

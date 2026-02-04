@@ -104,7 +104,7 @@ class Anon_Security_Security
                 throw new RuntimeException($message);
             }
             
-            error_log("Security Warning: " . $message);
+            Anon_Debug::warn("Security Warning", ['message' => $message]);
             return false;
         }
         
