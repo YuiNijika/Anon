@@ -13,7 +13,12 @@ class Anon_Cms_Theme_View
     private $data = [];
 
     /**
-     * @var array 已渲染的组件路径
+     * @var string 页面类型
+     */
+    private $pageType = 'index';
+
+    /**
+     * @var array 已渲染组件缓存
      */
     private static $renderedComponents = [];
 
@@ -27,10 +32,22 @@ class Anon_Cms_Theme_View
 
     /**
      * @param array $data
+     * @param string $pageType
      */
-    public function __construct(array $data = [])
+    public function __construct(array $data = [], string $pageType = 'index')
     {
         $this->data = $data;
+        $this->pageType = $pageType;
+    }
+
+    /**
+     * 判断页面类型
+     * @param string $type
+     * @return bool
+     */
+    public function is(string $type): bool
+    {
+        return $this->pageType === $type;
     }
 
     /**
@@ -43,7 +60,7 @@ class Anon_Cms_Theme_View
         if (empty($data)) {
             return $this;
         }
-        return new self(array_merge($this->data, $data));
+        return new self(array_merge($this->data, $data), $this->pageType);
     }
 
     /**
