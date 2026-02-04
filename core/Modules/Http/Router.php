@@ -34,10 +34,8 @@ class Anon_Http_Router
         try {
             Anon_System_Hook::do_action('router_before_init');
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::info('Router system initializing');
-                Anon_Debug::startPerformance('router_init');
-            }
+            Anon_Debug::info('Router system initializing');
+            Anon_Debug::startPerformance('router_init');
 
             $mode = Anon_System_Env::get('app.mode', 'api');
 
@@ -75,22 +73,18 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('router_config_loaded', self::$routes, self::$errorHandlers);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::endPerformance('router_init');
-                Anon_Debug::info('Router system initialized successfully');
-            }
+            Anon_Debug::endPerformance('router_init');
+            Anon_Debug::info('Router system initialized successfully');
 
             Anon_System_Hook::do_action('router_after_init');
         } catch (RuntimeException $e) {
             Anon_System_Hook::do_action('router_init_error', $e);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Router ERROR: " . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error("Router ERROR: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             self::logError("Router ERROR: " . $e->getMessage(), $e->getFile(), $e->getLine());
 
             self::handleError(500);
@@ -231,9 +225,7 @@ class Anon_Http_Router
                     try {
                         $metaArray = eval('return ' . $arrayStr . ';');
                     } catch (Throwable $e) {
-                        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                            Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
-                        }
+                        Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
                     }
                 }
 
@@ -256,9 +248,7 @@ class Anon_Http_Router
                     $result = array_merge($defaultMeta, $metaArray);
                 }
             } catch (Throwable $e) {
-                if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                    Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
-                }
+                Anon_Debug::warn("Failed to parse Anon_RouterMeta in {$filePath}: " . $e->getMessage());
             }
         }
 
@@ -341,9 +331,7 @@ class Anon_Http_Router
     {
         self::$routerMetaCache = [];
 
-        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-            Anon_Debug::info('Router meta cache cleared (memory cache only, file cache will expire naturally)');
-        }
+        Anon_Debug::info('Router meta cache cleared (memory cache only, file cache will expire naturally)');
     }
 
     /**
@@ -582,13 +570,11 @@ class Anon_Http_Router
      */
     private static function logRouteDebug(string $requestPath): void
     {
-        if (class_exists('Anon_Debug')) {
-            Anon_Debug::debug("Router: Processing request path", ['path' => $requestPath, 'available_routes' => array_keys(self::$routes)]);
-            if (isset(self::$routes[$requestPath])) {
-                Anon_Debug::debug("Router: Exact match found", ['path' => $requestPath]);
-            } else {
-                Anon_Debug::debug("Router: No exact match", ['path' => $requestPath]);
-            }
+        Anon_Debug::debug("Router: Processing request path", ['path' => $requestPath, 'available_routes' => array_keys(self::$routes)]);
+        if (isset(self::$routes[$requestPath])) {
+            Anon_Debug::debug("Router: Exact match found", ['path' => $requestPath]);
+        } else {
+            Anon_Debug::debug("Router: No exact match", ['path' => $requestPath]);
         }
     }
 
@@ -600,13 +586,11 @@ class Anon_Http_Router
      */
     private static function endRouteMatching(string $message, string $level = 'info', array $context = []): void
     {
-        if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-            Anon_Debug::endPerformance('route_matching');
-            if ($level === 'warn') {
-                Anon_Debug::warn($message, $context);
-            } else {
-                Anon_Debug::info($message, $context);
-            }
+        Anon_Debug::endPerformance('route_matching');
+        if ($level === 'warn') {
+            Anon_Debug::warn($message, $context);
+        } else {
+            Anon_Debug::info($message, $context);
         }
     }
 
@@ -1089,14 +1073,12 @@ class Anon_Http_Router
             $requestPath = Anon_System_Hook::apply_filters('router_request_path', $requestPath);
             Anon_System_Hook::do_action('router_before_request', $requestPath);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::info("Processing request: " . $requestPath, [
-                    'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
-                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                    'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
-                ]);
-                Anon_Debug::startPerformance('route_matching');
-            }
+            Anon_Debug::info("Processing request: " . $requestPath, [
+                'method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? ''
+            ]);
+            Anon_Debug::startPerformance('route_matching');
 
             if (isset(self::$routeMatchCache[$requestPath])) {
                 $cachedMatch = self::$routeMatchCache[$requestPath];
@@ -1149,13 +1131,11 @@ class Anon_Http_Router
         } catch (Anon_System_Exception $e) {
             Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             Anon_Common::Header($e->getHttpCode());
             Anon_Http_Response::handleException($e);
@@ -1163,13 +1143,11 @@ class Anon_Http_Router
         } catch (Throwable $e) {
             Anon_System_Hook::do_action('router_request_error', $e, $requestPath ?? '');
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error("Request handling failed: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             self::logError("Request handling failed: " . $e->getMessage(), $e->getFile(), $e->getLine());
             Anon_Common::Header(500);
@@ -1190,9 +1168,7 @@ class Anon_Http_Router
         if (!is_callable($handler)) {
             self::debugLog("Invalid handler for route: " . $routeKey);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Invalid handler for route: " . $routeKey);
-            }
+            Anon_Debug::error("Invalid handler for route: " . $routeKey);
 
             self::handleError(404);
             return;
@@ -1206,28 +1182,22 @@ class Anon_Http_Router
 
             Anon_System_Hook::do_action('router_before_dispatch', $routeKey, $handler);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::startPerformance('route_execution_' . $routeKey);
-            }
+            Anon_Debug::startPerformance('route_execution_' . $routeKey);
 
             $handler();
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::endPerformance('route_execution_' . $routeKey);
-                Anon_Debug::info("Route executed successfully: " . $routeKey);
-            }
+            Anon_Debug::endPerformance('route_execution_' . $routeKey);
+            Anon_Debug::info("Route executed successfully: " . $routeKey);
 
             Anon_System_Hook::do_action('router_after_dispatch', $routeKey, $handler);
         } catch (Anon_System_Exception $e) {
             Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             Anon_Common::Header($e->getHttpCode());
             Anon_Http_Response::handleException($e);
@@ -1235,13 +1205,11 @@ class Anon_Http_Router
         } catch (Throwable $e) {
             Anon_System_Hook::do_action('router_dispatch_error', $e, $routeKey, $handler);
 
-            if (self::isDebugEnabled() && class_exists('Anon_Debug')) {
-                Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error("Route execution failed [{$routeKey}]: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             self::logError("Route execution failed [{$routeKey}]: " . $e->getMessage(), $e->getFile(), $e->getLine());
             Anon_Common::Header(500);

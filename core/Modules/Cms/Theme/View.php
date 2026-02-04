@@ -104,9 +104,7 @@ class Anon_Cms_Theme_View
         $themeDir = Anon_Cms_Theme::getThemeDir();
         $componentsDir = Anon_Cms::findDirectoryCaseInsensitive($themeDir, 'app/components');
         if ($componentsDir === null) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Anon Theme components] 组件目录未找到', ['themeDir' => $themeDir, 'lookup' => 'app/components']);
-            }
+            Anon_Debug::warn('[Anon Theme components] 组件目录未找到', ['themeDir' => $themeDir, 'lookup' => 'app/components']);
             return;
         }
 
@@ -127,9 +125,7 @@ class Anon_Cms_Theme_View
 
         $componentFile = Anon_Cms::findFileCaseInsensitive($componentDir, $componentName);
         if ($componentFile === null) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Anon Theme components] 组件文件未找到', ['componentPath' => $componentPath, 'componentName' => $componentName, 'componentDir' => $componentDir]);
-            }
+            Anon_Debug::warn('[Anon Theme components] 组件文件未找到', ['componentPath' => $componentPath, 'componentName' => $componentName, 'componentDir' => $componentDir]);
             return;
         }
 

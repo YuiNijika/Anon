@@ -72,13 +72,11 @@ class Anon_Database_Connection
      */
     public function query(string $sql)
     {
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            if (
-                preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) &&
-                preg_match('/(\$|%|_|\'|"|`)/', $sql)
-            ) {
-                Anon_Debug::warn("警告：检测到可疑的 SQL 查询模式", ['sql_preview' => substr($sql, 0, 100)]);
-            }
+        if (
+            preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) &&
+            preg_match('/(\$|%|_|\'|"|`)/', $sql)
+        ) {
+            Anon_Debug::warn("警告：检测到可疑的 SQL 查询模式", ['sql_preview' => substr($sql, 0, 100)]);
         }
 
         $result = $this->conn->query($sql);

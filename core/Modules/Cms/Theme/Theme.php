@@ -296,16 +296,12 @@ class Anon_Cms_Theme
     {
         $themeDirResolved = realpath(rtrim($themeDir, '/\\'));
         if ($themeDirResolved === false) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Theme] loadThemeSetupFile: themeDir not found', ['themeDir' => $themeDir]);
-            }
+            Anon_Debug::warn('[Theme] loadThemeSetupFile: themeDir not found', ['themeDir' => $themeDir]);
             return;
         }
         $setupFile = $themeDirResolved . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'setup.php';
         if (!file_exists($setupFile)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php not found', ['setupFile' => $setupFile]);
-            }
+            Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php not found', ['setupFile' => $setupFile]);
             return;
         }
         if (!defined('ANON_ALLOWED_ACCESS')) {
@@ -317,16 +313,12 @@ class Anon_Cms_Theme
         $schema = $helper->loadSetupFile($setupFile);
 
         if (!is_array($schema)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php did not return array', ['got' => gettype($schema)]);
-            }
+            Anon_Debug::warn('[Theme] loadThemeSetupFile: setup.php did not return array', ['got' => gettype($schema)]);
             return;
         }
         Anon_Theme_Options::registerFromSchema($schema, strtolower($name));
         Anon_Cms_Options::clearCache();
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::info('[Theme] loadThemeSetupFile: registered schema for theme', ['theme' => $name, 'keys' => count($schema)]);
-        }
+        Anon_Debug::info('[Theme] loadThemeSetupFile: registered schema for theme', ['theme' => $name, 'keys' => count($schema)]);
     }
 
     /**
@@ -894,9 +886,7 @@ class Anon_Cms_Theme
             foreach ($pathParts as $part) {
                 $foundDir = Anon_Cms::findDirectoryCaseInsensitive($componentDir, $part);
                 if ($foundDir === null) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::warn('[Anon Theme components] 静态调用: 组件子目录未找到', ['componentPath' => $componentPath, 'part' => $part, 'componentDir' => $componentDir]);
-                    }
+                    Anon_Debug::warn('[Anon Theme components] 静态调用: 组件子目录未找到', ['componentPath' => $componentPath, 'part' => $part, 'componentDir' => $componentDir]);
                     self::outputComponentError("组件目录未找到: {$componentPath}");
                     return;
                 }
@@ -911,9 +901,7 @@ class Anon_Cms_Theme
                 return;
             }
 
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn('[Anon Theme components] 静态调用: 组件文件未找到', ['componentPath' => $componentPath, 'componentName' => $componentName, 'componentDir' => $componentDir]);
-            }
+            Anon_Debug::warn('[Anon Theme components] 静态调用: 组件文件未找到', ['componentPath' => $componentPath, 'componentName' => $componentName, 'componentDir' => $componentDir]);
             self::outputComponentError("组件未找到: {$componentPath}");
         } catch (Error $e) {
             self::handleFatalError($e);

@@ -44,9 +44,7 @@ class Anon_Auth_Csrf
             }
         }
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
-        }
+        Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
             
         return hash('sha256', 'anon_default_insecure_key_csrf');
     }

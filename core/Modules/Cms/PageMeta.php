@@ -420,27 +420,23 @@ class Anon_Cms_PageMeta
             $keywords = array_values(array_unique($keywords));
 
             // 记录调试信息
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                Anon_Debug::info('文章关键词获取成功', [
-                    'post_id' => $postId,
-                    'category_id' => $post['category_id'],
-                    'tag_ids' => $post['tag_ids'],
-                    'categories' => $categories,
-                    'tags' => $tags,
-                    'keywords' => $keywords
-                ]);
-            }
+            Anon_Debug::info('文章关键词获取成功', [
+                'post_id' => $postId,
+                'category_id' => $post['category_id'],
+                'tag_ids' => $post['tag_ids'],
+                'categories' => $categories,
+                'tags' => $tags,
+                'keywords' => $keywords
+            ]);
 
             return $keywords;
         } catch (Exception $e) {
             // 记录错误日志
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                Anon_Debug::error('获取文章关键词失败', [
-                    'post_id' => $postId,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
+            Anon_Debug::error('获取文章关键词失败', [
+                'post_id' => $postId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return [];
         }
     }

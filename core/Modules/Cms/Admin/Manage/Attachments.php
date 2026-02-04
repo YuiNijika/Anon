@@ -518,11 +518,9 @@ class Anon_Cms_Admin_Attachments
                 ]
             );
         } catch (Exception $e) {
-            if (class_exists('Anon_Debug')) {
-                Anon_Debug::error("Failed to register image format route", [
-                    'message' => $e->getMessage()
-                ]);
-            }
+            Anon_Debug::error("Failed to register image format route", [
+                'message' => $e->getMessage()
+            ]);
         }
 
         // 再注册原始文件路由
@@ -592,11 +590,9 @@ class Anon_Cms_Admin_Attachments
                 ]
             );
         } catch (Exception $e) {
-            if (class_exists('Anon_Debug')) {
-                Anon_Debug::error("Failed to register static file route", [
-                    'message' => $e->getMessage()
-                ]);
-            }
+            Anon_Debug::error("Failed to register static file route", [
+                'message' => $e->getMessage()
+            ]);
         }
     }
 

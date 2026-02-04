@@ -101,7 +101,7 @@ class Anon_Auth_Token
                             'expected' => substr($expectedSignature, 0, 16) . '...',
                             'got' => substr($signature, 0, 16) . '...'
                         ]);
-                    } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    } else {
                         Anon_Debug::warn("Token signature mismatch");
                     }
                     return false;
@@ -110,7 +110,7 @@ class Anon_Auth_Token
                 $logDetailed = self::shouldLogDetailedErrors();
                 if ($logDetailed) {
                     Anon_Debug::error("Token secret generation failed", ['message' => $e->getMessage()]);
-                } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+                } else {
                     Anon_Debug::error("Token secret generation failed");
                 }
                 return false;
@@ -144,7 +144,7 @@ class Anon_Auth_Token
             $logDetailed = self::shouldLogDetailedErrors();
             if ($logDetailed) {
                 Anon_Debug::error("Token verification error", ['message' => $e->getMessage()]);
-            } elseif (defined('ANON_DEBUG') && ANON_DEBUG) {
+            } else {
                 Anon_Debug::error("Token verification error");
             }
             return false;
@@ -225,9 +225,7 @@ class Anon_Auth_Token
             }
         }
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
-        }
+        Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
 
         return 'anon_default_insecure_key';
     }

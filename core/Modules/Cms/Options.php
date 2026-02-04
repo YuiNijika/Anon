@@ -43,7 +43,7 @@ class Anon_Cms_Options
         $valueStr = is_array($value) || is_object($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string)$value;
 
         $exists = self::$loaded && array_key_exists($name, self::$cache);
-        
+
         if ($exists) {
             $result = $db->db('options')->where('name', $name)->update(['value' => $valueStr]);
         } else {
@@ -91,9 +91,7 @@ class Anon_Cms_Options
 
             self::$loaded = true;
         } catch (Exception $e) {
-            if (class_exists('Anon_Debug') && method_exists('Anon_Debug', 'error')) {
-                Anon_Debug::error('[Cms_Options] loadAll exception: ' . $e->getMessage());
-            }
+            Anon_Debug::error('[Cms_Options] loadAll exception: ' . $e->getMessage());
             self::$loaded = true;
         }
     }

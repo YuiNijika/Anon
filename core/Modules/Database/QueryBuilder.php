@@ -595,12 +595,10 @@ class Anon_Database_QueryBuilder
 
             $duration = (microtime(true) - $startTime) * 1000;
 
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                Anon_Debug::query($sql, $this->bindings, $duration);
+            Anon_Debug::query($sql, $this->bindings, $duration);
 
-                if ($duration > 100) {
-                    self::analyzeSlowQuery($sql, $this->table, $duration);
-                }
+            if ($duration > 100) {
+                self::analyzeSlowQuery($sql, $this->table, $duration);
             }
 
             // 保存到缓存
@@ -617,12 +615,10 @@ class Anon_Database_QueryBuilder
             $result = $this->connection->query($sql);
             $duration = (microtime(true) - $startTime) * 1000;
 
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                Anon_Debug::query($sql, $this->bindings, $duration);
+            Anon_Debug::query($sql, $this->bindings, $duration);
 
-                if ($duration > 100) {
-                    self::analyzeSlowQuery($sql, $this->table, $duration);
-                }
+            if ($duration > 100) {
+                self::analyzeSlowQuery($sql, $this->table, $duration);
             }
 
             // 保存到缓存
@@ -674,14 +670,12 @@ class Anon_Database_QueryBuilder
         if (!empty($suggestedIndexes)) {
             $indexSuggestion = "CREATE INDEX idx_" . implode('_', $suggestedIndexes) . " ON {$table} (" . implode(', ', $suggestedIndexes) . ")";
 
-            if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-                Anon_Debug::warn("慢查询检测", [
-                    'sql' => substr($sql, 0, 200),
-                    'duration' => round($duration, 2) . 'ms',
-                    'table' => $table,
-                    'suggested_index' => $indexSuggestion
-                ]);
-            }
+            Anon_Debug::warn("慢查询检测", [
+                'sql' => substr($sql, 0, 200),
+                'duration' => round($duration, 2) . 'ms',
+                'table' => $table,
+                'suggested_index' => $indexSuggestion
+            ]);
         }
     }
 

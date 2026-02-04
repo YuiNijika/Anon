@@ -64,8 +64,8 @@ class Anon_Main
             Anon_Loader::loadOptionalModules('csrf');
         }
         
-        Anon_Loader::loadDebug();
-        if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
+        // Debug 已在 loadCoreModules 中加载，这里只需要初始化
+        if (class_exists('Anon_Debug')) {
             Anon_Debug::init();
         }
         
@@ -94,13 +94,11 @@ class Anon_Main
         Anon_System_Config::initAppRoutes();
         Anon_Http_Router::init();
 
-        if (class_exists('Anon_Debug') && Anon_Debug::isEnabled()) {
-            Anon_Debug::info('Application started (FPM)', [
-                'php_version' => PHP_VERSION,
-                'memory_limit' => ini_get('memory_limit'),
-                'max_execution_time' => ini_get('max_execution_time')
-            ]);
-        }
+        Anon_Debug::info('Application started (FPM)', [
+            'php_version' => PHP_VERSION,
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time')
+        ]);
     }
 
     /**

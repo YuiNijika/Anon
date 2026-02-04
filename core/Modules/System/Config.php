@@ -261,7 +261,7 @@ class Anon_System_Config
             self::addStaticRoute('/anon/static/comments', $staticDir . 'comments.js', 'application/javascript', 31536000, true, ['token' => false]);
         } 
 
-        if (class_exists('Anon_Debug')) {
+        if (Anon_Debug::isEnabled()) {
             self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
             self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         }
@@ -292,9 +292,7 @@ class Anon_System_Config
             }
         });
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::info("Registered system routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
-        }
+        Anon_Debug::info("Registered system routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
     }
 
     /**
@@ -302,11 +300,9 @@ class Anon_System_Config
      */
     public static function initAppRoutes()
     {
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::debug("Registering app routes");
-        }
+        Anon_Debug::debug("Registering app routes");
 
-        if (class_exists('Anon_Debug')) {
+        if (Anon_Debug::isEnabled()) {
             self::addRoute('/anon/debug/api/info', [Anon_Debug::class, 'debugInfo']);
             self::addRoute('/anon/debug/api/performance', [Anon_Debug::class, 'performanceApi']);
             self::addRoute('/anon/debug/api/logs', [Anon_Debug::class, 'logs']);
@@ -318,9 +314,7 @@ class Anon_System_Config
             self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
         }
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::info("Registered app routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
-        }
+        Anon_Debug::info("Registered app routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
     }
 
     /**

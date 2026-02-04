@@ -38,9 +38,7 @@ class Anon_System_Plugin
         }
 
         if (!self::isEnabled()) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::info('Plugin system is disabled');
-            }
+            Anon_Debug::info('Plugin system is disabled');
             self::$initialized = true;
             return;
         }
@@ -85,9 +83,7 @@ class Anon_System_Plugin
         $pluginDir = self::PLUGIN_DIR;
 
         if (!is_dir($pluginDir)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::warn("Plugin directory not found: {$pluginDir}");
-            }
+            Anon_Debug::warn("Plugin directory not found: {$pluginDir}");
             return;
         }
 
@@ -107,12 +103,10 @@ class Anon_System_Plugin
                     continue;
                 }
 
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::info("Loading plugin (cached): {$pluginData['meta']['name']}", [
-                        'slug' => $pluginSlug,
-                        'version' => $pluginData['meta']['version'] ?? 'N/A'
-                    ]);
-                }
+                Anon_Debug::info("Loading plugin (cached): {$pluginData['meta']['name']}", [
+                    'slug' => $pluginSlug,
+                    'version' => $pluginData['meta']['version'] ?? 'N/A'
+                ]);
 
                 self::loadPlugin($pluginSlug, $pluginData['file'], $pluginData['meta'], $pluginData['dir']);
             }
@@ -147,9 +141,7 @@ class Anon_System_Plugin
 
                 $meta = self::readPluginMetaForDir($pluginPath);
                 if (!$meta) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'path' => $pluginPath]);
-                    }
+                    Anon_Debug::warn("Failed to read plugin meta", ['plugin' => $dir, 'path' => $pluginPath]);
                     continue;
                 }
 
@@ -170,12 +162,10 @@ class Anon_System_Plugin
                     continue;
                 }
 
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::info("Loading plugin: {$meta['name']}", [
-                        'slug' => $pluginSlug,
-                        'version' => $meta['version'] ?? 'N/A'
-                    ]);
-                }
+                Anon_Debug::info("Loading plugin: {$meta['name']}", [
+                    'slug' => $pluginSlug,
+                    'version' => $meta['version'] ?? 'N/A'
+                ]);
 
                 self::loadPlugin($pluginSlug, $pluginFile, $meta, $dir);
             }
@@ -250,9 +240,7 @@ class Anon_System_Plugin
     {
         Anon_Cache::delete('plugin_scan_list');
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::info('Plugin scan cache cleared');
-        }
+        Anon_Debug::info('Plugin scan cache cleared');
     }
 
     /**
@@ -420,17 +408,13 @@ class Anon_System_Plugin
             }
 
             if (empty($meta['name'])) {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::warn("Plugin meta missing 'name' field in {$pluginFile}");
-                }
+                Anon_Debug::warn("Plugin meta missing 'name' field in {$pluginFile}");
                 return null;
             }
 
             return $meta;
         } catch (Throwable $e) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::error("Error reading plugin meta from {$pluginFile}: " . $e->getMessage());
-            }
+            Anon_Debug::error("Error reading plugin meta from {$pluginFile}: " . $e->getMessage());
             return null;
         }
     }
@@ -449,16 +433,12 @@ class Anon_System_Plugin
         $unsafePattern = '/(\$|function\s*\(|eval\s*\(|exec\s*\(|system\s*\(|shell_exec\s*\(|passthru\s*\(|popen\s*\(|proc_open\s*\(|file_get_contents\s*\(|file_put_contents\s*\(|fopen\s*\(|fwrite\s*\(|unlink\s*\(|include\s*\(|require\s*\()/i';
 
         if (preg_match($unsafePattern, $phpArrayStr)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::debug("Plugin meta contains unsafe code", ['content' => substr($phpArrayStr, 0, 100)]);
-            }
+            Anon_Debug::debug("Plugin meta contains unsafe code", ['content' => substr($phpArrayStr, 0, 100)]);
             return null;
         }
 
         if (!preg_match('/\[[\s\S]*\]/', $phpArrayStr)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::debug("Plugin meta is not a valid array structure", ['content' => substr($phpArrayStr, 0, 200)]);
-            }
+            Anon_Debug::debug("Plugin meta is not a valid array structure", ['content' => substr($phpArrayStr, 0, 200)]);
             return null;
         }
 
@@ -475,13 +455,11 @@ class Anon_System_Plugin
             return json_encode($testDecode, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::debug("Plugin meta JSON conversion failed", [
-                'error' => json_last_error_msg(),
-                'original' => substr($phpArrayStr, 0, 200),
-                'converted' => substr($jsonStr, 0, 200)
-            ]);
-        }
+        Anon_Debug::debug("Plugin meta JSON conversion failed", [
+            'error' => json_last_error_msg(),
+            'original' => substr($phpArrayStr, 0, 200),
+            'converted' => substr($jsonStr, 0, 200)
+        ]);
 
         return null;
     }
@@ -584,9 +562,7 @@ class Anon_System_Plugin
 
         try {
             if (isset(self::$loadedPlugins[$pluginSlug])) {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::debug("Plugin already loaded, skipping", ['plugin' => $pluginSlug]);
-                }
+                Anon_Debug::debug("Plugin already loaded, skipping", ['plugin' => $pluginSlug]);
                 return;
             }
 
@@ -609,40 +585,30 @@ class Anon_System_Plugin
                             $instance->init();
                         }
                         $pluginInstance = $instance;
-                        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                            Anon_Debug::debug("Plugin initialized (instance)", ['class' => $className]);
-                        }
+                        Anon_Debug::debug("Plugin initialized (instance)", ['class' => $className]);
                     } elseif (method_exists($className, 'init')) {
                         $className::init();
-                        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                            Anon_Debug::debug("Plugin initialized", ['class' => $className]);
-                        }
+                        Anon_Debug::debug("Plugin initialized", ['class' => $className]);
                         $pluginInstance = $className;
                     } else {
-                        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                            Anon_Debug::warn("Plugin class has no init() method", ['class' => $className]);
-                        }
+                        Anon_Debug::warn("Plugin class has no init() method", ['class' => $className]);
                         $pluginInstance = $className;
                     }
                 } catch (Throwable $e) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::error("Plugin initialization failed", [
-                            'plugin' => $pluginSlug,
-                            'class' => $className,
-                            'error' => $e->getMessage(),
-                            'file' => $e->getFile(),
-                            'line' => $e->getLine()
-                        ]);
-                    }
-                }
-            } else {
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::warn("Plugin class not found", [
+                    Anon_Debug::error("Plugin initialization failed", [
                         'plugin' => $pluginSlug,
-                        'expected' => $className,
-                        'dir' => $dirName
+                        'class' => $className,
+                        'error' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine()
                     ]);
                 }
+            } else {
+                Anon_Debug::warn("Plugin class not found", [
+                    'plugin' => $pluginSlug,
+                    'expected' => $className,
+                    'dir' => $dirName
+                ]);
             }
 
             self::$loadedPlugins[$pluginSlug] = [
@@ -656,14 +622,12 @@ class Anon_System_Plugin
 
             Anon_System_Hook::do_action('plugin_after_load', $pluginSlug, $meta);
         } catch (Throwable $e) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::error("Failed to load plugin", [
-                    'plugin' => $pluginSlug,
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]);
-            }
+            Anon_Debug::error("Failed to load plugin", [
+                'plugin' => $pluginSlug,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
 
             Anon_System_Hook::do_action('plugin_load_error', $pluginSlug, $e);
         }
@@ -779,9 +743,7 @@ class Anon_System_Plugin
                     $className::activate();
                     return true;
                 } catch (Throwable $e) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::error("Failed to activate plugin {$pluginSlug}: " . $e->getMessage());
-                    }
+                    Anon_Debug::error("Failed to activate plugin {$pluginSlug}: " . $e->getMessage());
                     return false;
                 }
             }
@@ -809,9 +771,7 @@ class Anon_System_Plugin
                     $className::deactivate();
                     return true;
                 } catch (Throwable $e) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::error("Failed to deactivate plugin {$pluginSlug}: " . $e->getMessage());
-                    }
+                    Anon_Debug::error("Failed to deactivate plugin {$pluginSlug}: " . $e->getMessage());
                     return false;
                 }
             }
@@ -857,17 +817,13 @@ class Anon_System_Plugin
 
         // 按模式匹配检查插件是否应加载
         if (!self::shouldLoadPlugin($meta)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::debug("Plugin mode mismatch, skipping", ['slug' => $pluginSlug, 'mode' => $meta['mode'] ?? 'api']);
-            }
+            Anon_Debug::debug("Plugin mode mismatch, skipping", ['slug' => $pluginSlug, 'mode' => $meta['mode'] ?? 'api']);
             return false;
         }
 
         // 检查插件是否已激活
         if (!self::isPluginActive($pluginSlug)) {
-            if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                Anon_Debug::debug("Plugin not active, skipping", ['slug' => $pluginSlug]);
-            }
+            Anon_Debug::debug("Plugin not active, skipping", ['slug' => $pluginSlug]);
             return false;
         }
 

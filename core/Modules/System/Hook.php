@@ -348,8 +348,6 @@ class Anon_System_Hook {
      * 调试日志
      */
     private static function debugLog($message, $level = 'DEBUG') {
-        if (defined('ANON_DEBUG') && ANON_DEBUG && class_exists('Anon_Debug')) {
-            Anon_Debug::log($level, $message, ['context' => 'HOOK']);
-        }
+        Anon_Debug::log($level, $message, ['context' => 'HOOK']);
     }
 }

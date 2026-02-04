@@ -498,9 +498,7 @@ class Anon_Check
         }
 
         // 严重安全警告：未配置 APP_KEY
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
-        }
+        Anon_Debug::warn('Security Warning: ANON_APP_KEY not configured!');
 
         return 'anon_default_insecure_key';
     }

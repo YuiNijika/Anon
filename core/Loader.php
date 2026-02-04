@@ -74,6 +74,9 @@ class Anon_Loader
             return;
         }
 
+        // 先加载 Debug，因为其他模块可能会使用它
+        self::loadDebug();
+
         require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::MODULES_DIR . 'System/Exception.php';
         require_once Anon_Main::MODULES_DIR . 'Database.php';
@@ -149,10 +152,8 @@ class Anon_Loader
             return;
         }
 
-        if (defined('ANON_DEBUG') && ANON_DEBUG) {
-            require_once Anon_Main::MODULES_DIR . 'Debug.php';
-            self::$loadedModules['debug'] = true;
-        }
+        require_once Anon_Main::MODULES_DIR . 'Debug.php';
+        self::$loadedModules['debug'] = true;
     }
 
     /**

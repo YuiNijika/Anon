@@ -69,6 +69,21 @@ class Anon_Debug
     private static $performanceStartTimes = [];
 
     /**
+     * @var array 日志缓冲区
+     */
+    private static $logBuffer = [];
+
+    /**
+     * @var int 日志缓冲区最大大小
+     */
+    private static $logBufferMaxSize = 50;
+
+    /**
+     * @var bool 是否已注册关闭函数来刷新缓冲区
+     */
+    private static $shutdownRegistered = false;
+
+    /**
      * 初始化调试系统
      * @return void
      */
@@ -119,7 +134,17 @@ class Anon_Debug
             $logData['backtrace'] = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
         }
 
-        self::writeToFile($logData);
+        // 添加到缓冲区而不是立即写入文件
+        self::$logBuffer[] = $logData;
+        if (count(self::$logBuffer) >= self::$logBufferMaxSize) {
+            self::flushLogBuffer();
+        }
+
+        // 注册关闭函数来确保缓冲区被刷新
+        if (!self::$shutdownRegistered) {
+            register_shutdown_function([__CLASS__, 'flushLogBuffer']);
+            self::$shutdownRegistered = true;
+        }
 
         if (!isset(self::$collectors['logs'])) {
             self::$collectors['logs'] = [];
@@ -295,6 +320,9 @@ class Anon_Debug
             'queries' => count(self::$queries),
             'errors' => count(self::$errors)
         ]);
+
+        // 刷新日志缓冲区
+        self::flushLogBuffer();
     }
 
     /**
@@ -356,18 +384,42 @@ class Anon_Debug
     }
 
     /**
-     * 写入日志文件
-     * @param array $logData 日志数据
+     * 刷新日志缓冲区到文件
      * @return void
      */
-    private static function writeToFile(array $logData): void
+    public static function flushLogBuffer(): void
     {
+        if (empty(self::$logBuffer)) {
+            return;
+        }
+
         $logDir = __DIR__ . '/../../logs';
         if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
+            @mkdir($logDir, 0755, true);
         }
 
         $logFile = $logDir . '/debug_' . date('Y-m-d') . '.log';
+        $logLines = [];
+
+        foreach (self::$logBuffer as $logData) {
+            $logLines[] = self::formatLogLine($logData);
+        }
+
+        if (!empty($logLines)) {
+            @file_put_contents($logFile, implode('', $logLines), FILE_APPEND | LOCK_EX);
+            self::rotateLogIfNeeded($logFile);
+        }
+
+        self::$logBuffer = [];
+    }
+
+    /**
+     * 格式化单行日志
+     * @param array $logData 日志数据
+     * @return string
+     */
+    private static function formatLogLine(array $logData): string
+    {
         $timestamp = $logData['timestamp'];
         $dateTime = date('Y-m-d H:i:s', (int)$timestamp);
         $microseconds = sprintf('%03d', (int)(($timestamp - (int)$timestamp) * 1000));
@@ -407,7 +459,7 @@ class Anon_Debug
             }
         }
 
-        $logLine = sprintf(
+        return sprintf(
             "[%s] %-12s [%s] %s | mem:%s peak:%s%s\n",
             $formattedTime,
             $logData['level'],
@@ -417,9 +469,21 @@ class Anon_Debug
             $peakMemory,
             $contextStr
         );
+    }
 
-        file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
-        self::rotateLogIfNeeded($logFile);
+    /**
+     * 写入单条日志到文件（已废弃，使用缓冲写入）
+     * @param array $logData 日志数据
+     * @return void
+     * @deprecated 使用 flushLogBuffer 代替
+     */
+    private static function writeToFile(array $logData): void
+    {
+        // 兼容旧代码，直接添加到缓冲区
+        self::$logBuffer[] = $logData;
+        if (count(self::$logBuffer) >= self::$logBufferMaxSize) {
+            self::flushLogBuffer();
+        }
     }
 
     /**
@@ -432,9 +496,9 @@ class Anon_Debug
         if (!file_exists($logFile)) return;
 
         $maxSize = self::$config['max_log_size'] * 1024 * 1024;
-        if (filesize($logFile) > $maxSize) {
+        if (@filesize($logFile) > $maxSize) {
             $backupFile = $logFile . '.' . time();
-            rename($logFile, $backupFile);
+            @rename($logFile, $backupFile);
             self::cleanOldLogs(dirname($logFile));
         }
     }

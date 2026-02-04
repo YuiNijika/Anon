@@ -328,9 +328,7 @@ class Anon_Cms
                         ->where('type', 'post')
                         ->update(['views' => $currentViews + 1]);
                 } catch (Exception $e) {
-                    if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                        Anon_Debug::error("异步增加文章浏览量失败", ['message' => $e->getMessage()]);
-                    }
+                    Anon_Debug::error("异步增加文章浏览量失败", ['message' => $e->getMessage()]);
                 }
             });
         }

@@ -381,9 +381,7 @@ class Anon
      */
     public static function debug(string $message, array $context = [])
     {
-        if (class_exists('Anon_Debug')) {
-            Anon_Debug::debug($message, $context);
-        }
+        Anon_Debug::debug($message, $context);
     }
 
     /**
@@ -393,9 +391,7 @@ class Anon
      */
     public static function info(string $message, array $context = [])
     {
-        if (class_exists('Anon_Debug')) {
-            Anon_Debug::info($message, $context);
-        }
+        Anon_Debug::info($message, $context);
     }
 
     /**
@@ -405,15 +401,7 @@ class Anon
      */
     public static function warn(string $message, array $context = [])
     {
-        if (class_exists('Anon_Debug')) {
-            Anon_Debug::warn($message, $context);
-        } else {
-            // 如果类未加载，使用 error_log 作为后备
-            $logMessage = is_array($context) && !empty($context)
-                ? $message . ' - ' . json_encode($context)
-                : $message;
-            error_log('[WARN] ' . $logMessage);
-        }
+        Anon_Debug::warn($message, $context);
     }
 
     /**
@@ -423,15 +411,7 @@ class Anon
      */
     public static function logError(string $message, array $context = [])
     {
-        if (class_exists('Anon_Debug')) {
-            Anon_Debug::error($message, $context);
-        } else {
-            // 如果类未加载，使用 error_log 作为后备
-            $logMessage = is_array($context) && !empty($context)
-                ? $message . ' - ' . json_encode($context)
-                : $message;
-            error_log('[ERROR] ' . $logMessage);
-        }
+        Anon_Debug::error($message, $context);
     }
 
 
