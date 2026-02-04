@@ -315,6 +315,7 @@ class Anon_Cms
             return null;
         }
 
+        // 增加文章阅读量
         if (!isset(self::$viewedPosts[$id])) {
             $currentViews = (int)($post['views'] ?? 0);
             $post['views'] = $currentViews + 1;

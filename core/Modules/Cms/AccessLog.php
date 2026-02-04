@@ -54,6 +54,7 @@ class Anon_Cms_AccessLog
         '/config.php',
         '/.env',
         '/.env.local',
+        './env.php',
         '/composer.json',
         '/package.json',
         '/yarn.lock',
@@ -67,6 +68,7 @@ class Anon_Cms_AccessLog
 
     /**
      * 检查是否启用访问日志
+     * 
      * @return bool
      */
     private static function isEnabled(): bool
