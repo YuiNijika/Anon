@@ -3,6 +3,18 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Cms
 {
+    /**
+     * 默认路由规则
+     */
+    public const DEFAULT_ROUTES = [
+        '/' => 'index',
+        '/post/{id}' => 'post',
+        '/category/{slug}' => 'category',
+        '/category/{slug}/{page}' => 'category',
+        '/tag/{slug}' => 'tag',
+        '/tag/{slug}/{page}' => 'tag',
+    ];
+
     private const TEMPLATE_EXTENSIONS = ['php', 'html', 'htm'];
     private static $pageStartTime = null;
     private static $postCache = [];
@@ -26,11 +38,11 @@ class Anon_Cms
         $templateNameLower = strtolower($templateName);
         $fileName = pathinfo(basename($templateNameLower), PATHINFO_FILENAME);
         $specialTypes = ['index', 'post', 'page', 'error', 'user', 'author'];
-        
+
         if (in_array($fileName, $specialTypes)) {
             return $fileName;
         }
-        
+
         $pathParts = explode('/', str_replace('\\', '/', $templateNameLower));
         foreach ($pathParts as $part) {
             $part = pathinfo($part, PATHINFO_FILENAME);
@@ -38,7 +50,7 @@ class Anon_Cms
                 return $part;
             }
         }
-        
+
         return 'other';
     }
 
@@ -69,15 +81,15 @@ class Anon_Cms
             self::$fileSystemCache['finddir'][$cacheKey] = $exactPath;
             return $exactPath;
         }
-        
+
         $dirNameLower = strtolower($dirName);
         $items = self::scanDirectory($baseDir);
-        
+
         if ($items === null) {
             self::$fileSystemCache['finddir'][$cacheKey] = null;
             return null;
         }
-        
+
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
             if (self::isDir($itemPath) && strtolower($item) === $dirNameLower) {
@@ -109,9 +121,9 @@ class Anon_Cms
         if (isset(self::$fileSystemCache['findfile'][$cacheKey])) {
             return self::$fileSystemCache['findfile'][$cacheKey];
         }
-        
+
         $fileNameLower = strtolower($fileName);
-        
+
         foreach ($extensions as $ext) {
             $exactPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $fileName . '.' . $ext;
             if (self::fileExists($exactPath)) {
@@ -119,28 +131,28 @@ class Anon_Cms
                 return $exactPath;
             }
         }
-        
+
         $items = self::scanDirectory($baseDir);
         if ($items === null) {
             self::$fileSystemCache['findfile'][$cacheKey] = null;
             return null;
         }
-        
+
         foreach ($items as $item) {
             $itemPath = rtrim($baseDir, '/\\') . DIRECTORY_SEPARATOR . $item;
             if (!self::isFile($itemPath)) {
                 continue;
             }
-            
+
             $itemName = pathinfo($item, PATHINFO_FILENAME);
             $itemExt = strtolower(pathinfo($item, PATHINFO_EXTENSION));
-            
+
             if (strtolower($itemName) === $fileNameLower && in_array($itemExt, $extensions)) {
                 self::$fileSystemCache['findfile'][$cacheKey] = $itemPath;
                 return $itemPath;
             }
         }
-        
+
         self::$fileSystemCache['findfile'][$cacheKey] = null;
         return null;
     }
@@ -161,13 +173,13 @@ class Anon_Cms
             self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
-        
+
         $items = scandir($dir);
         if ($items === false) {
             self::$fileSystemCache['scandir'][$cacheKey] = null;
             return null;
         }
-        
+
         $result = array_filter($items, function ($item) {
             return $item !== '.' && $item !== '..';
         });
@@ -244,7 +256,7 @@ class Anon_Cms
         if (self::$pageStartTime === null) {
             return 0.0;
         }
-        
+
         return round((microtime(true) - self::$pageStartTime) * 1000, 2);
     }
 

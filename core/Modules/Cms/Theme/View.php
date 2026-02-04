@@ -323,7 +323,10 @@ class Anon_Cms_Theme_View
         $pageSize = max(1, min(100, $pageSize));
 
         if ($page === null) {
-            if (isset($_GET['page'])) {
+            // 优先检查是否有路由参数传入的 page
+            if ($this->get('page')) {
+                $page = max(1, (int)$this->get('page'));
+            } elseif (isset($_GET['page'])) {
                 $page = max(1, (int)$_GET['page']);
             } else {
                 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';

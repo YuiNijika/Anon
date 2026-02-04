@@ -69,6 +69,11 @@ class Anon_Cms_Admin_SettingsBasic
                 }
             }
 
+            // 如果路由为空，使用默认路由
+            if (empty($routes)) {
+                $routes = Anon_Cms::DEFAULT_ROUTES;
+            }
+
             $settings = [
                 'title' => Anon_Cms_Options::get('title', ''),
                 'subtitle' => Anon_Cms_Options::get('subtitle', 'Powered by AnonEcho'),

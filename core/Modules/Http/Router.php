@@ -49,9 +49,24 @@ class Anon_Http_Router
 
                 self::registerThemeTemplates();
 
-                $cmsRoutes = Anon_System_Env::get('app.cms.routes', []);
+                $cmsRoutes = Anon_System_Env::get('app.cms.routes');
+                if (!is_array($cmsRoutes) || empty($cmsRoutes)) {
+                    $cmsRoutes = Anon_Cms::DEFAULT_ROUTES;
+                }
+
                 if (is_array($cmsRoutes) && !empty($cmsRoutes)) {
-                    self::registerCmsRouteMappings($cmsRoutes);
+                    // 过滤已存在的路由，避免冲突
+                    $registeredRoutes = Anon_System_Config::getRouterConfig()['routes'] ?? [];
+                    foreach ($cmsRoutes as $path => $template) {
+                        $normalizedPath = (strpos($path, '/') === 0) ? $path : '/' . $path;
+                        if (isset($registeredRoutes[$normalizedPath])) {
+                            unset($cmsRoutes[$path]);
+                        }
+                    }
+
+                    if (!empty($cmsRoutes)) {
+                        self::registerCmsRouteMappings($cmsRoutes);
+                    }
                 }
 
                 self::registerApiRoutesWithPrefix();

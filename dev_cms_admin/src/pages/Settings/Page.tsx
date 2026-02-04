@@ -34,13 +34,16 @@ const PAGE_PARAMS = ['{id}', '{slug}', '{directory}']
 const CATEGORY_PARAMS = ['{id}', '{slug}', '{directory}']
 const TAG_PARAMS = ['{id}', '{slug}']
 const USER_PARAMS = ['{uid}', '{name}']
+const PAGINATION_PARAMS = ['{page}']
 
 const pageSchema = z.object({
   postPathStyle: z.string(),
   postPath: z.string().min(1).regex(/^\//).refine((v) => POST_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
   pagePath: z.string().min(1).regex(/^\//).refine((v) => PAGE_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
   categoryPath: z.string().min(1).regex(/^\//).refine((v) => CATEGORY_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
+  categoryPaginationPath: z.string().min(1).regex(/^\//).refine((v) => PAGINATION_PARAMS.some((p) => v.includes(p)), '路径中至少包含 {page}'),
   tagPath: z.string().min(1).regex(/^\//).refine((v) => TAG_PARAMS.some((p) => v.includes(p)), '路径中至少包含一个可用参数'),
+  tagPaginationPath: z.string().min(1).regex(/^\//).refine((v) => PAGINATION_PARAMS.some((p) => v.includes(p)), '路径中至少包含 {page}'),
   userPath: z.string().min(1).regex(/^\//).refine((v) => USER_PARAMS.some((p) => v.includes(p)), '路径中至少包含 {uid} 或 {name}'),
 })
 
@@ -57,7 +60,9 @@ export default function SettingsPage() {
       postPath: '/archives/{id}',
       pagePath: '/{slug}.html',
       categoryPath: '/category/{slug}',
+      categoryPaginationPath: '/category/{slug}/{page}',
       tagPath: '/tag/{slug}',
+      tagPaginationPath: '/tag/{slug}/{page}',
       userPath: '/user/{uid}',
     },
   })
@@ -75,11 +80,32 @@ export default function SettingsPage() {
         const routes = res.data.routes
         const postPath = Object.entries(routes).find(([, t]) => t === 'post')?.[0] ?? '/archives/{id}/'
         const pagePath = Object.entries(routes).find(([, t]) => t === 'page')?.[0] ?? '/{slug}.html'
-        const categoryPath = Object.entries(routes).find(([, t]) => t === 'category')?.[0] ?? '/category/{slug}/'
-        const tagPath = Object.entries(routes).find(([, t]) => t === 'tag')?.[0] ?? '/tag/{slug}/'
+
+        // 查找分类路由
+        const categoryPath = Object.entries(routes).find(([k, t]) => t === 'category' && !k.includes('{page}'))?.[0] ?? '/category/{slug}/'
+        // 查找分类分页路由
+        const categoryPaginationPath = Object.entries(routes).find(([k, t]) => t === 'category' && k.includes('{page}'))?.[0]
+          ?? (categoryPath.endsWith('/') ? `${categoryPath}{page}` : `${categoryPath}/{page}`)
+
+        // 查找标签路由
+        const tagPath = Object.entries(routes).find(([k, t]) => t === 'tag' && !k.includes('{page}'))?.[0] ?? '/tag/{slug}/'
+        // 查找标签分页路由
+        const tagPaginationPath = Object.entries(routes).find(([k, t]) => t === 'tag' && k.includes('{page}'))?.[0]
+          ?? (tagPath.endsWith('/') ? `${tagPath}{page}` : `${tagPath}/{page}`)
+
         const userPath = Object.entries(routes).find(([, t]) => t === 'user')?.[0] ?? '/user/{uid}/'
         const detectedStyle = PATH_STYLES.find((s) => s.paths.post === postPath && s.paths.page === pagePath && s.paths.category === categoryPath && s.paths.tag === tagPath)?.value ?? 'custom'
-        form.reset({ postPathStyle: detectedStyle, postPath, pagePath, categoryPath, tagPath, userPath })
+
+        form.reset({
+          postPathStyle: detectedStyle,
+          postPath,
+          pagePath,
+          categoryPath,
+          categoryPaginationPath,
+          tagPath,
+          tagPaginationPath,
+          userPath
+        })
       }
     } catch (err) {
       toast.error(getErrorMessage(err, '加载页面设置失败'))
@@ -103,11 +129,32 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       const routes: Record<string, string> = {}
+
+      // 添加文章路由
       if (values.postPath?.trim()) routes[values.postPath.trim()] = 'post'
+
+      // 添加页面路由
       if (values.pagePath?.trim()) routes[values.pagePath.trim()] = 'page'
-      if (values.categoryPath?.trim()) routes[values.categoryPath.trim()] = 'category'
-      if (values.tagPath?.trim()) routes[values.tagPath.trim()] = 'tag'
+
+      // 添加分类路由及其分页
+      if (values.categoryPath?.trim()) {
+        routes[values.categoryPath.trim()] = 'category'
+      }
+      if (values.categoryPaginationPath?.trim()) {
+        routes[values.categoryPaginationPath.trim()] = 'category'
+      }
+
+      // 添加标签路由及其分页
+      if (values.tagPath?.trim()) {
+        routes[values.tagPath.trim()] = 'tag'
+      }
+      if (values.tagPaginationPath?.trim()) {
+        routes[values.tagPaginationPath.trim()] = 'tag'
+      }
+
+      // 添加用户路由
       if (values.userPath?.trim()) routes[values.userPath.trim()] = 'user'
+
       await AdminApi.updatePageSettings(apiAdmin, { routes })
       toast.success('页面设置已保存')
       await loadSettings()
@@ -198,6 +245,20 @@ export default function SettingsPage() {
           />
           <FormField
             control={form.control}
+            name="categoryPaginationPath"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>分类分页路径</FormLabel>
+                <FormControl>
+                  <Input placeholder="/category/{slug}/{page}" {...field} />
+                </FormControl>
+                <FormDescription>可用参数: {PAGINATION_PARAMS.join(', ')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="tagPath"
             render={({ field }) => (
               <FormItem>
@@ -206,6 +267,20 @@ export default function SettingsPage() {
                   <Input placeholder="/tag/{slug}" {...field} />
                 </FormControl>
                 <FormDescription>可用参数: {TAG_PARAMS.join(', ')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="tagPaginationPath"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>标签分页路径</FormLabel>
+                <FormControl>
+                  <Input placeholder="/tag/{slug}/{page}" {...field} />
+                </FormControl>
+                <FormDescription>可用参数: {PAGINATION_PARAMS.join(', ')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

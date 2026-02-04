@@ -26,6 +26,12 @@ class Anon_Cms_Admin_Settings_Page
                     $routes = $decoded;
                 }
             }
+
+            // 如果路由为空，使用默认路由
+            if (empty($routes)) {
+                $routes = Anon_Cms::DEFAULT_ROUTES;
+            }
+
             Anon_Http_Response::success(['routes' => $routes], '获取链接设置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);

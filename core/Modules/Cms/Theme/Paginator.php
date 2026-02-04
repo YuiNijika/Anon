@@ -127,7 +127,12 @@ class Anon_Cms_Paginator
         // 移除现有的 /page/X
         $path = preg_replace('#/page/\d+/?$#', '', $path);
 
-        // 始终移除末尾斜杠，如果是根路径 '/' 会变成空字符串 ''
+        // 如果是分类或标签路径，移除末尾的数字页码
+        if (strpos($path, '/category/') === 0 || strpos($path, '/tag/') === 0) {
+            $path = preg_replace('#/\d+/?$#', '', $path);
+        }
+
+        // 始终移除末尾斜杠
         $path = rtrim($path, '/');
 
         $query = [];
@@ -140,7 +145,11 @@ class Anon_Cms_Paginator
 
         $url = $path;
         if ($page > 1) {
-            $url .= '/page/' . $page;
+            if (strpos($path, '/category/') === 0 || strpos($path, '/tag/') === 0) {
+                $url .= '/' . $page;
+            } else {
+                $url .= '/page/' . $page;
+            }
         }
 
         // 如果 URL 为空（即根路径且 page=1），补回 '/'
