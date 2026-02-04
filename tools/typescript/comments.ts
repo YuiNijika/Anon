@@ -4,6 +4,7 @@ interface VueApp {
 
 interface VueAppInstance {
     mount: (selector: string) => void;
+    unmount: () => void;
 }
 
 interface VueAppOptions {
@@ -16,12 +17,17 @@ interface VueAppOptions {
 
 interface CommentAppData {
     postId: number;
+    apiPrefix: string;
     comments: Comment[];
     isLoggedIn: boolean;
+    currentUser: any;
     message: string;
     messageType: 'info' | 'error';
     loading: boolean;
     replyingTo: ReplyTarget | null;
+    captchaEnabled: boolean;
+    captchaImage: string;
+    captchaLoading: boolean;
     form: CommentForm;
 }
 
@@ -47,6 +53,7 @@ interface CommentForm {
     url: string;
     content: string;
     parent_id: number | null;
+    captcha: string;
 }
 
 interface ApiResponse {
@@ -59,39 +66,91 @@ interface ApiResponse {
 
 declare const Vue: VueApp;
 
+interface AnonConfig {
+    apiPrefix: string;
+    token: boolean;
+    captcha: boolean;
+    [key: string]: any;
+}
+
+interface AnonGlobal {
+    config: AnonConfig;
+    isLoggedIn: boolean;
+    userInfo: {
+        id: string;
+        username: string;
+        email: string;
+        [key: string]: any;
+    } | any[];
+    pageInfo: {
+        id: number;
+        title: string;
+        slug: string;
+        type: string;
+        commentStatus: string;
+        commentCount: number;
+        [key: string]: any;
+    };
+    [key: string]: any;
+}
+
+declare global {
+    interface Window {
+        Anon?: AnonGlobal;
+    }
+}
+
 (function () {
+    let vueAppInstance: VueAppInstance | null = null;
+
     function runCommentsApp(): void {
         const el = document.getElementById('comments-app');
         if (!el || typeof Vue === 'undefined' || !Vue.createApp) {
             return;
         }
 
-        const postIdStr = el.getAttribute('data-post-id') || '0';
-        const postId = parseInt(postIdStr, 10);
+        const anon = window.Anon || {};
+        const config = anon.config || {};
+        const pageInfo = anon.pageInfo || {};
+
+        const postId = pageInfo.id || 0;
         if (!postId) {
             return;
         }
 
-        const isLoggedIn = el.getAttribute('data-comment-logged-in') === '1';
+        const apiPrefix = config.apiPrefix || '';
+        const isLoggedIn = !!anon.isLoggedIn;
+        const userInfo = anon.userInfo || {};
+
         const template = el.innerHTML;
         el.innerHTML = '';
 
-        Vue.createApp({
+        if (vueAppInstance) {
+            vueAppInstance.unmount();
+        }
+
+        vueAppInstance = Vue.createApp({
             data(): CommentAppData {
                 return {
                     postId: postId,
+                    apiPrefix: apiPrefix,
                     comments: [],
                     isLoggedIn: isLoggedIn,
+                    currentUser: userInfo,
                     message: '',
                     messageType: 'info',
                     loading: false,
                     replyingTo: null,
+                    captchaEnabled: false,
+                    captchaImage: '',
+                    captchaLoading: false,
                     form: {
                         name: '',
                         email: '',
                         url: '',
                         content: '',
                         parent_id: null,
+                        captcha: '',
                     },
                 };
             },
@@ -111,6 +170,7 @@ declare const Vue: VueApp;
             },
             mounted(): void {
                 this.loadComments();
+                this.checkCaptchaEnabled();
             },
             methods: {
                 setReplyTo(comment: Comment): void {
@@ -163,6 +223,47 @@ declare const Vue: VueApp;
                             vm.comments = [];
                         });
                 },
+                checkCaptchaEnabled(): void {
+                    const vm = this;
+                    if (vm.isLoggedIn) {
+                        vm.captchaEnabled = false;
+                        return;
+                    }
+                    if (window.Anon && window.Anon.config && window.Anon.config.captcha) {
+                        vm.captchaEnabled = true;
+                        vm.loadCaptcha();
+                    } else {
+                        vm.captchaEnabled = false;
+                    }
+                },
+                loadCaptcha(): void {
+                    const vm = this;
+                    if (vm.captchaLoading || !vm.captchaEnabled) {
+                        return;
+                    }
+                    vm.captchaLoading = true;
+                    fetch(`${this.apiPrefix}/auth/captcha`, {
+                        method: 'GET',
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    })
+                        .then((r) => r.json())
+                        .then((res: any) => {
+                            vm.captchaLoading = false;
+                            if (res && res.code === 200 && res.data && res.data.image) {
+                                vm.captchaImage = res.data.image;
+                                vm.form.captcha = '';
+                            }
+                        })
+                        .catch(() => {
+                            vm.captchaLoading = false;
+                        });
+                },
+                refreshCaptcha(): void {
+                    this.loadCaptcha();
+                },
                 submitComment(): void {
                     const vm = this;
                     this.message = '';
@@ -178,6 +279,11 @@ declare const Vue: VueApp;
                         this.message = '请填写名称、邮箱和评论内容';
                         return;
                     }
+                    if (this.captchaEnabled && !this.form.captcha.trim()) {
+                        this.messageType = 'error';
+                        this.message = '请输入验证码';
+                        return;
+                    }
                     this.loading = true;
                     const params: Record<string, string> = {
                         post_id: String(this.postId),
@@ -191,8 +297,11 @@ declare const Vue: VueApp;
                         params.name = this.form.name.trim();
                         params.email = this.form.email.trim();
                     }
+                    if (this.captchaEnabled) {
+                        params.captcha = this.form.captcha.trim();
+                    }
                     const body = new URLSearchParams(params);
-                    fetch('/anon/cms/comments', {
+                    fetch(`/anon/cms/comments`, {
                         method: 'POST',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
@@ -213,12 +322,19 @@ declare const Vue: VueApp;
                                     url: '',
                                     content: '',
                                     parent_id: null,
+                                    captcha: '',
                                 };
                                 vm.replyingTo = null;
+                                if (vm.captchaEnabled) {
+                                    vm.loadCaptcha();
+                                }
                                 vm.loadComments();
                             } else {
                                 vm.messageType = 'error';
                                 vm.message = res && res.message ? res.message : '提交失败，请重试。';
+                                if (vm.captchaEnabled && res && res.message && res.message.indexOf('验证码') !== -1) {
+                                    vm.loadCaptcha();
+                                }
                             }
                         })
                         .catch(() => {
@@ -229,7 +345,10 @@ declare const Vue: VueApp;
                 },
             },
             template: template,
-        }).mount('#comments-app');
+        });
+        if (vueAppInstance) {
+            vueAppInstance.mount('#comments-app');
+        }
     }
 
     runCommentsApp();
@@ -240,9 +359,7 @@ declare const Vue: VueApp;
         document.addEventListener('pjax:complete', function () {
             const initFn = (window as any).__anonInitComments;
             if (typeof initFn === 'function') {
-                setTimeout(function () {
-                    initFn();
-                }, 100);
+                initFn();
             }
         });
     }

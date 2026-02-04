@@ -26,6 +26,7 @@ CMS 模式提供完整的管理后台，用于配置站点、主题、插件、�
 | **标签** | 标签增删改查 |
 | **附件** | 附件上传、列表、删除，按类型分类存储 |
 | **统计** | 文章、评论、附件、用户等统计数据 |
+| **访问日志** | 访问日志查看、统计、筛选（IP、路径、类型、日期范围等），详见 [访问日志](#访问日志) |
 
 ## 前端集成
 
@@ -44,7 +45,81 @@ CMS 模式提供完整的管理后台，用于配置站点、主题、插件、�
 - **分类**：`GET/POST/PUT/DELETE /anon/cms/admin/metas/categories`  
 - **标签**：`GET/POST/PUT/DELETE /anon/cms/admin/metas/tags`  
 - **文章**：`GET/POST/PUT/DELETE /anon/cms/admin/posts`
-- **评论**：`GET/PUT/DELETE /anon/cms/admin/comments`（列表、更新状态/内容、删除）  
+- **评论**：`GET/PUT/DELETE /anon/cms/admin/comments`（列表、更新状态/内容、删除）
+- **访问日志**：`GET /anon/cms/admin/access-logs`（列表）、`GET /anon/cms/admin/access-logs/statistics`（统计）
+
+## 访问日志
+
+访问日志功能用于记录和统计网站的访问情况，帮助管理员了解网站流量和访问模式。
+
+### 功能说明
+
+- **自动记录**：系统自动记录每次页面访问（排除静态资源、API 和后台管理页面）
+- **访问统计**：提供访问量统计、独立 IP 统计、热门页面排行等功能
+- **高级筛选**：支持按 IP、路径、类型、日期范围等条件筛选日志
+- **独立开关**：通过 `access_log_enabled` 选项控制是否启用访问日志
+
+### 启用/禁用访问日志
+
+访问日志的开关存储在数据库 `options` 表中，键名为 `access_log_enabled`：
+
+- **启用**：`Anon_Cms_AccessLog::enable()`
+- **禁用**：`Anon_Cms_AccessLog::disable()`
+- **检查状态**：通过管理后台「设置」→「权限设置」中的「访问日志」开关控制
+
+**重要提示**：
+- 访问日志开关（`access_log_enabled`）**仅影响** `AccessLog` 模块
+- **不影响**其他日志系统（如 `Debug` 日志）
+- **不影响**文章阅读量功能（`posts.views` 字段）
+
+### 访问日志记录内容
+
+每条访问日志包含以下信息：
+
+| 字段 | 说明 |
+|------|------|
+| `url` | 完整请求 URL |
+| `path` | 请求路径 |
+| `method` | HTTP 方法（GET、POST 等） |
+| `type` | 请求类型（page、api、static） |
+| `ip` | 客户端 IP 地址 |
+| `user_agent` | User-Agent 字符串 |
+| `referer` | 来源页面 URL |
+| `status_code` | HTTP 状态码 |
+| `response_time` | 响应时间（毫秒） |
+| `created_at` | 访问时间 |
+
+### 自动排除的路径
+
+系统会自动排除以下路径，不记录访问日志：
+
+- `/anon-dev-server` - 开发服务器
+- `/anon/cms/admin` - 管理后台
+- `/anon/install` - 安装页面
+- `/anon/static` - 静态资源
+- `/assets` - 资源文件
+- `/static` - 静态文件
+- `/.well-known` - 标准路径
+- `/favicon.ico` - 网站图标
+- `/robots.txt` - 爬虫协议
+- API 路径（根据 `apiPrefix` 配置）
+- curl、wget 等命令行工具的请求
+- 敏感文件路径（如 `.env`、`.git` 等）
+
+### 访问日志统计
+
+访问日志统计功能提供：
+
+- **总访问量**：指定时间范围内的总访问次数
+- **独立 IP 数**：访问的独立 IP 地址数量
+- **热门页面**：按访问次数排序的前 10 个页面
+
+### API 端点
+
+- `GET /anon/cms/admin/access-logs` - 获取访问日志列表
+- `GET /anon/cms/admin/access-logs/statistics` - 获取访问日志统计
+
+详细端点说明请参考 [API 端点 - 访问日志](/api/endpoints#访问日志接口)。  
 
 ### 路由注册与元数据
 

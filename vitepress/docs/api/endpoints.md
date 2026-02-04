@@ -229,6 +229,41 @@
 - `GET /anon/cms/comments?post_id={id}` - 获取某文章已通过评论；已登录时响应带 `currentUser`（displayName、name、avatar）
 - `POST /anon/cms/comments` - 提交评论；body：`post_id`、`content` 必填；未登录需 `name`、`email`；回复传 `parent_id`
 
+**验证码保护**：
+- 当 `app.captcha.enabled` 为 `true` 时，**游客评论**必须提供验证码
+- 验证码通过 `captcha` 字段提交
+- 验证码获取：`GET /anon/auth/captcha` 返回 Base64 图片
+- 登录用户提交评论**不需要**验证码
+- 验证码验证失败返回错误：`"验证码错误，请重新输入"`
+
+### 访问日志接口
+
+- `GET /anon/cms/admin/access-logs` - 获取访问日志列表，需管理员权限
+- `GET /anon/cms/admin/access-logs/statistics` - 获取访问日志统计，需管理员权限
+
+**访问日志列表请求参数（GET）：**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| page | int | 页码，默认 1 |
+| page_size | int | 每页条数，默认 20，最大 100 |
+| start_date | string | 开始日期（Y-m-d 或时间戳） |
+| end_date | string | 结束日期（Y-m-d 或时间戳） |
+| ip | string | IP 地址（模糊匹配） |
+| path | string | 路径（模糊匹配） |
+| type | string | 类型：page / api / static |
+| status_code | int | HTTP 状态码 |
+| user_agent | string | User-Agent（模糊匹配） |
+
+**列表项字段**：`id`、`url`、`path`、`method`、`type`、`ip`、`user_agent`、`referer`、`status_code`、`response_time`、`created_at`。
+
+**统计响应字段**：`total`（总访问量）、`unique_ips`（独立 IP 数）、`top_pages`（热门页面，前 10 个）。
+
+**注意**：
+- 访问日志开关（`access_log_enabled`）仅影响 `AccessLog` 模块，不影响其他日志系统
+- 访问日志不影响文章阅读量功能（`posts.views`）
+- 系统自动排除静态资源、API 和管理后台页面的访问记录
+
 ### 配置信息接口
 
 `GET /anon/cms/admin/config` 和 `GET /get-config` 返回相同的配置信息：

@@ -1,4 +1,4 @@
-﻿# 高级功能
+# 高级功能
 
 一句话：Widget组件系统、用户权限系统、钩子系统、验证码等高级功能。
 
@@ -248,6 +248,18 @@ Anon_System_Hook::clearStats('user_login'); // 清除指定钩子
 
 ## 验证码
 
+验证码功能用于防止恶意请求和机器人攻击，特别适用于评论、注册、登录等敏感操作。
+
+### 启用验证码
+
+在 `server/app/useApp.php` 中配置：
+
+```php
+'captcha' => [
+    'enabled' => true,  // 启用验证码
+],
+```
+
 ### 基本使用
 
 ```php
@@ -258,25 +270,63 @@ $result = Anon_Auth_Captcha::generate();
 // 验证用户输入的验证码
 $isValid = Anon_Auth_Captcha::verify($userInput);
 
-// 清除验证码
+// 清除验证码（验证成功后应调用，防止重复使用）
 Anon_Auth_Captcha::clear();
 ```
 
 ### 完整方法列表
 
 ```php
-// 生成验证码
-$result = Anon_Auth_Captcha::generate();
+// 生成验证码（可自定义尺寸和长度）
+$result = Anon_Auth_Captcha::generate(120, 40, 4); // 宽度、高度、长度
 // 返回: ['image' => 'data:image/svg+xml;base64,...', 'code' => '1234']
 
 // 验证验证码
 $isValid = Anon_Auth_Captcha::verify($code);
 // 返回: bool
 
+// 区分大小写验证（默认不区分）
+$isValid = Anon_Auth_Captcha::verify($code, true);
+
 // 清除验证码
 Anon_Auth_Captcha::clear();
 
 // 检查是否启用
 $enabled = Anon_Auth_Captcha::isEnabled();
+```
+
+### 在评论功能中使用
+
+评论系统已集成验证码保护，**仅对游客评论生效**：
+
+- 当 `app.captcha.enabled` 为 `true` 时，游客提交评论必须提供验证码
+- 登录用户提交评论不需要验证码
+- 验证码通过 `POST /anon/cms/comments` 的 `captcha` 字段提交
+- 验证成功后自动清除验证码，防止重复使用
+
+详细说明请参考 [评论功能 - 验证码保护](../cms/comments.md#验证码保护防刷机制)。
+
+### 验证码特性
+
+- **有效期**：验证码有效期为 5 分钟，过期后需要重新获取
+- **一次性使用**：验证码验证成功后应立即清除，防止重复使用
+- **Session 存储**：验证码存储在 Session 中，确保安全性
+- **SVG 格式**：验证码以 SVG 格式生成，支持任意缩放不失真
+- **干扰元素**：包含干扰线和干扰点，提高识别难度
+
+### API 端点
+
+- `GET /anon/auth/captcha` - 获取验证码图片（Base64 格式）
+
+**响应示例**：
+
+```json
+{
+    "success": true,
+    "data": {
+        "image": "data:image/svg+xml;base64,...",
+        "code": "1234"  // 仅调试模式返回
+    }
+}
 ```
 
