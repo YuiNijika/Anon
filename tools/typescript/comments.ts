@@ -4,7 +4,6 @@ interface VueApp {
 
 interface VueAppInstance {
     mount: (selector: string) => void;
-    unmount: () => void;
 }
 
 interface VueAppOptions {
@@ -17,10 +16,8 @@ interface VueAppOptions {
 
 interface CommentAppData {
     postId: number;
-    apiPrefix: string;
     comments: Comment[];
     isLoggedIn: boolean;
-    currentUser: any;
     message: string;
     messageType: 'info' | 'error';
     loading: boolean;
@@ -66,77 +63,29 @@ interface ApiResponse {
 
 declare const Vue: VueApp;
 
-interface AnonConfig {
-    apiPrefix: string;
-    token: boolean;
-    captcha: boolean;
-    [key: string]: any;
-}
-
-interface AnonGlobal {
-    config: AnonConfig;
-    isLoggedIn: boolean;
-    userInfo: {
-        id: string;
-        username: string;
-        email: string;
-        [key: string]: any;
-    } | any[];
-    pageInfo: {
-        id: number;
-        title: string;
-        slug: string;
-        type: string;
-        commentStatus: string;
-        commentCount: number;
-        [key: string]: any;
-    };
-    [key: string]: any;
-}
-
-declare global {
-    interface Window {
-        Anon?: AnonGlobal;
-    }
-}
-
 (function () {
-    let vueAppInstance: VueAppInstance | null = null;
-
     function runCommentsApp(): void {
         const el = document.getElementById('comments-app');
         if (!el || typeof Vue === 'undefined' || !Vue.createApp) {
             return;
         }
 
-        const anon = window.Anon || {};
-        const config = anon.config || {};
-        const pageInfo = anon.pageInfo || {};
-
-        const postId = pageInfo.id || 0;
+        const postIdStr = el.getAttribute('data-post-id') || '0';
+        const postId = parseInt(postIdStr, 10);
         if (!postId) {
             return;
         }
 
-        const apiPrefix = config.apiPrefix || '';
-        const isLoggedIn = !!anon.isLoggedIn;
-        const userInfo = anon.userInfo || {};
-
+        const isLoggedIn = el.getAttribute('data-comment-logged-in') === '1';
         const template = el.innerHTML;
         el.innerHTML = '';
 
-        if (vueAppInstance) {
-            vueAppInstance.unmount();
-        }
-
-        vueAppInstance = Vue.createApp({
+        Vue.createApp({
             data(): CommentAppData {
                 return {
                     postId: postId,
-                    apiPrefix: apiPrefix,
                     comments: [],
                     isLoggedIn: isLoggedIn,
-                    currentUser: userInfo,
                     message: '',
                     messageType: 'info',
                     loading: false,
@@ -229,12 +178,25 @@ declare global {
                         vm.captchaEnabled = false;
                         return;
                     }
-                    if (window.Anon && window.Anon.config && window.Anon.config.captcha) {
-                        vm.captchaEnabled = true;
-                        vm.loadCaptcha();
-                    } else {
-                        vm.captchaEnabled = false;
-                    }
+                    fetch('/get-config', {
+                        method: 'GET',
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                        credentials: 'same-origin',
+                    })
+                        .then((r) => r.json())
+                        .then((res: any) => {
+                            if (res && res.code === 200 && res.data && res.data.captcha) {
+                                vm.captchaEnabled = true;
+                                vm.loadCaptcha();
+                            } else {
+                                vm.captchaEnabled = false;
+                            }
+                        })
+                        .catch(() => {
+                            vm.captchaEnabled = false;
+                        });
                 },
                 loadCaptcha(): void {
                     const vm = this;
@@ -242,7 +204,7 @@ declare global {
                         return;
                     }
                     vm.captchaLoading = true;
-                    fetch(`${this.apiPrefix}/auth/captcha`, {
+                    fetch('/auth/captcha', {
                         method: 'GET',
                         headers: {
                             Accept: 'application/json',
@@ -301,7 +263,7 @@ declare global {
                         params.captcha = this.form.captcha.trim();
                     }
                     const body = new URLSearchParams(params);
-                    fetch(`/anon/cms/comments`, {
+                    fetch('/anon/cms/comments', {
                         method: 'POST',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
@@ -345,10 +307,7 @@ declare global {
                 },
             },
             template: template,
-        });
-        if (vueAppInstance) {
-            vueAppInstance.mount('#comments-app');
-        }
+        }).mount('#comments-app');
     }
 
     runCommentsApp();
@@ -359,7 +318,9 @@ declare global {
         document.addEventListener('pjax:complete', function () {
             const initFn = (window as any).__anonInitComments;
             if (typeof initFn === 'function') {
-                initFn();
+                setTimeout(function () {
+                    initFn();
+                }, 100);
             }
         });
     }

@@ -116,6 +116,25 @@ function initThemeToggle() {
   }
 }
 
+function updateAnonConfig(doc: Document) {
+  const scripts = doc.querySelectorAll('script');
+  for (let i = 0; i < scripts.length; i++) {
+    const script = scripts[i];
+    const content = script.textContent || '';
+    if (content.includes('window.Anon =')) {
+      const match = content.match(/window\.Anon\s*=\s*(\{[\s\S]*?\});/);
+      if (match && match[1]) {
+        try {
+          (window as any).Anon = JSON.parse(match[1]);
+        } catch (e) {
+          console.error('PJAX: Failed to parse window.Anon', e);
+        }
+      }
+      break;
+    }
+  }
+}
+
 function initPjax() {
   const main = document.querySelector('main');
   if (!main) return;
@@ -149,6 +168,10 @@ function initPjax() {
         const newMain = doc.querySelector('main');
         const newTitle = doc.querySelector('title');
         if (!newMain) throw new Error('no main');
+
+        // Update window.Anon config from new page
+        updateAnonConfig(doc);
+
         main.innerHTML = newMain.innerHTML;
         if (newTitle) document.title = newTitle.textContent;
         history.pushState({ pjax: true }, '', a.href);
@@ -174,6 +197,9 @@ function initPjax() {
         const newMain = doc.querySelector('main');
         const newTitle = doc.querySelector('title');
         if (newMain) {
+          // Update window.Anon config from new page
+          updateAnonConfig(doc);
+
           main.innerHTML = newMain.innerHTML;
           if (newTitle) document.title = newTitle.textContent;
           initPage();

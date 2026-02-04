@@ -2,14 +2,18 @@
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $post = $post ?? $this->post();
-if (!$post || $post->get('comment_status', 'open') !== 'open') {
+if (!$post || $post->type() !== 'post' || $post->get('comment_status', 'open') !== 'open') {
   return;
 }
+
+$postId = (int) $post->id();
+$commentLoggedIn = $this->isLoggedIn();
+$commentDisplayName = ($this->user() ? $this->user()->displayName() : null) ?: '登录用户';
 ?>
 <section class="card bg-base-100 shadow-md">
   <div class="card-body">
     <div class="mb-4">
-      <div id="comments-app">
+      <div id="comments-app" data-post-id="<?php echo $postId; ?>" data-comment-logged-in="<?php echo $commentLoggedIn ? '1' : '0'; ?>" data-comment-display-name="<?php echo $this->escape($commentDisplayName); ?>">
         <div class="comments-root">
           <h2 class="text-xl font-bold mb-4">评论 {{ comments.length }}</h2>
 
@@ -61,11 +65,9 @@ if (!$post || $post->get('comment_status', 'open') !== 'open') {
               回复 <span class="text-primary font-medium">@{{ replyingTo.name }}</span>
               <button type="button" class="btn btn-ghost btn-xs ml-1" @click="cancelReply">取消</button>
             </p>
-
-            <template v-if="isLoggedIn">
-              <p v-if="!replyingTo" class="text-sm text-base-content/70 mb-1">以 <strong>{{ currentUser.name || '登录用户' }}</strong> 身份评论</p>
-            </template>
-            <template v-else>
+            <?php if ($commentLoggedIn): ?>
+              <p v-if="!replyingTo" class="text-sm text-base-content/70 mb-1">以 <strong><?php echo $this->escape($commentDisplayName); ?></strong> 身份评论</p>
+            <?php else: ?>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-control">
                   <label for="comment-name" class="label"><span class="label-text">名称</span><span class="label-text-alt text-error">*</span></label>
@@ -80,7 +82,7 @@ if (!$post || $post->get('comment_status', 'open') !== 'open') {
                 <label for="comment-url" class="label"><span class="label-text">网址</span><span class="label-text-alt text-base-content/50">选填</span></label>
                 <input id="comment-url" type="url" v-model="form.url" class="input input-bordered w-full input-sm md:input-md" maxlength="500" placeholder="https://" autocomplete="url">
               </div>
-            </template>
+            <?php endif; ?>
             <div class="form-control">
               <label for="comment-content" class="label"><span class="label-text">评论内容</span><span class="label-text-alt text-error">*</span></label>
               <textarea id="comment-content" v-model="form.content" class="comment-textarea textarea textarea-bordered w-full" rows="4" required placeholder="写下您的评论…" aria-describedby="comment-content-hint"></textarea>
