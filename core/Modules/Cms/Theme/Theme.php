@@ -127,101 +127,7 @@ class Anon_Cms_Theme
             $codeFile = self::$themeDir . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'code.php';
             if (Anon_Cms::fileExists($codeFile)) {
                 $themeName = self::getCurrentTheme();
-                $codeContext = new class($themeName) {
-                    private $themeName;
-                    private $optionsProxy;
-
-                    public function __construct(string $themeName)
-                    {
-                        $this->themeName = $themeName;
-                    }
-
-                    public function options(?string $name = null, $default = null, $outputOrPriority = false, ?string $priority = null)
-                    {
-                        if ($this->optionsProxy === null) {
-                            $this->optionsProxy = new Anon_Cms_Options_Proxy('theme', null, $this->themeName);
-                        }
-                        if ($name === null) {
-                            return $this->optionsProxy;
-                        }
-                        try {
-                            $result = $this->optionsProxy->get($name, $default, $outputOrPriority, $priority);
-
-                            if (Anon_Debug::isEnabled()) {
-                                Anon_Debug::debug('[Theme Code Context] options() 调用结果', [
-                                    'theme' => $this->themeName,
-                                    'option_name' => $name,
-                                    'default' => $default,
-                                    'outputOrPriority' => $outputOrPriority,
-                                    'priority' => $priority,
-                                    'result' => $result,
-                                    'result_type' => gettype($result),
-                                    'result_is_null' => is_null($result),
-                                    'result_is_empty' => empty($result),
-                                    'result_is_object' => is_object($result),
-                                    'result_class' => is_object($result) ? get_class($result) : null
-                                ]);
-                            }
-
-                            if (is_object($result)) {
-                                if ($result instanceof Anon_Cms_Options_Proxy) {
-                                    if (Anon_Debug::isEnabled()) {
-                                        Anon_Debug::error('[Theme Code Context] options() 返回了代理对象', [
-                                            'theme' => $this->themeName,
-                                            'option_name' => $name,
-                                            'default' => $default,
-                                            'outputOrPriority' => $outputOrPriority,
-                                            'priority' => $priority,
-                                            'result_type' => get_class($result),
-                                            'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
-                                        ]);
-                                    }
-                                    return $default;
-                                }
-                                if (method_exists($result, '__toString')) {
-                                    $stringValue = (string) $result;
-                                    if (Anon_Debug::isEnabled()) {
-                                        Anon_Debug::warn('[Theme Code Context] options() 返回了对象，已转换为字符串', [
-                                            'theme' => $this->themeName,
-                                            'option_name' => $name,
-                                            'result_type' => get_class($result),
-                                            'converted_value' => $stringValue
-                                        ]);
-                                    }
-                                    return $stringValue;
-                                }
-                                if (Anon_Debug::isEnabled()) {
-                                    Anon_Debug::error('[Theme Code Context] options() 返回了无法转换的对象', [
-                                        'theme' => $this->themeName,
-                                        'option_name' => $name,
-                                        'default' => $default,
-                                        'result_type' => get_class($result),
-                                        'result_methods' => get_class_methods($result),
-                                        'backtrace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3)
-                                    ]);
-                                }
-                                return $default;
-                            }
-                            return $result;
-                        } catch (Throwable $e) {
-                            if (Anon_Debug::isEnabled()) {
-                                Anon_Debug::error('[Theme Code Context] options() 发生异常', [
-                                    'theme' => $this->themeName,
-                                    'option_name' => $name,
-                                    'default' => $default,
-                                    'outputOrPriority' => $outputOrPriority,
-                                    'priority' => $priority,
-                                    'exception_type' => get_class($e),
-                                    'exception_message' => $e->getMessage(),
-                                    'exception_file' => $e->getFile(),
-                                    'exception_line' => $e->getLine(),
-                                    'exception_trace' => $e->getTraceAsString()
-                                ]);
-                            }
-                            return $default;
-                        }
-                    }
-                };
+                $codeContext = new Anon_Cms_Theme_Helper($themeName);
 
                 $code = file_get_contents($codeFile);
                 if ($code !== false) {
@@ -644,6 +550,15 @@ class Anon_Cms_Theme
         }
 
         return $urlWithCache;
+    }
+
+    /**
+     * 获取站点根 URL
+     * @return string
+     */
+    public static function getSiteBaseUrl(): string
+    {
+        return Anon_Cms_Theme_View::getSiteBaseUrl();
     }
 
     /**

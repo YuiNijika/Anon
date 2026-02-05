@@ -19,6 +19,22 @@ return [
             'min' => 1,
             'max' => 50,
         ],
+        'logo_url' => [
+            'type' => 'upload',
+            'label' => 'Logo 图片',
+            'description' => '输入 URL 或点击选择本地上传',
+            'default' => '',
+            'uploadAccept' => 'image/*',
+            'uploadMultiple' => false,
+        ],
+        'favicon_url' => [
+            'type' => 'upload',
+            'label' => 'Favicon 浏览器图标',
+            'description' => '输入 URL 或点击选择本地上传',
+            'default' => '',
+            'uploadAccept' => 'image/*',
+            'uploadMultiple' => false,
+        ],
         'navbar_links' => [
             'type' => 'text_list',
             'label' => '顶部导航',
@@ -49,6 +65,23 @@ return [
         ],
     ],
     '关于主题' => [
-
+        'about_theme' => [
+            'type' => 'description_list',
+            'label' => '',
+            'descItems' => [
+                [
+                    'label' => '版本', 
+                    'value' => 'v' . $this->info('version') . ' | PHP v' . $this->server('php')
+                ],
+                [
+                    'label' => '框架', 
+                    'value' => $this->framework('name') . ' v ' . $this->framework('version')
+                ],
+                [
+                    'label' => '系统', 
+                    'value' => $this->server('os') . ' | ' . $this->server('os_version')
+                ],
+            ],
+        ],
     ],
 ];

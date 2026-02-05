@@ -69,6 +69,53 @@ LICENSE;
     }
 
     /**
+     * 获取服务器信息
+     * @param string $key 信息键名
+     * @return string|int|bool
+     */
+    public static function server(string $key)
+    {
+        switch ($key) {
+            case 'software':
+            case 'name':
+                return $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown';
+            case 'version':
+                // 尝试从 SERVER_SOFTWARE 提取版本，如 Apache/2.4.41 -> 2.4.41
+                $software = $_SERVER['SERVER_SOFTWARE'] ?? '';
+                if (preg_match('#/([0-9.]+)#', $software, $matches)) {
+                    return $matches[1];
+                }
+                return 'Unknown';
+            case 'php':
+            case 'php_version':
+                return PHP_VERSION;
+            case 'os':
+                return PHP_OS;
+            case 'os_version':
+            case 'os_info':
+                return php_uname();
+            case 'domain':
+            case 'host':
+                return $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+            case 'port':
+                return (int)($_SERVER['SERVER_PORT'] ?? 80);
+            case 'protocol':
+                return $_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1';
+            case 'ip':
+                return $_SERVER['SERVER_ADDR'] ?? gethostbyname($_SERVER['SERVER_NAME'] ?? 'localhost');
+            case 'url':
+                $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+                $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+                return $protocol . '://' . $host;
+            case 'is_https':
+            case 'ssl':
+                return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+            default:
+                return '';
+        }
+    }
+
+    /**
      * 从 Anon_Env 读取配置并定义常量
      * 如果 Anon_Env 已初始化，使用其配置；否则使用默认值
      */
