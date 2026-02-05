@@ -259,6 +259,16 @@ class Anon_Cms_Theme_Helper
     }
 
     /**
+     * 输出 SEO meta 标签
+     * @param array $meta
+     * @return void
+     */
+    public function meta(array $meta = []): void
+    {
+        Anon_Cms_Theme::meta($meta);
+    }
+
+    /**
      * 输出头部 Meta
      * @param array $overrides 覆盖
      * @return void
