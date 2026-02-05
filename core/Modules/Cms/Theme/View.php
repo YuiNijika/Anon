@@ -761,4 +761,24 @@ class Anon_Cms_Theme_View
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
         return $scheme . '://' . $host;
     }
+
+    /**
+     * 调用 ThemeHelper 的方法
+     * @param string $name
+     * @param array $arguments
+     * @return mixed
+     */
+    public function __call(string $name, array $arguments)
+    {
+        $themeHelper = $this->theme();
+        if (method_exists($themeHelper, $name)) {
+            return $themeHelper->$name(...$arguments);
+        }
+
+        // 兼容旧版或错误调用
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            Anon_Debug::warn("Call to undefined method " . __CLASS__ . "::$name()");
+        }
+        return null;
+    }
 }
