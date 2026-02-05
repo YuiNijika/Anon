@@ -15,6 +15,7 @@ import ManageFiles from '@/pages/Manage/Files'
 import ManagePosts from '@/pages/Manage/Posts'
 import ManageUsers from '@/pages/Manage/Users'
 import ManageComments from '@/pages/Manage/Comments'
+import ErrorPage from '@/pages/Error'
 
 export const routes = [
   {
@@ -84,6 +85,14 @@ export const routes = [
       {
         path: 'settings/permission',
         element: <SettingsPermission />,
+      },
+      {
+        path: 'error',
+        element: <ErrorPage />,
+      },
+      {
+        path: '*',
+        element: <ErrorPage />,
       },
     ],
   },

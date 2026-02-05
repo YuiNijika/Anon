@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
@@ -169,7 +177,7 @@ export default function Layout() {
           setHeaderItems(res.data.header)
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         navbarFetchingRef.current = false
       })
@@ -183,8 +191,15 @@ export default function Layout() {
       navigate('/login', { replace: true })
       return
     }
+
+    // 检查用户组权限
+    if (!location.pathname.startsWith('/error') && auth.user && auth.user.group !== 'admin' && auth.user.group !== 'editor') {
+      navigate('/error', { replace: true })
+      return
+    }
+
     setMounted(true)
-  }, [auth, navigate])
+  }, [auth, navigate, location])
 
   const handleLogout = async () => {
     try {
@@ -287,6 +302,31 @@ export default function Layout() {
             <Button variant="ghost" size="icon" onClick={toggleTheme} title={isDark ? '切换到浅色' : '切换到深色'}>
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={auth.user?.avatar} alt={auth.user?.name} />
+                    <AvatarFallback>{(auth.user?.display_name || auth.user?.name || 'U').slice(0, 1)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{auth.user?.display_name || auth.user?.name || '用户'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {auth.user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>退出登录</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="mx-1 h-4 w-px shrink-0 bg-border" />
             <Button variant="ghost" size="sm" asChild title="前往 GitHub">
               <a href="https://github.com/YuiNijika/Anon" target="_blank" rel="noreferrer" className="flex items-center gap-2">
