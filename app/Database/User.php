@@ -224,7 +224,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 'name' => $name,
                 'email' => $email,
                 'password' => $password,
-                '`group`' => $group,
+                'group' => $group,
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
