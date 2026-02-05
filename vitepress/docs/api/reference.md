@@ -380,11 +380,7 @@ echo $query->toRawSql();
 Anon_System_Hook::add_action('user_login', function($user) {
     // 用户登录后执行
 }, 10, 1);
-// 参数：钩子名，回调函数，优先级数字越小越先执行默认10，接受参数数量
-
-// 执行动作钩子
-Anon_System_Hook::do_action('user_login', $user);
-Anon_System_Hook::do_action('user_login', $user, $timestamp); // 多个参数
+// 参数：钩子名，回调函数，优先级（默认10），接受参数数量（默认1）
 
 // 添加过滤器钩子
 Anon_System_Hook::add_filter('response_data', function($data) {
@@ -392,9 +388,11 @@ Anon_System_Hook::add_filter('response_data', function($data) {
     return $data;
 }, 10, 1);
 
+// 执行动作钩子
+Anon_System_Hook::do_action('user_login', $user);
+
 // 应用过滤器
 $filtered = Anon_System_Hook::apply_filters('response_data', $data);
-$filtered = Anon_System_Hook::apply_filters('response_data', $data, $arg1, $arg2);
 
 // 移除指定钩子
 Anon_System_Hook::removeHook('user_login', $callback, 10);
@@ -402,7 +400,7 @@ Anon_System_Hook::removeHook('user_login', $callback, 10);
 // 移除所有钩子
 Anon_System_Hook::removeAllHooks(); // 移除所有
 Anon_System_Hook::removeAllHooks('user_login'); // 移除指定钩子的所有回调
-Anon_System_Hook::removeAllHooks('user_login', 10); // 移除指定优先级
+Anon_System_Hook::removeAllHooks('user_login', 10); // 移除指定钩子下特定优先级的回调
 
 // 检查钩子是否存在
 $exists = Anon_System_Hook::hasHook('user_login');
@@ -419,8 +417,7 @@ $stats = Anon_System_Hook::getHookStats('user_login'); // 指定钩子统计
 $allHooks = Anon_System_Hook::getAllHooks();
 
 // 清除统计信息
-Anon_System_Hook::clearStats(); // 清除所有
-Anon_System_Hook::clearStats('user_login'); // 清除指定钩子
+Anon_System_Hook::clearStats();
 ```
 
 ---
@@ -503,11 +500,13 @@ $allCaps = $capability->all();
 
 ```php
 // 初始化缓存
-Anon_System_Cache::init('file'); // 'file' 或 'memory'
+Anon_System_Cache::init('file'); // 支持 'file' 或 'memory' 驱动
+// file: 文件存储，持久化
+// memory: 内存存储，仅当前请求有效
 
 // 设置缓存
 Anon_System_Cache::set('key', $value, 3600); // 1小时过期
-Anon_System_Cache::set('key', $value, null); // 永不过期
+Anon_System_Cache::set('key', $value, null); // 永不过期（取决于驱动实现）
 
 // 获取缓存
 $value = Anon_System_Cache::get('key', 'default');
@@ -521,8 +520,10 @@ Anon_System_Cache::delete('key');
 // 清空所有缓存
 Anon_System_Cache::clear();
 
-// 记住缓存（如果不存在则执行闭包并缓存结果）
+// 记住缓存（推荐用法）
+// 如果缓存存在则返回，否则执行闭包并缓存结果
 $value = Anon_System_Cache::remember('key', function() {
+    // 执行耗时操作，如数据库查询
     return expensiveOperation();
 }, 3600);
 ```
@@ -914,9 +915,22 @@ $installed = Anon_System_Config::isInstalled();
 ### Anon_System_Env
 
 ```php
+// 初始化（通常由框架自动调用）
+// Anon_System_Env::init($config);
+
 // 获取配置值
 $value = Anon_System_Env::get('app.token.enabled', false);
 $value = Anon_System_Env::get('system.db.host', 'localhost');
+// 支持点号分隔的键名，自动处理多级数组
+
+// 获取所有配置
+$allConfig = Anon_System_Env::all();
+
+// 检查是否已初始化
+$isInit = Anon_System_Env::isInitialized();
+
+// 清除配置缓存
+Anon_System_Env::clearCache();
 ```
 
 ---
@@ -996,16 +1010,26 @@ $tables = Anon_Database_Sharding::getAllShardTables('users');
 ```php
 // 设置HTTP响应头
 Anon_Common::Header(200, true, true);
+// 参数：HTTP状态码，是否设置JSON响应头，是否设置CORS头
 
-// 要求登录
+// 要求登录，未登录返回401
 Anon_Common::RequireLogin();
+// 可选参数：自定义错误消息
 
 // 获取系统信息
 $info = Anon_Common::SystemInfo();
+// 返回：['system' => [...], 'copyright' => [...]]
 
-// 获取客户端IP
+// 获取服务器/环境信息
+$serverName = Anon_Common::server('name');
+$phpVersion = Anon_Common::server('php');
+$clientIp   = Anon_Common::server('ip');
+// 支持：name, version, os, php, ip, port, domain, protocol, url, is_https
+
+// 获取客户端真实IP
 $ip = Anon_Common::GetClientIp();
+// 返回：string|null
 
 // 获取许可证文本
-$license = Anon_Common::LICENSE_TEXT;
+$license = Anon_Common::LICENSE_TEXT();
 ```

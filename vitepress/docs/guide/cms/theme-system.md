@@ -891,6 +891,95 @@ Anon_Cms_Options::set('site_url', 'https://example.com');
 $this->siteUrl()  // 返回: https://example.com
 ```
 
+### themeUrl() 方法
+
+获取主题资源的 URL，自动处理资源路径：
+
+```php
+$this->themeUrl(string $path = ''): string
+// 别名方法
+$this->url(string $path = ''): string
+```
+
+**参数：**
+
+- `$path`: 资源文件相对于主题目录的路径，如 `style.css`、`js/main.js`
+
+**返回值：**
+
+- 返回完整的资源 URL 字符串
+
+**功能特点：**
+
+1. **自动定位**：自动定位到当前主题目录
+2. **资源映射**：支持自动映射 `assets` 目录下的文件（如 `css` -> `assets/css`）
+3. **缓存控制**：自动添加版本号或开发模式下的 `nocache` 参数
+
+**使用示例：**
+
+```php
+<!-- 引用主题下的 CSS 文件 -->
+<link rel="stylesheet" href="<?php echo $this->themeUrl('style.css'); ?>">
+
+<!-- 引用图片 -->
+<img src="<?php echo $this->url('images/logo.png'); ?>" alt="Logo">
+```
+
+### server() 方法
+
+获取服务器环境信息：
+
+```php
+$this->server(string $type): string
+```
+
+**参数：**
+
+- `$type`: 信息类型
+  - `name`: 服务器软件名称 (e.g. Apache/Nginx)
+  - `version`: 服务器版本
+  - `os`: 操作系统
+  - `php`: PHP 版本
+  - `ip`: 服务器 IP
+  - `port`: 端口
+  - `domain`: 域名
+  - `protocol`: 协议
+  - `url`: 当前完整 URL
+  - `isHttps`: 是否 HTTPS (返回 "true"/"false")
+
+**使用示例：**
+
+```php
+<footer>
+  <p>Server: <?php echo $this->server('name'); ?> / PHP: <?php echo $this->server('php'); ?></p>
+</footer>
+```
+
+### framework() 方法
+
+获取框架信息：
+
+```php
+$this->framework(string $type): string
+```
+
+**参数：**
+
+- `$type`: 信息类型
+  - `name`: 框架名称
+  - `version`: 版本号
+  - `author`: 作者
+  - `github`: GitHub 地址
+  - `license`: 许可协议
+
+**使用示例：**
+
+```php
+<div class="copyright">
+  Powered by <a href="<?php echo $this->framework('github'); ?>"><?php echo $this->framework('name'); ?></a>
+</div>
+```
+
 ### posts() 方法 - 分页支持
 
 `posts()` 方法支持分页功能，可以自动处理文章列表的分页：
@@ -1095,12 +1184,12 @@ Anon_Cms_Theme::render('post', [
 ]);
 ```
 
-### Anon_Cms::getPageType()
+### getPageType() 方法
 
 获取页面类型：
 
 ```php
-Anon_Cms::getPageType(string $templateName): string
+$this->getPageType(string $templateName): string
 ```
 
 **参数：**
@@ -1118,17 +1207,17 @@ Anon_Cms::getPageType(string $templateName): string
 **示例：**
 
 ```php
-$pageType = Anon_Cms::getPageType('post'); // 返回 'post'
-$pageType = Anon_Cms::getPageType('pages/Test'); // 返回 'other'
-$pageType = Anon_Cms::getPageType('error'); // 返回 'error'
+$pageType = $this->getPageType('post'); // 返回 'post'
+$pageType = $this->getPageType('pages/Test'); // 返回 'other'
+$pageType = $this->getPageType('error'); // 返回 'error'
 ```
 
-### Anon_Cms_Theme::partial()
+### partial() 方法
 
 包含模板片段：
 
 ```php
-Anon_Cms_Theme::partial(string $partialName, array $data = []): void
+$this->partial(string $partialName, array $data = []): void
 ```
 
 **参数：**
@@ -1156,12 +1245,12 @@ Anon_Cms_Theme::partial(string $partialName, array $data = []): void
 </header>
 ```
 
-### Anon_Cms_Theme::assets()
+### assets() 方法
 
 获取主题资源 URL 或自动输出 HTML 标签：
 
 ```php
-Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = []): string
+$this->assets(string $path, ?string $type = null, array $attributes = []): string
 ```
 
 **参数：**
@@ -1217,12 +1306,12 @@ Anon_Cms_Theme::assets(string $path, ?string $type = null, array $attributes = [
 
 **注意：** 静态资源会自动注册路由，无需手动配置。系统会在启动时扫描 `assets/` 目录下的所有文件并自动注册。
 
-### Anon_Cms_Theme::components()
+### components() 方法
 
 导入组件，类似 Vue 的组件导入机制：
 
 ```php
-Anon_Cms_Theme::components(string $componentPath, array $data = []): void
+$this->components(string $componentPath, array $data = []): void
 ```
 
 **参数：**
@@ -1249,20 +1338,20 @@ Anon_Cms_Theme::components(string $componentPath, array $data = []): void
 <?php $this->components('App/Footer', ['copyright' => '2024']); ?>
 ```
 
-### Anon_Cms_Theme::getCurrentTheme()
+### getCurrentTheme() 方法
 
 获取当前主题名称：
 
 ```php
-$themeName = Anon_Cms_Theme::getCurrentTheme(); // 返回 'default'
+$themeName = $this->theme()->name(); // 返回 'default'
 ```
 
-### Anon_Cms_Theme::info()
+### info() 方法
 
 获取主题信息，从主题目录的 `package.json` 文件中读取：
 
 ```php
-Anon_Cms_Theme::info(?string $key = null): mixed
+$this->theme()->info(?string $key = null): mixed
 ```
 
 **参数：**
@@ -1278,13 +1367,13 @@ Anon_Cms_Theme::info(?string $key = null): mixed
 
 ```php
 // 获取所有主题信息
-$themeInfo = Anon_Cms_Theme::info();
+$themeInfo = $this->theme()->info();
 // 返回: ['name' => 'Default', 'description' => '默认主题', 'author' => 'YuiNijika', ...]
 
 // 获取特定信息
-$themeName = Anon_Cms_Theme::info('name'); // 返回 'Default'
-$author = Anon_Cms_Theme::info('author'); // 返回 'YuiNijika'
-$version = Anon_Cms_Theme::info('version'); // 返回 '1.0.0'
+$themeName = $this->theme()->info('name'); // 返回 'Default'
+$author = $this->theme()->info('author'); // 返回 'YuiNijika'
+$version = $this->theme()->info('version'); // 返回 '1.0.0'
 ```
 
 **package.json 文件格式：**
@@ -1305,14 +1394,193 @@ $version = Anon_Cms_Theme::info('version'); // 返回 '1.0.0'
 }
 ```
 
+### isActive() 方法
+
+检查当前主题是否为激活状态：
+
+```php
+$this->theme()->isActive(): bool
+```
+
+### dir() 方法
+
+获取当前主题的绝对路径：
+
+```php
+$this->theme()->dir(): string
+```
+
+## 用户与权限 API
+
+### user() 方法
+
+获取当前登录用户对象：
+
+```php
+$this->user(): ?Anon_Cms_User
+```
+
+**返回值：**
+
+- 已登录返回 `Anon_Cms_User` 对象
+- 未登录返回 `null`
+
+**Anon_Cms_User 对象方法：**
+
+- `uid(): int` - 用户 ID
+- `name(): string` - 用户名
+- `email(): string` - 邮箱
+- `displayName(): string` - 显示名称（昵称或用户名）
+- `avatar(): string` - 头像 URL
+- `url(): string` - 用户主页链接
+- `group(): string` - 用户组
+- `get(string $key, $default = null)` - 获取自定义字段
+
+**示例：**
+
+```php
+<?php $user = $this->user(); ?>
+<?php if ($user): ?>
+    <div class="user-panel">
+        <img src="<?php echo $user->avatar(); ?>" alt="<?php echo $user->displayName(); ?>">
+        <span>你好，<?php echo $user->displayName(); ?></span>
+    </div>
+<?php else: ?>
+    <a href="/login">登录</a>
+<?php endif; ?>
+```
+
+### profileUser() 方法
+
+在用户主页（如 `/author/1` 或 `/user/admin`）获取当前被访问的用户对象：
+
+```php
+$this->profileUser(): ?Anon_Cms_User
+```
+
+**返回值：**
+
+- 成功解析用户返回 `Anon_Cms_User` 对象
+- 否则返回 `null`
+
+### isLoggedIn() 方法
+
+检查当前用户是否已登录：
+
+```php
+$this->isLoggedIn(): bool
+```
+
+## 数据与逻辑 API
+
+### is() 方法
+
+判断当前页面类型：
+
+```php
+$this->is(string $type): bool
+```
+
+**参数：**
+
+- `$type`: 页面类型，如 `index`, `post`, `page`, `category`, `tag`, `archive`, `search`, `404`
+
+**示例：**
+
+```php
+<?php if ($this->is('post')): ?>
+    <h1>这是文章页</h1>
+<?php endif; ?>
+```
+
+### archiveTitle() 方法
+
+获取当前归档标题（文章/页面标题或站点标题）：
+
+```php
+$this->archiveTitle(): string
+```
+
+### keywords() 方法
+
+获取或输出站点关键词：
+
+```php
+$this->keywords(string $separator = ',', string $default = '', bool $output = true): string
+```
+
+### description() 方法
+
+获取或输出站点描述：
+
+```php
+$this->description(string $default = '', bool $output = true): string
+```
+
+### getPostComments() 方法
+
+获取文章的评论列表：
+
+```php
+$this->getPostComments(int $postId): array
+```
+
+**参数：**
+
+- `$postId`: 文章 ID
+
+**返回值：**
+
+- 评论数组，每项包含评论详细信息
+
+### getPostIfExists() 方法
+
+尝试获取文章数据，如果不存在返回 null：
+
+```php
+$this->getPostIfExists(?int $id = null): ?array
+```
+
+### getPageIfExists() 方法
+
+尝试获取页面数据，如果不存在返回 null：
+
+```php
+$this->getPageIfExists(?string $slug = null): ?array
+```
+
+### getPageLoadTime() 方法
+
+获取页面加载时间（秒）：
+
+```php
+$this->getPageLoadTime(): float
+```
+
+### getCommentDisplayName() 方法
+
+获取当前用户的评论显示名称：
+
+```php
+$this->getCommentDisplayName(): string
+```
+
+### getTemplateExtensions() 方法
+
+获取支持的模板文件扩展名：
+
+```php
+$this->getTemplateExtensions(): array
+```
+
 ## HTML 辅助方法
 
-### Anon_Cms_Theme::headMeta()
+### headMeta() 方法
 
 输出页面 head 部分的 meta 标签，包括 title 和 SEO 信息：
 
 ```php
-Anon_Cms_Theme::headMeta(array $overrides = []): void
+$this->headMeta(array $overrides = []): void
 ```
 
 **参数：**
@@ -1355,12 +1623,12 @@ const Anon_PageMeta = [
 ]); ?>
 ```
 
-### Anon_Cms_Theme::footMeta()
+### footMeta() 方法
 
 输出页面底部 meta 信息，触发 `theme_foot` 钩子：
 
 ```php
-Anon_Cms_Theme::footMeta(): void
+$this->footMeta(): void
 ```
 
 **功能：**
@@ -1384,12 +1652,12 @@ Anon_System_Hook::add_action('theme_foot', function () {
 });
 ```
 
-### Anon_Cms_Theme::title()
+### title() 方法
 
 输出页面标题标签：
 
 ```php
-Anon_Cms_Theme::title(?string $title = null, string $separator = ' - ', bool $reverse = false): void
+$this->title(?string $title = null, string $separator = ' - ', bool $reverse = false): void
 ```
 
 **参数：**
@@ -1401,19 +1669,19 @@ Anon_Cms_Theme::title(?string $title = null, string $separator = ' - ', bool $re
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::title('文章标题'); ?>
+<?php $this->title('文章标题'); ?>
 <!-- 输出: <title>文章标题 - 站点名称</title> -->
 
-<?php Anon_Cms_Theme::title('文章标题', ' | ', true); ?>
+<?php $this->title('文章标题', ' | ', true); ?>
 <!-- 输出: <title>站点名称 | 文章标题</title> -->
 ```
 
-### Anon_Cms_Theme::meta()
+### meta() 方法
 
 输出 SEO meta 标签：
 
 ```php
-Anon_Cms_Theme::meta(array $meta = []): void
+$this->meta(array $meta = []): void
 ```
 
 **支持的键：**
@@ -1429,7 +1697,7 @@ Anon_Cms_Theme::meta(array $meta = []): void
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::meta([
+<?php $this->meta([
     'description' => '这是页面描述',
     'keywords' => ['关键词1', '关键词2'],
     'canonical' => '/post/123',
@@ -1440,12 +1708,12 @@ Anon_Cms_Theme::meta(array $meta = []): void
 ]); ?>
 ```
 
-### Anon_Cms_Theme::stylesheet()
+### stylesheet() 方法
 
 输出样式表链接：
 
 ```php
-Anon_Cms_Theme::stylesheet(string|array $styles, array $attributes = []): void
+$this->stylesheet(string|array $styles, array $attributes = []): void
 ```
 
 **参数：**
@@ -1456,22 +1724,22 @@ Anon_Cms_Theme::stylesheet(string|array $styles, array $attributes = []): void
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::stylesheet('style.css'); ?>
+<?php $this->stylesheet('style.css'); ?>
 <!-- 输出: <link rel="stylesheet" href="/assets/css/style"> -->
 
-<?php Anon_Cms_Theme::stylesheet(['style.css', 'custom.css']); ?>
+<?php $this->stylesheet(['style.css', 'custom.css']); ?>
 <!-- 输出多个样式表链接 -->
 
-<?php Anon_Cms_Theme::stylesheet('style.css', ['media' => 'print']); ?>
+<?php $this->stylesheet('style.css', ['media' => 'print']); ?>
 <!-- 输出带额外属性的样式表链接 -->
 ```
 
-### Anon_Cms_Theme::script()
+### script() 方法
 
 输出脚本标签：
 
 ```php
-Anon_Cms_Theme::script(string|array $scripts, array $attributes = []): void
+$this->script(string|array $scripts, array $attributes = []): void
 ```
 
 **参数：**
@@ -1482,57 +1750,57 @@ Anon_Cms_Theme::script(string|array $scripts, array $attributes = []): void
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::script('main.js'); ?>
+<?php $this->script('main.js'); ?>
 <!-- 输出: <script src="/assets/js/main"></script> -->
 
-<?php Anon_Cms_Theme::script(['main.js', 'custom.js']); ?>
+<?php $this->script(['main.js', 'custom.js']); ?>
 <!-- 输出多个脚本标签 -->
 
-<?php Anon_Cms_Theme::script('main.js', ['defer' => 'defer']); ?>
+<?php $this->script('main.js', ['defer' => 'defer']); ?>
 <!-- 输出带额外属性的脚本标签 -->
 ```
 
-### Anon_Cms_Theme::favicon()
+### favicon() 方法
 
 输出 favicon 链接：
 
 ```php
-Anon_Cms_Theme::favicon(string $path = 'favicon.ico'): void
+$this->favicon(string $path = 'favicon.ico'): void
 ```
 
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::favicon('favicon.ico'); ?>
+<?php $this->favicon('favicon.ico'); ?>
 <!-- 输出: <link rel="icon" href="/assets/images/favicon"> -->
 ```
 
-### Anon_Cms_Theme::escape()
+### escape() 方法
 
 转义 HTML 输出，防止 XSS 攻击：
 
 ```php
-Anon_Cms_Theme::escape(string $text, int $flags = ENT_QUOTES): string
+$this->escape(string $text, int $flags = ENT_QUOTES): string
 ```
 
 **示例：**
 
 ```php
-<h1><?php echo Anon_Cms_Theme::escape($title ?? ''); ?></h1>
+<h1><?php echo $this->escape($title ?? ''); ?></h1>
 ```
 
-### Anon_Cms_Theme::jsonLd()
+### jsonLd() 方法
 
 输出 JSON-LD 结构化数据：
 
 ```php
-Anon_Cms_Theme::jsonLd(array $data): void
+$this->jsonLd(array $data): void
 ```
 
 **示例：**
 
 ```php
-<?php Anon_Cms_Theme::jsonLd([
+<?php $this->jsonLd([
     '@context' => 'https://schema.org',
     '@type' => 'Article',
     'headline' => '文章标题',
