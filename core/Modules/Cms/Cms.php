@@ -398,6 +398,25 @@ class Anon_Cms
             return null;
         }
 
+        // 增加页面阅读量
+        if (!isset(self::$viewedPosts[$page['id']])) {
+            $currentViews = (int)($page['views'] ?? 0);
+            $page['views'] = $currentViews + 1;
+            self::$viewedPosts[$page['id']] = true;
+
+            register_shutdown_function(function () use ($page, $currentViews) {
+                try {
+                    $db = Anon_Database::getInstance();
+                    $db->db('posts')
+                        ->where('id', $page['id'])
+                        ->where('type', 'page')
+                        ->update(['views' => $currentViews + 1]);
+                } catch (Exception $e) {
+                    Anon_Debug::error("异步增加页面浏览量失败", ['message' => $e->getMessage()]);
+                }
+            });
+        }
+
         self::$pageCache[$cacheKey] = $page;
 
         return $page;
@@ -582,7 +601,7 @@ class Anon_Cms
                 }
             }
         }
-        
+
         // Re-implement with references for robust tree building
         $refs = [];
         foreach ($rows as &$r) {
@@ -602,7 +621,7 @@ class Anon_Cms
             }
         }
         unset($r);
-        
+
         return $tree;
     }
 

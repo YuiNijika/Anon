@@ -174,14 +174,14 @@ class Anon_Cms_Statistics
     }
 
     /**
-     * 获取文章浏览量总和
+     * 获取文章和页面浏览量总和
      * @return int
      */
     public static function getTotalViews(): int
     {
         return self::safeQuery(function () {
             return Anon_Database_QueryBuilder::table('posts')
-                ->where('type', 'post')
+                ->whereIn('type', ['post', 'page'])
                 ->where('status', 'publish')
                 ->sum('views');
         });
