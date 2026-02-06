@@ -6,20 +6,19 @@
 
 ## 游标分页
 
-替代传统的 LIMIT OFFSET 分页，解决百万数据偏移量过大导致的性能问题。
+替代传统的LIMIT OFFSET分页，解决百万数据偏移量过大导致的性能问题。
 
 ### 主键游标分页
 
 ```php
 $db = Anon_Database::getInstance();
 
-// 第一页
+// 获取第一页数据
 $result = $db->db('users')
-    ->cursorPaginate(20); // 每页 20 条
+    ->cursorPaginate(20);
+// 返回数据、下一页游标和是否还有下一页
 
-// 返回: ['data' => [...], 'next_cursor' => 123, 'has_next' => true]
-
-// 下一页
+// 获取下一页数据
 $result = $db->db('users')
     ->cursorPaginate(20, $result['next_cursor']);
 

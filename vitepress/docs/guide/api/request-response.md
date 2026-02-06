@@ -1,13 +1,13 @@
-﻿# 请求与响应
+# 请求与响应
 
 一句话：获取请求数据、验证参数、返回JSON响应。
 
 ## 获取请求数据
 
 ```php
-// 获取请求输入数据（支持JSON和表单数据）
+// 获取请求输入数据，支持JSON和表单数据
 $data = Anon_Http_Request::getInput();
-// 返回: ['key' => 'value', ...]
+// 返回包含键值对的数组
 
 // 从GET或POST获取参数
 $value = Anon_Http_Request::get('key', 'default');

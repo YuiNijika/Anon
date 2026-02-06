@@ -2,9 +2,7 @@
 
 一句话：类似 WordPress 的灵活插件系统，支持插件扫描、加载、激活/停用，通过钩子执行方法。
 
-## 概述
-
-插件系统允许开发者在不修改核心代码的情况下扩展框架功能。插件位于 `server/app/Plugin/` 目录，每个插件都是一个独立的目录。
+插件系统允许开发者在不修改核心代码的情况下扩展框架功能，插件位于 `server/app/Plugin/` 目录，每个插件都是一个独立的目录。
 
 ## 插件结构
 
@@ -286,32 +284,32 @@ public static function init()
 
 ## 插件设置
 
-插件可提供“设置页”，供用户在管理后台配置选项。设置项**在插件入口文件中**通过静态方法 `options()` 定义，不放在 package.json 中。
+插件可提供“设置页”，供用户在管理后台配置选项。设置项**在插件入口文件中**通过静态方法 `getSettingsSchema()` 定义，不放在 package.json 中。
 
 ### 定义设置 schema
 
-在插件主类中实现静态方法 `options()`，返回字段名到定义的映射，含类型、标签、默认值等。继承 `Anon_Plugin_Base` 时，实例方法 `$this->options()` 为选项代理，与静态 schema 方法同名不冲突。
+在插件主类中实现静态方法 `getSettingsSchema()`，返回字段名到定义的映射，含类型、标签、默认值等。继承 `Anon_Plugin_Base` 时，实例方法 `$this->options()` 为选项代理，与静态 schema 方法同名不冲突。
 
 ```php
 /**
- * 设置页 schema，键为字段名，值为 type、label、default 等，供管理端读取
- * @return array
- */
-public static function options(): array
-{
-    return [
-        'greeting' => [
-            'type' => 'text',
-            'label' => '问候语',
-            'default' => 'Hello World',
-        ],
-        'show_count' => [
-            'type' => 'checkbox',
-            'label' => '显示计数',
-            'default' => false,
-        ],
-    ];
-}
+     * 设置页 schema，键为字段名，值为 type、label、default 等，供管理端读取
+     * @return array
+     */
+    public static function getSettingsSchema(): array
+    {
+        return [
+            'greeting' => [
+                'type' => 'text',
+                'label' => '问候语',
+                'default' => 'Hello, World!',
+            ],
+            'show_count' => [
+                'type' => 'checkbox',
+                'label' => '显示计数',
+                'default' => false,
+            ],
+        ];
+    }
 ```
 
 支持的 `type`：`text`、`textarea`、`select`、`checkbox`、`number`、`color`。`select` 需提供 `options` 数组。
@@ -422,7 +420,7 @@ $this->options()->get('greeting', 'Hi', true, null);
 - **插件列表**：查看所有已安装的插件
 - **上传插件**：上传 ZIP 格式的插件包
 - **启用/停用**：切换插件的激活状态
-- **设置**：进入插件设置页，仅当插件实现静态 `options()` 时有表单
+- **设置**：进入插件设置页，仅当插件实现静态 `getSettingsSchema()` 时有表单
 - **删除插件**：删除不需要的插件，需先停用
 
 ### 插件上传

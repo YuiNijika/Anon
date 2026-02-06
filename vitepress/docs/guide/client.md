@@ -4,7 +4,7 @@ outline: deep
 
 # 前端框架集成
 
-一句话：统一的前端认证实现，支持 Vue、React、Next.js、Nuxt 等框架。
+统一的前端认证实现，支持Vue、React、Next.js、Nuxt等框架。
 
 ## 支持的框架
 

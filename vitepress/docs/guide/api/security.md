@@ -29,12 +29,7 @@ $token = Anon_Auth_Csrf::generateToken();
 $token = Anon_Auth_Csrf::getToken();
 ```
 
-**无状态 Token 说明：**
-
-- 默认启用无状态 Token，基于 HMAC 签名，无需存储在 Session 中
-- 减少 Session 锁竞争，提高并发性能
-- Token 包含时间戳、随机数和 Session ID，有效期 2 小时
-- 可通过配置 `stateless => false` 切换为传统 Session 存储模式
+默认启用无状态Token，基于HMAC签名无需存储在Session中，减少Session锁竞争提高并发性能。Token包含时间戳、随机数和Session ID，有效期2小时，可通过配置切换为传统Session存储模式。
 
 ### 验证 CSRF Token
 
@@ -67,7 +62,7 @@ Anon_Auth_Csrf::verify();
 
 ```php
 // 在 useCode.php 中注册全局中间件
-Anon_Http_Middleware::global(Anon_Auth_CsrfMiddleware::make([
+Anon_Http_Middleware::global(Anon_CsrfMiddleware::make([
     '/api/public', // 排除的路由
 ]));
 ```
@@ -110,19 +105,19 @@ fetch('/anon/common/config')
 
 ```php
 // 过滤单个字符串
-$clean = Anon_Security_Security_Security_Security_Sanitize::text('<script>alert("xss")</script>');
+$clean = Anon_Utils_Sanitize::text('<script>alert("xss")</script>');
 
 // 过滤 HTML（允许指定标签）
-$html = Anon_Security_Security_Security_Security_Sanitize::html('<p>Hello</p><script>alert("xss")</script>', '<p><strong>');
+$html = Anon_Utils_Sanitize::html('<p>Hello</p><script>alert("xss")</script>', '<p><strong>');
 
 // 过滤数组（递归）
-$data = Anon_Security_Security_Security_Security_Sanitize::array([
+$data = Anon_Utils_Sanitize::array([
     'name' => '<script>alert("xss")</script>',
     'content' => '<p>Safe content</p>'
 ]);
 
 // 使用安全工具类过滤
-$filtered = Anon_Security_Security_Security_Security_Security::filterInput($_POST, [
+$filtered = Anon_Security_Security::filterInput($_POST, [
     'stripHtml' => true,
     'skipFields' => ['password']
 ]);
@@ -142,7 +137,7 @@ Anon_Http_Middleware::global(Anon_XssFilterMiddleware::make(
 
 ```php
 // 检查字符串是否包含潜在的 XSS 代码
-if (Anon_Security_Security_Security_Security_Security::containsXss($userInput)) {
+if (Anon_Security_Security::containsXss($userInput)) {
     // 处理风险
 }
 ```
@@ -172,17 +167,17 @@ $result = $stmt->get_result();
 
 ```php
 // 手动验证（仅在调试模式下有效）
-Anon_Security_Security_Security_Security_Security::validateSqlQuery($sql, $params);
+Anon_Security_Security::validateSqlQuery($sql, $params);
 
 // 检查是否使用了预处理语句
-$isSafe = Anon_Security_Security_Security_Security_Security::isUsingPreparedStatement($sql, $params);
+$isSafe = Anon_Security_Security::isUsingPreparedStatement($sql, $params);
 ```
 
 ### 转义 LIKE 查询
 
 ```php
 // 转义 LIKE 查询中的特殊字符
-$search = Anon_Security_Security_Security_Security_Security::escapeLike($userInput);
+$search = Anon_Security_Security::escapeLike($userInput);
 $users = $db->db('users')
     ->where('name', 'LIKE', "%{$search}%")
     ->get();
@@ -192,7 +187,7 @@ $users = $db->db('users')
 
 ```php
 // 检查字符串是否包含潜在的 SQL 注入代码
-if (Anon_Security_Security_Security_Security_Security::containsSqlInjection($userInput)) {
+if (Anon_Security_Security::containsSqlInjection($userInput)) {
     // 处理风险
 }
 ```
@@ -204,7 +199,7 @@ if (Anon_Security_Security_Security_Security_Security::containsSqlInjection($use
 ```php
 // 在 useCode.php 中注册限流中间件
 Anon_Http_Middleware::global(
-    Anon_Auth_RateLimitMiddleware::make(
+    Anon_RateLimitMiddleware::make(
         100, // 最大请求次数
         60,  // 时间窗口（秒）
         'api', // 限流键前缀
@@ -256,6 +251,25 @@ if (!$limit['allowed']) {
 }
 ```
 
+### 辅助方法
+
+```php
+// 获取客户端IP
+$ip = Anon_Auth_RateLimit::getClientIp();
+
+// 生成设备指纹
+$fingerprint = Anon_Auth_RateLimit::generateDeviceFingerprint();
+
+// 清除指定限制
+Anon_Auth_RateLimit::clearLimit('api:login');
+
+// 清除当前IP限制
+Anon_Auth_RateLimit::clearIpLimit();
+
+// 清除当前设备限制
+Anon_Auth_RateLimit::clearDeviceLimit();
+```
+
 ## 最佳实践
 
 ### 1. 始终使用预处理语句
@@ -273,8 +287,8 @@ $result = $db->query($sql);
 
 ```php
 // ✅ 正确
-$username = Anon_Security_Security_Security_Security_Sanitize::text($_POST['username']);
-$email = Anon_Security_Security_Security_Security_Sanitize::email($_POST['email']);
+$username = Anon_Utils_Sanitize::text($_POST['username']);
+$email = Anon_Utils_Sanitize::email($_POST['email']);
 
 // ❌ 错误
 $username = $_POST['username'];
@@ -297,7 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ```php
 // ✅ 正确
 Anon_Http_Middleware::global(
-    Anon_Auth_RateLimitMiddleware::make(10, 60, 'login')
+    Anon_RateLimitMiddleware::make(10, 60, 'login')
 );
 ```
 
@@ -321,5 +335,3 @@ Anon_Http_Middleware::global(
     ],
 ],
 ```
-
-

@@ -2,9 +2,7 @@
 
 Anon Framework 内置了基于 Swoole 的服务端模式，支持 HTTP、TCP、WebSocket 等高性能服务，以及进程管理和定时任务功能。
 
-::: warning 注意
-服务端模式依赖 [Swoole](https://www.swoole.com/) 扩展。请确保你的 PHP 环境（仅限 Linux/macOS）已安装并启用 Swoole 扩展。Windows 环境下暂不支持（可使用 WSL 或 Docker）。
-:::
+服务端模式依赖Swoole扩展，请确保PHP环境（仅限Linux/macOS）已安装并启用Swoole扩展。Windows环境下暂不支持，可使用WSL或Docker。
 
 ## 快速开始
 

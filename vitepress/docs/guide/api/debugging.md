@@ -1,4 +1,4 @@
-﻿# 调试工具
+# 调试工具
 
 一句话：记录日志、监控性能、查看SQL查询，支持Web调试控制台。
 
@@ -46,21 +46,17 @@ Anon_Debug::query('SELECT * FROM users', ['id' => 1], 0.12);
 ```php
 // 获取调试数据
 $data = Anon_Debug::getData();
-// 返回: ['logs' => [...], 'performance' => [...], 'queries' => [...], ...]
+// 返回包含日志、性能数据和查询记录的数组
+```
 
 // 清空调试数据
 Anon_Debug::clear();
 
 // 检查是否启用
 $enabled = Anon_Debug::isEnabled();
+
 ```
 
 ## Web调试控制台
 
-启用调试模式后，访问调试控制台：
-
-```
-http://localhost:8080/anon/debug/console
-```
-
-调试控制台需要管理员账号登录才能访问。
+启用调试模式后访问调试控制台，调试控制台需要管理员账号登录才能访问。

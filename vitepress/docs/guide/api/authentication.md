@@ -1,23 +1,23 @@
-﻿# 用户认证
+# 用户认证
 
 一句话：检查登录状态、获取用户信息、生成和验证Token。
 
 ## 检查登录状态
 
 ```php
-// 检查是否已登录
+// 检查用户登录状态
 $isLoggedIn = Anon_Check::isLoggedIn();
-// 自动检查 Session 和 Cookie，如果 Cookie 有效会自动恢复 Session
+// 自动检查会话和Cookie，Cookie有效时自动恢复会话
 
-// 用户注销
+// 用户注销登录
 Anon_Check::logout();
 
-// 设置认证 Cookie
+// 设置认证Cookie
 Anon_Check::setAuthCookies($userId, $username, $rememberMe);
-// $rememberMe: true=30天, false=会话结束
-// Cookie 自动设置顶级域名，支持跨子域名共享
+// 记住登录状态时Cookie有效期30天，否则随会话结束
+// Cookie自动设置顶级域名，支持跨子域名共享
 
-// 清除认证 Cookie
+// 清除认证Cookie
 Anon_Check::clearAuthCookies();
 
 // 启动会话
@@ -27,13 +27,13 @@ Anon_Check::startSessionIfNotStarted();
 ## 获取当前用户
 
 ```php
-// 获取用户ID（从会话或Cookie）
+// 从会话或Cookie获取用户ID
 $userId = Anon_Http_Request::getUserId();
-// 返回: int|null
+// 返回整数类型用户ID或空值
 
-// 获取完整用户信息（未登录自动返回401）
+// 获取完整用户信息，未登录时自动返回401错误
 $userInfo = Anon_Http_Request::requireAuth();
-// 返回: ['uid' => 1, 'name' => 'admin', 'email' => '...', ...]
+// 返回包含用户信息的关联数组
 ```
 
 ## 登录示例
@@ -243,6 +243,7 @@ try {
 ```
 
 **配置说明：**
+
 - `enabled`: 是否启用Token验证
 - `refresh`: 是否在验证后自动刷新Token
   - `true`: 每次验证成功后生成新Token，通过响应头`X-New-Token`返回
@@ -277,6 +278,7 @@ $token = Anon_Auth_Token::generate(['user_id' => 1], 86400 * 30);  // 30天
 Token验证自动在路由执行前进行，验证失败返回403。
 
 **特性：**
+
 - Token验证通过后，如果包含用户信息，系统自动设置登录状态
 - 每个登录会话都有独立的Token
 - Token只能从HTTP Header获取：`X-API-Token` 或 `Authorization: Bearer`
@@ -284,15 +286,17 @@ Token验证自动在路由执行前进行，验证失败返回403。
 
 ### Token刷新机制
 
-当`token.refresh`设置为`true`时：
-- 每次Token验证成功后，自动生成新的Token
-- 新Token通过响应头`X-New-Token`返回给客户端
-- 客户端需要检查并更新本地存储的Token
-- 旧Token仍然有效，直到过期
+当`app.token.refresh`设置为`true`时：
+
+- 每次Token验证成功后自动生成新Token
+- 新Token通过响应头`X-New-Token`返回客户端
+- 客户端需要检查并更新本地存储Token
+- 旧Token仍然有效直到过期
 
 **适用场景：**
-- `refresh: false`（默认）：多设备登录、Web应用推荐
-- `refresh: true`：单设备应用、移动App、高安全要求场景
+
+- `app.token.refresh: false`：多设备登录和Web应用推荐使用
+- `app.token.refresh: true`：单设备应用移动App和高安全要求场景使用
 
 ### 手动验证
 
@@ -408,6 +412,6 @@ if ($isLoggedIn) {
 ## 白名单
 
 支持精确匹配和通配符：
+
 - 精确匹配：`/api/public`
 - 通配符：`/api/public/*`
-

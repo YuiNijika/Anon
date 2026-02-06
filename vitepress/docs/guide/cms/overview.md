@@ -1,8 +1,8 @@
 # CMS 模式概述
 
-**本节说明**：CMS 模式是什么、与 API 模式的简要对比，以及如何在 CMS 模式下与 API 共存。**适用**：仅 CMS 模式。
+本节说明CMS模式的概念、与API模式的简要对比以及如何在CMS模式下与API共存，仅适用于CMS模式。
 
-Anon Framework 支持两种运行模式：**API 模式**与**CMS 模式**。CMS 模式面向内容管理，提供主题系统与 HTML 模板渲染，适合博客、官网等站点。
+Anon Framework支持API模式与CMS模式两种运行模式。CMS模式面向内容管理，提供主题系统与HTML模板渲染，适合博客、官网等站点。
 
 ## 模式切换
 
@@ -31,9 +31,7 @@ Anon_Cms_Options::set('theme', 'MyTheme');
 - **API 前缀**：通过 `options` 表中的 `apiPrefix` 配置，默认为 `/api`  
 - 系统按请求路径分别匹配 CMS 路由与 API 路由  
 
-::: tip 适用模式：CMS 模式  
-当 ANON_APP_MODE 为 cms 时，CMS 路由优先；API 路由需带前缀如 /api，以避免与页面路由冲突。  
-:::
+当ANON_APP_MODE为cms时，CMS路由优先。API路由需带前缀如/api，以避免与页面路由冲突。
 
 ## 下一步
 

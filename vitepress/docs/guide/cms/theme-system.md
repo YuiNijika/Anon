@@ -1,14 +1,14 @@
 # 主题系统与开发
 
-**本节说明**：主题目录结构、自定义代码、模板与资源约定。**适用**：仅 CMS 模式。
+本节说明主题目录结构、自定义代码、模板与资源约定，仅适用于CMS模式。
 
-Anon Framework 的主题系统提供了类似 Typecho 的模板机制，但支持不区分大小写的文件查找，让主题开发更加灵活。与 [CMS 模式概述](./overview.md)、[路由与页面](./routes.md) 配合使用。
+Anon Framework的主题系统提供了类似Typecho的模板机制，支持不区分大小写的文件查找，让主题开发更加灵活。建议与[CMS模式概述](./overview.md)、[路由与页面](./routes.md)配合使用。
 
 ## 主题目录结构
 
 主题文件位于 `server/app/Theme/{themeName}/` 目录：
 
-**重要提示：** 为了兼容 Linux 系统，所有目录和文件名应使用**小写**。系统支持不区分大小写查找，但建议统一使用小写以避免跨平台问题。
+为了兼容Linux系统，所有目录和文件名应使用小写。系统支持不区分大小写查找，但建议统一使用小写以避免跨平台问题。
 
 ```
 app/Theme/
@@ -211,7 +211,7 @@ return [
         'logo_url' => [
             'type' => 'upload',
             'label' => 'Logo 图片',
-            'default' => $this->themeUrl('logo.png'),
+            'default' => $this->assets('logo.png'),
         ],
     ],
 ];

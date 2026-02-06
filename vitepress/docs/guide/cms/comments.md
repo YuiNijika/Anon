@@ -1,14 +1,14 @@
 # 评论功能
 
-**本节说明**：CMS 评论的数据结构、主题接口、主题内调用方式及管理后台。**适用**：仅 CMS 模式。
+本节说明CMS评论的数据结构、主题接口、主题内调用方式及管理后台，仅适用于CMS模式。
 
-评论支持文章下的二级嵌套回复（类似 B 站「回复 @用户名」），登录用户评论默认通过审核，游客评论进入待审核。
+评论支持文章下的二级嵌套回复，类似B站回复用户名功能，登录用户评论默认通过审核，游客评论进入待审核状态。
 
 ## 评论表与状态
 
-- 表：`{prefix}comments`，字段含 `id`、`post_id`、`parent_id`、`uid`、`type`（`user`/`guest`）、`name`、`email`、`url`、`ip`、`user_agent`、`content`、`status`、`created_at`。
-- 状态：`pending`（待审核）、`approved`（已通过）、`spam`（垃圾）、`trash`（已删除）。
-- 二级嵌套：`parent_id` 指向顶级评论；回复时接口会返回 `reply_to_name` 用于前端展示「回复 @xxx」。
+评论表 `{prefix}comments` 包含字段：`id`、`post_id`、`parent_id`、`uid`、`type`、`name`、`email`、`url`、`ip`、`user_agent`、`content`、`status`、`created_at`。
+
+评论状态包括待审核、已通过、垃圾和已删除。支持二级嵌套回复，`parent_id` 指向顶级评论，回复时接口返回 `reply_to_name` 用于前端展示回复用户名。
 
 ## 主题评论接口（前端/主题调用）
 

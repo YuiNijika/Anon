@@ -1,4 +1,4 @@
-﻿# 路由处理
+# 路由处理
 
 一句话：文件路径自动映射为路由，用常量配置路由元数据。
 
@@ -24,18 +24,9 @@ app/Router/User_Profile/Index.php → /user-profile/index 和 /user-profile
 app/Router/Index.php              → /index 和 /
 ```
 
-**命名转换规则：**
+文件名和目录名中的下划线自动转换为连字符，所有路径自动转为小写。例如 `User_Profile/Update_Avatar.php` 映射为 `/user-profile/update-avatar`
 
-- 文件名和目录名中的下划线 `_` 会自动转换为连字符 `-`
-- 所有路径自动转为小写
-- 例如：`User_Profile/Update_Avatar.php` → `/user-profile/update-avatar`
-
-**Index.php 特殊处理：**
-
-- 当文件名为 `Index.php` 时，会同时注册两个路由
-- 根目录下的 `Index.php` 会注册 `/` 和 `/index`
-- 子目录下的 `Index.php` 会注册父级路径和带 `/index` 的路径
-- 例如：`app/Router/User/Index.php` 会注册 `/user` 和 `/user/index`
+当文件名为 `Index.php` 时会同时注册两个路由。根目录下的 `Index.php` 注册 `/` 和 `/index`，子目录下的 `Index.php` 注册父级路径和带 `/index` 的路径。例如 `app/Router/User/Index.php` 注册 `/user` 和 `/user/index`
 
 ## 手动路由
 
@@ -97,6 +88,7 @@ return [
 |--------|------|--------|------|
 | `header` | bool | `true` | 是否设置响应头，包含CORS和Content-Type |
 | `requireLogin` | bool\|string | `false` | 是否需要登录验证，`true` 使用默认消息或钩子，字符串则使用自定义消息 |
+| `requireAdmin` | bool\|string | `false` | 是否需要管理员权限，`true` 使用默认消息，字符串则使用自定义消息 |
 | `method` | string\|array | `null` | 允许的HTTP方法，如 `'GET'` 或 `['GET', 'POST']` |
 | `cors` | bool | `true` | 是否设置CORS头，不设置时使用默认值true |
 | `response` | bool | `true` | 是否设置JSON响应头，不设置时使用默认值true |

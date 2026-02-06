@@ -566,14 +566,44 @@ class Anon_Cms
             }
         }
         unset($r);
+
+        // Build Tree
+        $tree = [];
+        foreach ($rows as $key => &$row) {
+            $row['children'] = [];
+            if (empty($row['parent_id'])) {
+                $tree[] = &$row;
+            } else {
+                if (isset($byId[(int) $row['parent_id']])) {
+                    // Find parent in the reference array (which should be linked to the rows)
+                    // Since $byId is a copy, we need to find the parent in $rows
+                    // But $rows is a list.
+                    // Easier approach: Use references.
+                }
+            }
+        }
+        
+        // Re-implement with references for robust tree building
+        $refs = [];
         foreach ($rows as &$r) {
-            unset($r['email']);
-            if (isset($r['created_at']) && is_string($r['created_at'])) {
-                $r['created_at'] = strtotime($r['created_at']);
+            $r['children'] = [];
+            $refs[$r['id']] = &$r;
+        }
+        unset($r);
+
+        $tree = [];
+        foreach ($rows as &$r) {
+            if (empty($r['parent_id'])) {
+                $tree[] = &$r;
+            } else {
+                if (isset($refs[$r['parent_id']])) {
+                    $refs[$r['parent_id']]['children'][] = &$r;
+                }
             }
         }
         unset($r);
-        return $rows;
+        
+        return $tree;
     }
 
     /**
