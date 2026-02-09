@@ -7,7 +7,15 @@ return [
         'avatar' => 'https://www.cravatar.cn/avatar',
         'cache' => [
             'enabled' => true,
+            'driver' => 'memory', // file, redis, memory
             'time' => 3600,
+            'redis' => [
+                'host' => '127.0.0.1',
+                'port' => 6379,
+                'password' => '',
+                'database' => 0,
+                'prefix' => 'anon:',
+            ],
             'exclude' => [
                 '/auth/',
                 '/anon/debug/',
