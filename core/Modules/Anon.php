@@ -433,4 +433,17 @@ class Anon
     {
         return Anon_Common::GetClientIp();
     }
+
+    /**
+     * 获取插件选项代理
+     * @param string $slug 插件标识符
+     * @return Anon_Cms_Options_Proxy|null
+     */
+    public static function options(string $slug)
+    {
+        if (!class_exists('Anon_Cms_Options_Proxy')) {
+            return null;
+        }
+        return new Anon_Cms_Options_Proxy('plugin', $slug, null);
+    }
 }

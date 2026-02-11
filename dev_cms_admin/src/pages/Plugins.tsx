@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Upload, Trash2, MoreHorizontal, Settings, ArrowLeft } from 'lucide-react'
+import { Upload, Trash2, MoreHorizontal, Settings, ArrowLeft, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useApiAdmin, usePlugins } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { OptionField } from '@/components/OptionField'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const DISPLAY_ONLY_OPTION_TYPES = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'] as const
 import {
@@ -55,6 +56,7 @@ export default function Plugins() {
   const [pluginOptionsSchema, setPluginOptionsSchema] = useState<Record<string, PluginOptionSchema>>({})
   const [pluginOptionsValues, setPluginOptionsValues] = useState<Record<string, any>>({})
   const [pluginOptionsSaving, setPluginOptionsSaving] = useState(false)
+  const [activeGroupTab, setActiveGroupTab] = useState<string>('')
   const [overwriteDialog, setOverwriteDialog] = useState<{
     open: boolean
     name: string
@@ -198,9 +200,10 @@ export default function Plugins() {
   }
 
   const loadPluginOptions = async (slug: string) => {
-    if (optionsFetchingRef.current || !slug) return
-    optionsFetchingRef.current = true
+    // 即使 optionsFetchingRef.current 为 true，如果 slug 变了也应该允许重新加载
+    // 但为了简单起见，这里先重置 loading 状态
     setOptionsLoading(true)
+    optionsFetchingRef.current = true
     try {
       const res = await AdminApi.getPluginOptions(apiAdmin, { slug })
       if (res.data) {
@@ -215,16 +218,51 @@ export default function Plugins() {
     }
   }
 
+  const openPluginPage = (pluginSlug: string, pageSlug: string) => {
+    // setSearchParams({ pages: `${pluginSlug}:${pageSlug}` })
+    window.location.href = `#/pages?plugin=${pluginSlug}&page=${pageSlug}`
+  }
+
+  // 归一化 Schema：统一转换为分组结构
+  const normalizedSchema = useMemo(() => {
+    if (!pluginOptionsSchema || Object.keys(pluginOptionsSchema).length === 0) return {}
+
+    // 检查是否已经是分组结构
+    // 检查第一个 entry 的 value 是否包含 'type' 属性
+    // 如果包含 type，说明是 OptionSchema，即扁平结构
+    const firstValue = Object.values(pluginOptionsSchema)[0] as any
+    const isFlat = firstValue && typeof firstValue === 'object' && 'type' in firstValue
+
+    if (isFlat) {
+      return { '常规设置': pluginOptionsSchema } // 默认分组名
+    }
+    // 否则认为是分组结构
+    return pluginOptionsSchema as unknown as Record<string, Record<string, PluginOptionSchema>>
+  }, [pluginOptionsSchema])
+
+  useEffect(() => {
+    const groups = Object.keys(normalizedSchema)
+    if (groups.length > 0 && (!activeGroupTab || !groups.includes(activeGroupTab))) {
+      setActiveGroupTab(groups[0])
+    }
+  }, [normalizedSchema])
+
   const handlePluginOptionsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!optionsSlug) return
     const valuesToSave: Record<string, any> = {}
-    Object.keys(pluginOptionsSchema).forEach((key) => {
-      const opt = pluginOptionsSchema[key]
-      if (opt && !DISPLAY_ONLY_OPTION_TYPES.includes(opt.type as any) && pluginOptionsValues[key] !== undefined) {
-        valuesToSave[key] = pluginOptionsValues[key]
-      }
+
+    // 遍历所有分组收集数据
+    Object.values(normalizedSchema).forEach((groupItems) => {
+      if (!groupItems || typeof groupItems !== 'object') return
+      Object.keys(groupItems).forEach((key) => {
+        const opt = (groupItems as any)[key] as PluginOptionSchema
+        if (opt && !DISPLAY_ONLY_OPTION_TYPES.includes(opt.type as any) && pluginOptionsValues[key] !== undefined) {
+          valuesToSave[key] = pluginOptionsValues[key]
+        }
+      })
     })
+
     setPluginOptionsSaving(true)
     try {
       await AdminApi.updatePluginOptions(apiAdmin, { slug: optionsSlug, values: valuesToSave })
@@ -264,9 +302,8 @@ export default function Plugins() {
   }
 
   const pluginForOptions = plugins.find((p) => p.slug === optionsSlug)
-  const schemaEntries = Object.entries(pluginOptionsSchema).filter(
-    ([, def]) => def && typeof def === 'object' && def.type
-  )
+  // schemaEntries 不再直接用于渲染，改为使用 normalizedSchema
+  const hasOptions = Object.keys(normalizedSchema).length > 0
 
   return (
     <div className="space-y-4">
@@ -290,11 +327,40 @@ export default function Plugins() {
                 <Skeleton className="h-10 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : schemaEntries.length === 0 ? (
+            ) : !hasOptions ? (
               <p className="text-sm text-muted-foreground">该插件暂无设置项。</p>
             ) : (
               <form onSubmit={handlePluginOptionsSubmit} className="space-y-6">
-                {schemaEntries.map(([key, def]) => renderPluginOptionField(key, def))}
+                {(() => {
+                  const groupNames = Object.keys(normalizedSchema)
+                  // 如果只有一个分组，直接渲染，不显示 Tabs
+                  if (groupNames.length === 1) {
+                    const groupKey = groupNames[0]
+                    const groupItems = normalizedSchema[groupKey]
+                    return Object.entries(groupItems || {}).map(([key, def]) =>
+                      renderPluginOptionField(key, def as PluginOptionSchema)
+                    )
+                  }
+
+                  // 多个分组，使用 Tabs
+                  return (
+                    <Tabs value={activeGroupTab} onValueChange={setActiveGroupTab} className="w-full">
+                      <TabsList className="mb-4">
+                        {groupNames.map((g) => (
+                          <TabsTrigger key={g} value={g}>{g}</TabsTrigger>
+                        ))}
+                      </TabsList>
+                      {groupNames.map((groupKey) => (
+                        <TabsContent key={groupKey} value={groupKey} className="space-y-4 mt-0">
+                          {Object.entries(normalizedSchema[groupKey] || {}).map(([key, def]) =>
+                            renderPluginOptionField(key, def as PluginOptionSchema)
+                          )}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  )
+                })()}
+
                 <div className="mt-4 flex gap-2 justify-end">
                   <Button type="submit" disabled={pluginOptionsSaving}>
                     {pluginOptionsSaving ? '保存中...' : '保存'}
@@ -442,6 +508,12 @@ export default function Plugins() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {plugin.pages?.map((page) => (
+                                <DropdownMenuItem key={page.slug} onClick={() => openPluginPage(plugin.slug, page.slug)}>
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  {page.title}
+                                </DropdownMenuItem>
+                              ))}
                               <DropdownMenuItem onClick={() => openPluginOptions(plugin.slug)}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 设置

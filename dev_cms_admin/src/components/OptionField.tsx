@@ -385,6 +385,7 @@ export function OptionField({ name, option, value, onChange }: OptionFieldProps)
           </Select>
         </div>
       )
+    case 'boolean':
     case 'checkbox':
       return (
         <div className="flex items-center justify-between space-x-2">

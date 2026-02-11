@@ -279,8 +279,9 @@ class Anon_Cms
     public static function outputPageLoadTimeScript(): void
     {
         $loadTime = self::getPageLoadTime();
+        $queryCount = Anon_Database::getQueryCount() ?? null;
         echo '<script>';
-        echo 'console.log("页面加载耗时: ' . $loadTime . 'ms");';
+        echo 'console.log("页面加载耗时: ' . $loadTime . 'ms | SQL查询: ' . $queryCount . '次");';
         echo '</script>' . "\n";
     }
 

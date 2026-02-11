@@ -138,6 +138,16 @@ class Anon_Database
     private static $connection = null;
 
     /**
+     * 获取数据库查询次数
+     * @return int
+     */
+    public static function getQueryCount(): int
+    {
+        $connection = self::getInstance()->getConnection();
+        return method_exists($connection, 'getQueryCount') ? $connection->getQueryCount() : 0;
+    }
+
+    /**
      * 获取连接
      * @return mixed
      */

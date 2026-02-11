@@ -871,9 +871,138 @@ abstract class Anon_Plugin_Base
     /** @var string 插件 slug */
     protected $slug;
 
+    /** @var string 插件根目录 */
+    protected $pluginDir;
+
     public function __construct(string $pluginSlug = '')
     {
         $this->slug = $pluginSlug !== '' ? strtolower($pluginSlug) : self::slugFromClass(get_class($this));
+
+        // 自动推导插件目录
+        try {
+            $reflector = new ReflectionClass($this);
+            $this->pluginDir = dirname($reflector->getFileName());
+        } catch (Throwable $e) {
+            $this->pluginDir = '';
+        }
+
+        // 自动加载当前模式的业务逻辑
+        $this->autoloadMode();
+    }
+
+    /**
+     * 自动加载 app/mode/ 下对应模式的文件
+     */
+    protected function autoloadMode()
+    {
+        if (empty($this->pluginDir)) {
+            return;
+        }
+
+        $mode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
+        // 允许 mode 文件名为 api.php 或 cms.php
+        $file = $this->pluginDir . '/app/mode/' . $mode . '.php';
+
+        if (file_exists($file)) {
+            include_once $file;
+        }
+    }
+
+    /**
+     * 获取插件自定义页面列表
+     * 默认读取 app/pages.php
+     * @return array
+     */
+    public function getPages()
+    {
+        $pages = $this->loadPagesConfig();
+        if (is_array($pages)) {
+            // 移除 handler 字段，防止序列化问题
+            foreach ($pages as &$page) {
+                if (isset($page['handler'])) {
+                    unset($page['handler']);
+                }
+            }
+            return $pages;
+        }
+        return [];
+    }
+
+    /**
+     * 获取包含 handler 的完整页面配置
+     * @return array
+     */
+    public function getPagesWithHandler()
+    {
+        return $this->loadPagesConfig();
+    }
+
+    /**
+     * 加载页面配置文件
+     * @return mixed
+     */
+    protected function loadPagesConfig()
+    {
+        if (!empty($this->pluginDir)) {
+            $file = $this->pluginDir . '/app/pages.php';
+            if (file_exists($file)) {
+                $plugin = $this;
+                return include $file;
+            }
+        }
+        return [];
+    }
+
+    /**
+     * 获取插件设置 Schema
+     * 默认读取 app/setup.php，并支持 api/cms 分组自动合并
+     * 同时兼容老结构，支持重写的 options 方法或 package.json 配置
+     * @return array
+     */
+    public function getSettingsSchema()
+    {
+        // 尝试读取新结构 app/setup.php
+        if (!empty($this->pluginDir)) {
+            $file = $this->pluginDir . '/app/setup.php';
+            if (file_exists($file)) {
+                $config = include $file;
+                if (is_array($config)) {
+                    // 如果配置包含模式分组，则合并所有配置
+                    if (isset($config['api']) || isset($config['cms'])) {
+                        $apiConfig = isset($config['api']) && is_array($config['api']) ? $config['api'] : [];
+                        $cmsConfig = isset($config['cms']) && is_array($config['cms']) ? $config['cms'] : [];
+                        // 合并配置，cms 配置优先于 api
+                        return array_merge($apiConfig, $cmsConfig);
+                    }
+                    return $config;
+                }
+            }
+        }
+
+        // 兼容老结构：尝试调用子类重写的 options 方法
+        try {
+            $ref = new ReflectionMethod($this, 'options');
+            // 只有当 options 方法被子类重写时才调用，基类的 options 返回的是代理对象
+            if ($ref->getDeclaringClass()->getName() !== __CLASS__) {
+                // 支持静态和非静态调用
+                $result = $ref->isStatic() ? $ref->invoke(null) : $ref->invoke($this);
+                if (is_array($result)) {
+                    return $result;
+                }
+            }
+        } catch (Throwable $e) {
+            // 忽略反射异常或调用异常
+        }
+
+        // 兼容老结构：尝试读取 package.json 中的 settings
+        if (!empty($this->pluginDir)) {
+            $meta = Anon_System_Plugin::readPluginMetaFromPackageJson($this->pluginDir);
+            if ($meta && !empty($meta['settings']) && is_array($meta['settings'])) {
+                return $meta['settings'];
+            }
+        }
+
+        return [];
     }
 
     /**

@@ -79,54 +79,83 @@ function NavItem({
   )
 }
 
+function SidebarItem({
+  item,
+  location,
+  onNavigate,
+}: {
+  item: SideMenuItem
+  location: { pathname: string; search: string }
+  onNavigate: () => void
+}) {
+  const currentPath = location.pathname + location.search
+
+  if (item.children?.length) {
+    const isActiveRecursively = (items: SideMenuItem[]): boolean => {
+      return items.some((child) => {
+        const isChildActive = child.key.includes('?')
+          ? currentPath === child.key
+          : location.pathname.startsWith(child.key)
+        if (isChildActive) return true
+        if (child.children) return isActiveRecursively(child.children)
+        return false
+      })
+    }
+    const isOpen = isActiveRecursively(item.children)
+    const Icon = item.icon ? iconMap[item.icon] : null
+
+    return (
+      <Collapsible key={item.key} defaultOpen={isOpen}>
+        <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+          {Icon && <Icon className="h-4 w-4 shrink-0" />}
+          <span className="flex-1 text-left">{item.label}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pl-4 pt-1">
+          {item.children.map((child) => (
+            <SidebarItem
+              key={child.key}
+              item={child}
+              location={location}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
+    )
+  }
+
+  return (
+    <NavItem
+      key={item.key}
+      item={item}
+      isActive={item.key.includes('?') ? currentPath === item.key : location.pathname === item.key}
+      onNavigate={onNavigate}
+    />
+  )
+}
+
 function SidebarNav({
   items,
-  pathname,
+  location,
   onNavigate,
   className,
 }: {
   items: SideMenuItem[]
-  pathname: string
+  location: { pathname: string; search: string }
   onNavigate: () => void
   className?: string
 }) {
   return (
     <nav className={cn('flex flex-col gap-1 p-4', className)}>
-      {items.map((item) => {
-        if (item.children?.length) {
-          const isOpen =
-            pathname.startsWith('/manage') && item.key === 'manage' ||
-            pathname.startsWith('/settings') && item.key === 'settings'
-          const Icon = item.icon ? iconMap[item.icon] : null
-          return (
-            <Collapsible key={item.key} defaultOpen={isOpen}>
-              <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                {Icon && <Icon className="h-4 w-4 shrink-0" />}
-                <span className="flex-1 text-left">{item.label}</span>
-                <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pl-4 pt-1">
-                {item.children.map((child) => (
-                  <NavItem
-                    key={child.key}
-                    item={child}
-                    isActive={pathname === child.key}
-                    onNavigate={onNavigate}
-                  />
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )
-        }
-        return (
-          <NavItem
-            key={item.key}
-            item={item}
-            isActive={pathname === item.key}
-            onNavigate={onNavigate}
-          />
-        )
-      })}
+      {items.map((item) => (
+        <SidebarItem
+          key={item.key}
+          item={item}
+          location={location}
+          onNavigate={onNavigate}
+        />
+      ))}
     </nav>
   )
 }
@@ -231,7 +260,7 @@ export default function Layout() {
                 <div className="flex-1 overflow-y-auto pt-6">
                   <SidebarNav
                     items={sideMenuItems}
-                    pathname={location.pathname}
+                    location={location}
                     onNavigate={() => setSheetOpen(false)}
                     className="px-4"
                   />
@@ -345,7 +374,7 @@ export default function Layout() {
             style={{ width: SIDER_WIDTH }}
           >
             <div className="flex-1 overflow-y-auto">
-              <SidebarNav items={sideMenuItems} pathname={location.pathname} onNavigate={() => { }} />
+              <SidebarNav items={sideMenuItems} location={location} onNavigate={() => { }} />
             </div>
             <div className="border-t p-4">
               <Popover>

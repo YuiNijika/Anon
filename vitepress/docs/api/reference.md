@@ -178,6 +178,37 @@ $result = $query->select(['id', 'name'])
     ->limit(10)
     ->get();
 
+// 插入数据
+$id = $db->db('users')->insert([
+    'name' => 'User',
+    'email' => 'user@example.com',
+    'created_at' => date('Y-m-d H:i:s')
+]);
+
+// 更新数据
+$affected = $db->db('users')->where('id', 1)->update(['status' => 1]);
+
+// 删除数据
+$affected = $db->db('users')->where('status', 0)->delete();
+
+// 创建表 (推荐使用数组格式定义字段)
+$db->db('new_table')->createTable([
+    'id' => [
+        'type' => 'BIGINT UNSIGNED',
+        'autoIncrement' => true,
+        'primary' => true
+    ],
+    'name' => [
+        'type' => 'VARCHAR(255)',
+        'null' => false,
+        'comment' => '名称'
+    ],
+    'created_at' => [
+        'type' => 'DATETIME',
+        'null' => true
+    ]
+], ['engine' => 'InnoDB', 'charset' => 'utf8mb4']);
+
 // 游标分页 (大数据优化)
 $result = $query->cursorPaginate(20, $cursor);
 // 返回: ['data' => [...], 'next_cursor' => ...]

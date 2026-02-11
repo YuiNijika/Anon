@@ -16,6 +16,7 @@ import ManagePosts from '@/pages/Manage/Posts'
 import ManageUsers from '@/pages/Manage/Users'
 import ManageComments from '@/pages/Manage/Comments'
 import ErrorPage from '@/pages/Error'
+import Pages from '@/pages/Pages'
 
 export const routes = [
   {
@@ -45,6 +46,10 @@ export const routes = [
       {
         path: 'plugins',
         element: <Plugins />,
+      },
+      {
+        path: 'pages',
+        element: <Pages />,
       },
       {
         path: 'themes',

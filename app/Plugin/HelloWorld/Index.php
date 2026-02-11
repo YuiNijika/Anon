@@ -1,12 +1,4 @@
 <?php
-/**
- * Name: HelloWorld
- * Description: Hello World
- * Mode: auto
- * Version: 1.0.0
- * Author: YuiNijika
- * URI: https://github.com/YuiNijika
- */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
@@ -67,7 +59,7 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
      * 设置页 schema，键为字段名，值为 type、label、default 等，供管理端读取
      * @return array
      */
-    public static function getSettingsSchema(): array
+    public function getSettingsSchema(): array
     {
         return [
             'greeting' => [

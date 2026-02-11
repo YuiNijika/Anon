@@ -101,6 +101,248 @@ class Anon_Plugin_HelloWorld
 }
 ```
 
+### 1.9 高级插件结构（推荐）
+
+为了更好地组织大型插件，框架支持一种基于模式（Mode）和配置分离的高级插件结构。这种结构能自动根据运行模式加载代码，并支持独立的配置文件。
+
+**目录结构：**
+
+```text
+server/app/Plugin/
+└── AppList/
+    ├── app/
+    │   ├── mode/
+    │   │   ├── api.php      # 仅在 API 模式下加载
+    │   │   └── cms.php      # 仅在 CMS 模式下加载
+    │   ├── pages.php        # 自定义管理后台页面配置
+    │   └── setup.php        # 插件设置项配置
+    ├── index.php            # 极简入口文件
+    └── package.json         # 元数据
+```
+
+**入口文件 (`index.php`)：**
+
+只需继承 `Anon_Plugin_Base`，无需手动编写 `init` 加载逻辑：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+class Anon_Plugin_AppList extends Anon_Plugin_Base
+{
+    // 基类会自动加载 app/mode/ 下的对应模式文件
+    
+    public static function activate()
+    {
+        // 激活逻辑
+    }
+
+    public static function deactivate()
+    {
+        // 停用逻辑
+    }
+}
+```
+
+**业务逻辑 (`app/mode/api.php`)：**
+
+在此文件中直接编写 API 模式下的路由和逻辑，$this 指向插件实例：
+
+```php
+<?php
+// 获取插件实例
+$plugin = $this;
+
+Anon::route('/app-list/v1/list', function () use ($plugin) {
+    // 获取配置
+    $options = $plugin->options()->get();
+    // ...
+});
+```
+
+**配置文件 (`app/setup.php`)：**
+
+支持按模式分组配置，系统会自动合并：
+
+```php
+<?php
+return [
+    'api' => [
+        'api_key' => [
+            'type' => 'text',
+            'label' => 'API 密钥'
+        ]
+    ],
+    'cms' => [
+        'enable_feature' => [
+            'type' => 'boolean',
+            'label' => '启用功能'
+        ]
+    ]
+];
+```
+
+**优势：**
+
+*   **职责分离**：API 和 CMS 逻辑物理隔离，互不干扰。
+*   **配置清晰**：设置项独立管理，支持分组。
+*   **开发高效**：基类自动处理加载，减少样板代码。
+
+## 插件自定义页面 (Plugin Pages)
+
+插件可以在管理后台注册自定义页面，支持使用 **Vue 3 + Element Plus** 进行开发，系统采用了混合渲染架构（React Host + Vue Guest）。
+
+### 页面配置 (`app/pages.php`)
+
+在插件的 `app` 目录下创建 `pages.php`，返回一个数组，键为页面标识符（slug），值为配置数组。
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+return [
+    'my-page-slug' => [
+        'title' => '页面标题',
+        'content' => 'HTML 内容',
+        'handler' => function($action, $data) { ... }
+    ]
+];
+```
+
+### 前端开发 (Vue 3 + Element Plus)
+
+页面内容通过 `content` 字段返回 HTML 字符串。你可以在其中编写 Element Plus 组件，并通过 `<script>` 标签定义 Vue 组件逻辑。
+
+**关键机制：**
+1.  **挂载点**：无需手动挂载，系统会自动查找 `window.AnonPluginPage` 对象并挂载 Vue 应用。
+2.  **组件定义**：将 Vue 组件选项对象（data, methods, mounted 等）赋值给全局变量 `window.AnonPluginPage`。
+3.  **Element Plus**：环境已内置 Vue 3 和 Element Plus，可直接使用 `<el-button>`、`<el-table>` 等组件，无需额外引入。
+
+**完整示例 (`app/pages.php`)：**
+
+```php
+<?php
+return [
+    'demo-page' => [
+        'title' => '示例页面',
+        'content' => <<<HTML
+<!-- 模板部分：直接写 Element Plus 组件 -->
+<el-card>
+    <template #header>
+        <div class="card-header">
+            <span>用户列表</span>
+            <el-button class="button" text @click="fetchData">刷新</el-button>
+        </div>
+    </template>
+    
+    <el-table :data="tableData" style="width: 100%" v-loading="loading">
+        <el-table-column prop="date" label="日期" width="180"></el-table-column>
+        <el-table-column prop="name" label="姓名" width="180"></el-table-column>
+        <el-table-column prop="address" label="地址"></el-table-column>
+        <el-table-column label="操作">
+            <template #default="scope">
+                <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
+            </template>
+        </el-table-column>
+    </el-table>
+</el-card>
+
+<!-- 逻辑部分：定义 Vue 组件 -->
+<script>
+window.AnonPluginPage = {
+    data() {
+        return {
+            tableData: [],
+            loading: false
+        };
+    },
+    mounted() {
+        this.fetchData();
+    },
+    methods: {
+        fetchData() {
+            this.loading = true;
+            setTimeout(() => {
+                this.tableData = [
+                    { date: '2024-05-01', name: 'Tom', address: 'No. 189, Grove St, Los Angeles' },
+                    { date: '2024-05-02', name: 'Jerry', address: 'No. 189, Grove St, Los Angeles' },
+                ];
+                this.loading = false;
+            }, 1000);
+        },
+        handleEdit(row) {
+            console.log('Edit', row);
+            this.$message.success('编辑: ' + row.name);
+        }
+    }
+};
+</script>
+HTML,
+        // 后端处理逻辑 (可选)
+        'handler' => function ($action, $data) {
+            if ($action === 'get_data') {
+                return ['data' => 'Server Data'];
+            }
+            return null;
+        }
+    ]
+];
+```
+
+### 访问页面
+
+页面注册后，可以通过 URL 访问：
+`/#/pages?plugin={插件Slug}:{页面Slug}`
+
+例如插件名为 `AppList`，页面名为 `demo-page`，则路径为 `/pages?plugin=applist:demo-page`。
+
+## 扩展管理后台菜单 (Admin Navbar)
+
+插件可以通过钩子 `admin_navbar_sidebar` 向管理后台侧边栏添加菜单项。支持多级嵌套和挂载到现有分组。
+
+### 添加顶级菜单与子菜单
+
+在 `app/mode/cms.php` 或 `init()` 中注册钩子：
+
+```php
+Anon::filter('admin_navbar_sidebar', function ($items) {
+    $items[] = [
+        'key' => 'miosoft', // 唯一标识
+        'icon' => 'AppstoreOutlined', // 支持的图标 key
+        'label' => 'MioSoft',
+        'children' => [
+            [
+                'key' => '/pages?plugin=applist:add-app', // 链接到插件页面
+                'label' => '应用列表',
+                'icon' => 'AppstoreOutlined',
+            ],
+            [
+                'key' => '/pages?plugin=applist:manage-types',
+                'label' => '分类管理',
+                'icon' => 'FolderOutlined',
+            ],
+        ],
+    ];
+    return $items;
+});
+```
+
+### 挂载到现有菜单组
+
+使用 `Anon_Cms_Admin_UI_Navbar::mount` 辅助方法，可以将菜单项插入到现有的分组中（如 `manage` 管理, `settings` 设置）。
+
+```php
+Anon::filter('admin_navbar_sidebar', function ($items) {
+    // 将菜单挂载到 "manage" (管理) 组下
+    Anon_Cms_Admin_UI_Navbar::mount($items, 'manage', [
+        'key' => '/pages?plugin=my-plugin:config',
+        'label' => '插件配置',
+        'icon' => 'SettingOutlined',
+    ]);
+    return $items;
+});
+```
+
 ## 插件元数据
 
 插件元数据可来自 **package.json** 或 **主入口文件头部注释**，优先读取 `package.json`。
@@ -531,6 +773,7 @@ class Anon_Plugin_UserStats
                     'type' => 'INT',
                     'null' => false,
                     'primary' => true,
+                    'key' => 'PRI',
                 ],
                 'login_count' => [
                     'type' => 'INT',

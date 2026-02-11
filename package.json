@@ -1,12 +1,13 @@
 {
 	"dependencies": {
+		"element-plus": "^2.13.2",
 		"scss": "^0.2.4",
 		"typescript": "^5.9.3",
-		"vue": "^3.5.26"
+		"vue": "^3.5.28"
 	},
 	"devDependencies": {
 		"esbuild": "^0.19.12",
-		"sass": "^1.97.2"
+		"sass": "^1.97.3"
 	},
 	"scripts": {
 		"build:debug": "pnpm run build:debug:css && pnpm run build:debug:js",

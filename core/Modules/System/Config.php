@@ -292,8 +292,6 @@ class Anon_System_Config
             self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
             self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         }
-
-        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
         self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
         self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 31536000, true, ['token' => false]);
 

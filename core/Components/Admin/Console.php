@@ -19,10 +19,14 @@ function meta()
   <title>AnonEcho</title>
   <script type="module" crossorigin src="/anon/static/admin/js<?php echo meta(); ?>"></script>
   <link rel="stylesheet" crossorigin href="/anon/static/admin/css<?php echo meta(); ?>">
+  <?php Anon_System_Hook::do_action('admin_console_head'); ?>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <?php Anon_System_Hook::do_action('admin_console_root'); ?>
+  </div>
+  <?php Anon_System_Hook::do_action('admin_console_foot'); ?>
 </body>
 
 </html>

@@ -433,6 +433,20 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
+        self::addRoute('/plugins/page', function () {
+            Anon_Cms_Admin_Plugins::getPage();
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
+        self::addRoute('/plugins/page/action', function () {
+            Anon_Cms_Admin_Plugins::pageAction();
+        }, [
+            'method' => 'POST',
+            'token' => true,
+        ]);
+
         self::addRoute('/themes', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'POST') {

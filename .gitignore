@@ -1,3 +1,5 @@
+app/Plugin/AppList
+
 # env
 .env.php
 

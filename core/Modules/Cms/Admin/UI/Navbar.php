@@ -136,6 +136,32 @@ class Anon_Cms_Admin_UI_Navbar
     }
 
     /**
+     * 辅助方法：将菜单项挂载到指定组
+     * @param array $items 菜单数组引用
+     * @param string $groupKey 目标组 Key
+     * @param array $newItem 新菜单项
+     * @return bool 是否成功挂载
+     */
+    public static function mount(array &$items, string $groupKey, array $newItem)
+    {
+        foreach ($items as &$item) {
+            if (isset($item['key']) && $item['key'] === $groupKey) {
+                if (!isset($item['children'])) {
+                    $item['children'] = [];
+                }
+                $item['children'][] = $newItem;
+                return true;
+            }
+            if (isset($item['children']) && is_array($item['children'])) {
+                if (self::mount($item['children'], $groupKey, $newItem)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * 获取导航数据
      * @return void
      */

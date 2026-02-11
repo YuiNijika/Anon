@@ -11,6 +11,7 @@ class Anon_Loader
      */
     public static function loadAll()
     {
+        self::loadWidgets();
         self::loadCoreModules();
         self::loadExtensions();
     }
@@ -60,6 +61,7 @@ class Anon_Loader
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Format.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Array.php';
         require_once Anon_Main::WIDGETS_DIR . 'Utils/Random.php';
+        require_once Anon_Main::WIDGETS_DIR . 'Utils/Jsx.php';
 
         self::$loadedModules['widgets'] = true;
     }

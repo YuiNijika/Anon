@@ -7,13 +7,18 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 class Anon_Cms_Admin_Plugins
 {
     /**
+     * 插件初始化
+     */
+    public static function init()
+    {
+    }
+
+    /**
      * 获取插件列表
-     * @return void
      */
     public static function get()
     {
         try {
-            // 使用 Anon_Main::APP_DIR 获取插件目录路径
             $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
             if (!is_dir($pluginDir)) {
                 Anon_Http_Response::success(['list' => []], '获取插件列表成功');
@@ -25,18 +30,11 @@ class Anon_Cms_Admin_Plugins
             $dirs = scandir($pluginDir);
 
             foreach ($dirs as $dir) {
-                if ($dir === '.' || $dir === '..') {
-                    continue;
-                }
+                if ($dir === '.' || $dir === '..') continue;
 
                 $pluginPath = $pluginDir . $dir;
-                if (!is_dir($pluginPath)) {
-                    continue;
-                }
-
-                if (Anon_System_Plugin::getPluginMainFile($pluginPath) === null) {
-                    continue;
-                }
+                if (!is_dir($pluginPath)) continue;
+                if (Anon_System_Plugin::getPluginMainFile($pluginPath) === null) continue;
 
                 $meta = Anon_System_Plugin::readPluginMetaForDir($pluginPath);
                 if (!$meta || empty($meta['name'])) {
@@ -51,11 +49,9 @@ class Anon_Cms_Admin_Plugins
                     ];
                 }
 
-                $pluginSlug = strtolower($dir);
-                $isActive = in_array($pluginSlug, $activePlugins, true);
-
+                $slug = strtolower($dir);
                 $plugins[] = [
-                    'slug' => $pluginSlug,
+                    'slug' => $slug,
                     'dir' => $dir,
                     'name' => $meta['name'] ?? $dir,
                     'description' => $meta['description'] ?? '',
@@ -63,7 +59,8 @@ class Anon_Cms_Admin_Plugins
                     'author' => $meta['author'] ?? '',
                     'url' => $meta['url'] ?? '',
                     'mode' => $meta['mode'] ?? 'api',
-                    'active' => $isActive,
+                    'active' => in_array($slug, $activePlugins, true),
+                    'pages' => self::getPluginPagesList($slug, $pluginPath),
                 ];
             }
 
@@ -75,31 +72,28 @@ class Anon_Cms_Admin_Plugins
 
     /**
      * 激活插件
-     * @return void
      */
     public static function activate()
     {
         try {
-            $data = Anon_Http_Request::getInput();
-            $slug = isset($data['slug']) ? trim($data['slug']) : '';
-
+            $input = Anon_Http_Request::getInput();
+            $slug = trim((string)($input['slug'] ?? ''));
             if (empty($slug)) {
                 Anon_Http_Response::error('插件标识符不能为空', 400);
                 return;
             }
 
             $activePlugins = self::getActivePlugins();
-            if (in_array(strtolower($slug), $activePlugins, true)) {
+            $lowerSlug = strtolower($slug);
+
+            if (in_array($lowerSlug, $activePlugins, true)) {
                 Anon_Http_Response::success(['slug' => $slug], '插件已激活');
                 return;
             }
 
-            $activePlugins[] = strtolower($slug);
+            $activePlugins[] = $lowerSlug;
             self::setActivePlugins($activePlugins);
-
             Anon_System_Plugin::clearScanCache();
-
-            // 重新加载插件系统以加载新激活的插件
             Anon_System_Plugin::reloadPlugin($slug);
 
             Anon_Http_Response::success(['slug' => $slug], '激活插件成功');
@@ -110,31 +104,28 @@ class Anon_Cms_Admin_Plugins
 
     /**
      * 停用插件
-     * @return void
      */
     public static function deactivate()
     {
         try {
-            $data = Anon_Http_Request::getInput();
-            $slug = isset($data['slug']) ? trim($data['slug']) : '';
-
+            $input = Anon_Http_Request::getInput();
+            $slug = trim((string)($input['slug'] ?? ''));
             if (empty($slug)) {
                 Anon_Http_Response::error('插件标识符不能为空', 400);
                 return;
             }
 
             $activePlugins = self::getActivePlugins();
-            $slugLower = strtolower($slug);
-            $key = array_search($slugLower, $activePlugins, true);
+            $lowerSlug = strtolower($slug);
+            $key = array_search($lowerSlug, $activePlugins, true);
+
             if ($key === false) {
                 Anon_Http_Response::success(['slug' => $slug], '插件已停用');
                 return;
             }
 
             unset($activePlugins[$key]);
-            $activePlugins = array_values($activePlugins);
-            self::setActivePlugins($activePlugins);
-
+            self::setActivePlugins(array_values($activePlugins));
             Anon_System_Plugin::clearScanCache();
             Anon_System_Plugin::deactivatePlugin($slug);
 
@@ -146,14 +137,12 @@ class Anon_Cms_Admin_Plugins
 
     /**
      * 删除插件
-     * @return void
      */
     public static function delete()
     {
         try {
-            $data = Anon_Http_Request::getInput();
-            $slug = isset($data['slug']) ? trim($data['slug']) : '';
-
+            $input = Anon_Http_Request::getInput();
+            $slug = trim((string)($input['slug'] ?? ''));
             if (empty($slug)) {
                 Anon_Http_Response::error('插件标识符不能为空', 400);
                 return;
@@ -167,9 +156,7 @@ class Anon_Cms_Admin_Plugins
                 return;
             }
 
-            $activePlugins = self::getActivePlugins();
-            $slugLower = strtolower($slug);
-            if (in_array($slugLower, $activePlugins, true)) {
+            if (in_array(strtolower($slug), self::getActivePlugins(), true)) {
                 Anon_Http_Response::error('请先停用插件再删除', 400);
                 return;
             }
@@ -185,7 +172,6 @@ class Anon_Cms_Admin_Plugins
 
     /**
      * 上传插件
-     * @return void
      */
     public static function upload()
     {
@@ -196,138 +182,72 @@ class Anon_Cms_Admin_Plugins
             }
 
             $file = $_FILES['file'];
-            $fileName = $file['name'];
-            $tmpPath = $file['tmp_name'];
-
-            if (!preg_match('/\.(zip)$/i', $fileName)) {
+            if (!preg_match('/\.(zip)$/i', $file['name'])) {
                 Anon_Http_Response::error('只支持 ZIP 格式的插件包', 400);
                 return;
             }
 
             $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
-            if (!is_dir($pluginDir)) {
-                mkdir($pluginDir, 0755, true);
-            }
+            if (!is_dir($pluginDir)) mkdir($pluginDir, 0755, true);
 
             $zip = new ZipArchive();
-            if ($zip->open($tmpPath) !== true) {
+            if ($zip->open($file['tmp_name']) !== true) {
                 Anon_Http_Response::error('无法打开 ZIP 文件', 400);
                 return;
             }
 
             $extractDir = sys_get_temp_dir() . '/anon_plugin_' . uniqid();
-            if (!mkdir($extractDir, 0755, true)) {
+            if (!mkdir($extractDir, 0755, true) || !$zip->extractTo($extractDir)) {
                 $zip->close();
-                Anon_Http_Response::error('无法创建临时目录', 500);
-                return;
-            }
-
-            if (!$zip->extractTo($extractDir)) {
-                $zip->close();
-                self::deleteDirectory($extractDir);
+                if (is_dir($extractDir)) self::deleteDirectory($extractDir);
                 Anon_Http_Response::error('解压 ZIP 文件失败', 500);
                 return;
             }
-
             $zip->close();
 
             $overwrite = !empty($_POST['overwrite']);
-            $pluginName = null;
-            $entries = scandir($extractDir);
-            foreach ($entries as $entry) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-                $entryPath = $extractDir . '/' . $entry;
-                if (is_dir($entryPath)) {
-                    $pluginName = $entry;
-                    break;
-                }
+            $pluginName = self::detectPluginName($extractDir, pathinfo($file['name'], PATHINFO_FILENAME));
+
+            if (!$pluginName) {
+                self::deleteDirectory($extractDir);
+                Anon_Http_Response::error('无效的插件包结构', 400);
+                return;
             }
 
-            $pluginIndexFile = null;
-            $sourcePluginPath = null;
-            if ($pluginName) {
-                $pluginIndexFile = $extractDir . '/' . $pluginName . '/Index.php';
-                if (!file_exists($pluginIndexFile)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('插件必须包含 Index.php 文件', 400);
-                    return;
-                }
-                $meta = Anon_System_Plugin::readPluginMetaForDir($extractDir . '/' . $pluginName);
-                if (!$meta) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('无法读取插件元数据', 400);
-                    return;
-                }
-                $sourcePluginPath = $extractDir . '/' . $pluginName;
-            } else {
-                $pluginIndexFile = $extractDir . '/Index.php';
-                if (!file_exists($pluginIndexFile)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('ZIP 根目录未找到 Index.php，或请使用含单一插件目录的 ZIP', 400);
-                    return;
-                }
-                $meta = Anon_System_Plugin::readPluginMeta($pluginIndexFile);
-                if (!$meta) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('无法读取插件元数据', 400);
-                    return;
-                }
-                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
-                $pluginName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('plugin_' . uniqid());
-            }
-
-            $newVersion = isset($meta['version']) ? trim((string) $meta['version']) : '';
+            // 处理目录移动和覆盖逻辑
             $targetDir = $pluginDir . $pluginName;
-            if (is_dir($targetDir)) {
+            $sourceDir = $extractDir . (is_dir($extractDir . '/' . $pluginName) ? '/' . $pluginName : '');
+
+            // 读取新版本信息
+            $meta = Anon_System_Plugin::readPluginMetaForDir($sourceDir);
+            $newVersion = $meta['version'] ?? '';
+
+            if (is_dir($targetDir) && !$overwrite) {
                 $existingMeta = Anon_System_Plugin::readPluginMetaForDir($targetDir);
-                $existingVersion = ($existingMeta && isset($existingMeta['version'])) ? trim((string) $existingMeta['version']) : '';
-                if (!$overwrite) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::success([
-                        'needConfirm' => true,
-                        'name' => $pluginName,
-                        'slug' => strtolower($pluginName),
-                        'existingVersion' => $existingVersion,
-                        'newVersion' => $newVersion,
-                        'upgrade' => version_compare($newVersion, $existingVersion, '>'),
-                    ], '插件已存在，请确认是否覆盖');
-                    return;
-                }
-                self::deleteDirectory($targetDir);
+                $existingVersion = $existingMeta['version'] ?? '';
+
+                self::deleteDirectory($extractDir);
+                Anon_Http_Response::success([
+                    'needConfirm' => true,
+                    'name' => $pluginName,
+                    'slug' => strtolower($pluginName),
+                    'existingVersion' => $existingVersion,
+                    'newVersion' => $newVersion,
+                    'upgrade' => version_compare($newVersion, $existingVersion, '>'),
+                ], '插件已存在，请确认是否覆盖');
+                return;
             }
 
-            if ($sourcePluginPath && is_dir($sourcePluginPath)) {
-                if (!rename($sourcePluginPath, $targetDir)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('移动插件文件失败', 500);
-                    return;
-                }
-            } else {
-                if (!mkdir($targetDir, 0755, true)) {
-                    self::deleteDirectory($extractDir);
-                    Anon_Http_Response::error('无法创建插件目录', 500);
-                    return;
-                }
-                foreach ($entries as $entry) {
-                    if ($entry === '.' || $entry === '..') {
-                        continue;
-                    }
-                    $src = $extractDir . '/' . $entry;
-                    $dst = $targetDir . '/' . $entry;
-                    if (!rename($src, $dst)) {
-                        self::deleteDirectory($extractDir);
-                        self::deleteDirectory($targetDir);
-                        Anon_Http_Response::error('移动插件文件失败', 500);
-                        return;
-                    }
-                }
+            if (is_dir($targetDir)) self::deleteDirectory($targetDir);
+
+            if (!rename($sourceDir, $targetDir)) {
+                self::deleteDirectory($extractDir);
+                Anon_Http_Response::error('移动插件文件失败', 500);
+                return;
             }
 
             self::deleteDirectory($extractDir);
             Anon_System_Plugin::clearScanCache();
-
             Anon_Http_Response::success(['slug' => strtolower($pluginName)], '上传插件成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
@@ -335,50 +255,99 @@ class Anon_Cms_Admin_Plugins
     }
 
     /**
-     * 获取插件设置项。schema 来自插件入口文件中的 options 方法；values 来自 options 表 plugin:slug。
+     * 获取插件自定义页面配置
+     */
+    public static function getPage()
+    {
+        try {
+            $slug = trim((string)($_GET['slug'] ?? ''));
+            $page = trim((string)($_GET['page'] ?? ''));
+
+            if ($slug === '' || $page === '') {
+                Anon_Http_Response::error('参数缺失', 400);
+                return;
+            }
+
+            $config = self::loadPluginPagesConfig($slug);
+            if (!isset($config[$page])) {
+                Anon_Http_Response::error('页面不存在', 404);
+                return;
+            }
+
+            Anon_Http_Response::success($config[$page], '获取页面配置成功');
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 插件自定义页面通用操作接口
+     */
+    public static function pageAction()
+    {
+        try {
+            $data = Anon_Http_Request::getInput();
+            $slug = trim((string)($data['slug'] ?? ''));
+            $page = trim((string)($data['page'] ?? ''));
+            $action = trim((string)($data['action'] ?? ''));
+            $actionData = $data['data'] ?? [];
+
+            if ($slug === '' || $page === '' || $action === '') {
+                Anon_Http_Response::error('参数缺失', 400);
+                return;
+            }
+
+            $instance = self::getPluginInstance($slug);
+            $config = self::loadPluginPagesConfig($slug, $instance);
+
+            // 优先检查页面配置中的 handler
+            if (isset($config[$page]['handler']) && is_callable($config[$page]['handler'])) {
+                $result = call_user_func($config[$page]['handler'], $action, $actionData);
+                if ($result !== null) {
+                    Anon_Http_Response::success($result, '操作成功');
+                    return;
+                }
+            }
+
+            // 调用插件实例处理页面操作
+            if ($instance && method_exists($instance, 'handlePageAction')) {
+                $result = $instance->handlePageAction($page, $action, $actionData);
+                if ($result !== null) {
+                    Anon_Http_Response::success($result, '操作成功');
+                    return;
+                }
+            }
+
+            Anon_Http_Response::error('未处理的操作', 400);
+        } catch (Exception $e) {
+            Anon_Http_Response::handleException($e);
+        }
+    }
+
+    /**
+     * 获取插件设置项
      */
     public static function getOptions()
     {
         try {
-            $slug = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
+            $slug = trim((string)($_GET['slug'] ?? ''));
             if ($slug === '') {
                 Anon_Http_Response::error('插件标识不能为空', 400);
                 return;
             }
-            $slugLower = strtolower($slug);
-            $storageKey = 'plugin:' . $slugLower;
 
             $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
             $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
-            if ($resolvedDir === null) {
+            if (!$resolvedDir) {
                 Anon_Http_Response::error('插件不存在', 404);
                 return;
             }
-            $pluginPath = $pluginDir . $resolvedDir;
-            $schema = self::getPluginSettingsSchema($slugLower, $pluginPath);
 
-            $db = Anon_Database::getInstance();
-            $row = $db->db('options')->where('name', $storageKey)->first();
-            $values = [];
-            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
-                $v = $row['value'];
-                if (is_string($v) && (substr($v, 0, 1) === '{' || substr($v, 0, 1) === '[')) {
-                    $dec = json_decode($v, true);
-                    if (is_array($dec)) {
-                        $values = $dec;
-                    }
-                }
-            }
-            foreach ($schema as $key => $def) {
-                if (!is_array($def)) {
-                    continue;
-                }
-                if (!array_key_exists($key, $values)) {
-                    $values[$key] = $def['default'] ?? null;
-                }
-            }
+            $schema = self::getPluginSettingsSchema(strtolower($slug), $pluginDir . $resolvedDir);
+            $values = self::getStoredOptionsValues($slug, $schema);
+
             Anon_Http_Response::success([
-                'slug' => $slugLower,
+                'slug' => strtolower($slug),
                 'schema' => $schema,
                 'values' => $values,
             ]);
@@ -388,75 +357,61 @@ class Anon_Cms_Admin_Plugins
     }
 
     /**
-     * 保存插件设置项。options 表 name = plugin:插件名，value 为 JSON。
+     * 保存插件设置项
      */
     public static function saveOptions()
     {
         try {
             $data = Anon_Http_Request::getInput();
-            if (!is_array($data)) {
-                $data = [];
-            }
-            $slug = isset($data['slug']) ? trim((string)$data['slug']) : '';
+            $slug = trim((string)($data['slug'] ?? ''));
             if ($slug === '') {
                 Anon_Http_Response::error('插件标识不能为空', 400);
                 return;
             }
-            $slugLower = strtolower($slug);
-            $storageKey = 'plugin:' . $slugLower;
 
             $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
             $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
-            if ($resolvedDir === null) {
+            if (!$resolvedDir) {
                 Anon_Http_Response::error('插件不存在', 404);
                 return;
             }
-            $pluginPath = $pluginDir . $resolvedDir;
-            $schema = self::getPluginSettingsSchema($slugLower, $pluginPath);
 
-            $submitted = isset($data['values']) && is_array($data['values']) ? $data['values'] : $data;
+            $slugLower = strtolower($slug);
+            $schema = self::getPluginSettingsSchema($slugLower, $pluginDir . $resolvedDir);
+            $submitted = $data['values'] ?? $data;
             unset($submitted['slug']);
 
-            $db = Anon_Database::getInstance();
-            $row = $db->db('options')->where('name', $storageKey)->first();
-            $currentDbValues = [];
-            if ($row && isset($row['value']) && $row['value'] !== '' && $row['value'] !== null) {
-                $v = $row['value'];
-                if (is_string($v) && (substr($v, 0, 1) === '{' || substr($v, 0, 1) === '[')) {
-                    $dec = json_decode($v, true);
-                    if (is_array($dec)) {
-                        $currentDbValues = $dec;
-                    }
-                }
-            }
-            /** 仅展示、不参与存储的选项类型，与前端 DISPLAY_ONLY_OPTION_TYPES 一致 */
+            // 读取现有值以保留未提交的字段
+            $currentValues = self::getStoredOptionsValues($slug, $schema);
             $displayOnlyTypes = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'];
             $finalValues = [];
+
             foreach ($schema as $key => $def) {
-                if (!is_array($def)) {
-                    continue;
-                }
-                $type = isset($def['type']) ? (string) $def['type'] : 'text';
-                if (in_array($type, $displayOnlyTypes, true)) {
-                    continue;
-                }
-                $val = array_key_exists($key, $submitted) ? $submitted[$key]
-                    : (array_key_exists($key, $currentDbValues) ? $currentDbValues[$key] : ($def['default'] ?? null));
+                if (!is_array($def)) continue;
+                if (in_array($def['type'] ?? 'text', $displayOnlyTypes, true)) continue;
+
+                $val = $submitted[$key] ?? $currentValues[$key] ?? $def['default'] ?? null;
+
                 if (isset($def['sanitize_callback']) && is_callable($def['sanitize_callback'])) {
                     $val = call_user_func($def['sanitize_callback'], $val);
                 }
                 $finalValues[$key] = $val;
             }
+
+            $db = Anon_Database::getInstance();
+            $storageKey = 'plugin:' . $slugLower;
             $valueStr = json_encode($finalValues, JSON_UNESCAPED_UNICODE);
-            if ($row && isset($row['name'])) {
-                $ok = $db->db('options')->where('name', $storageKey)->update(['value' => $valueStr]);
-            } else {
-                $ok = $db->db('options')->insert(['name' => $storageKey, 'value' => $valueStr]);
-            }
+
+            $exists = $db->db('options')->where('name', $storageKey)->count() > 0;
+            $ok = $exists
+                ? $db->db('options')->where('name', $storageKey)->update(['value' => $valueStr])
+                : $db->db('options')->insert(['name' => $storageKey, 'value' => $valueStr]);
+
             if (!$ok) {
                 Anon_Http_Response::error('写入数据库失败', 500);
                 return;
             }
+
             Anon_Cms_Options::clearCache();
             Anon_Http_Response::success([
                 'slug' => $slugLower,
@@ -468,92 +423,160 @@ class Anon_Cms_Admin_Plugins
         }
     }
 
-    /**
-     * 从插件入口文件 getSettingsSchema 或 options 方法获取设置 schema，不依赖 package.json
-     * @param string $slugLower 插件标识符小写
-     * @param string $pluginPath 插件目录绝对路径
-     * @return array
-     */
-    private static function getPluginSettingsSchema(string $slugLower, string $pluginPath): array
-    {
-        $pluginInfo = Anon_System_Plugin::getPlugin($slugLower);
-        if ($pluginInfo && isset($pluginInfo['class']) && is_string($pluginInfo['class'])) {
-            $className = $pluginInfo['class'];
-            if (method_exists($className, 'getSettingsSchema')) {
-                $schema = call_user_func([$className, 'getSettingsSchema']);
-                return is_array($schema) ? $schema : [];
-            }
-            if (method_exists($className, 'options')) {
-                $schema = call_user_func([$className, 'options']);
-                return is_array($schema) ? $schema : [];
-            }
-        }
-        $mainFile = Anon_System_Plugin::getPluginMainFile($pluginPath);
-        if ($mainFile === null) {
-            return [];
-        }
-        require_once $mainFile;
-        $className = Anon_System_Plugin::getPluginClassNameFromSlug($slugLower);
-        if ($className === null || !class_exists($className)) {
-            return [];
-        }
-        if (method_exists($className, 'getSettingsSchema')) {
-            $schema = call_user_func([$className, 'getSettingsSchema']);
-            return is_array($schema) ? $schema : [];
-        }
-        if (method_exists($className, 'options')) {
-            $schema = call_user_func([$className, 'options']);
-            return is_array($schema) ? $schema : [];
-        }
-        return [];
-    }
+    // --- 私有辅助方法 ---
 
-    /**
-     * 获取已激活的插件列表
-     * @return array
-     */
     private static function getActivePlugins(): array
     {
         $active = Anon_Cms_Options::get('plugins:active', []);
-        if (is_string($active)) {
-            $active = json_decode($active, true);
-            if (!is_array($active)) {
-                $active = [];
-            }
-        }
+        if (is_string($active)) $active = json_decode($active, true) ?: [];
         return array_map('strtolower', $active);
     }
 
-    /**
-     * 设置已激活的插件列表
-     * @param array $plugins 插件列表
-     * @return void
-     */
     private static function setActivePlugins(array $plugins): void
     {
         Anon_Cms_Options::set('plugins:active', $plugins);
         Anon_Cms_Options::clearCache();
     }
 
-    /**
-     * 递归删除目录
-     * @param string $dir 目录路径
-     * @return void
-     */
-    private static function deleteDirectory(string $dir): void
+    private static function getPluginInstance(string $slug)
     {
-        if (!is_dir($dir)) {
-            return;
+        $className = Anon_System_Plugin::getPluginClassNameFromSlug($slug);
+        if (!$className) return null;
+
+        if (!class_exists($className, false)) {
+            $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
+            $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
+            if ($resolvedDir) {
+                $mainFile = Anon_System_Plugin::getPluginMainFile($pluginDir . $resolvedDir);
+                if ($mainFile) include_once $mainFile;
+            }
         }
 
+        if (class_exists($className)) {
+            try {
+                return new $className($slug);
+            } catch (Throwable $e) {
+            }
+        }
+        return null;
+    }
+
+    private static function loadPluginPagesConfig(string $slug, $instance = null)
+    {
+        if (!$instance) $instance = self::getPluginInstance($slug);
+
+        // 优先使用实例方法
+        if ($instance && method_exists($instance, 'getPages')) {
+            $pages = $instance->getPages();
+            return is_array($pages) ? $pages : [];
+        }
+
+        // 降级：直接加载 pages.php
+        $pluginDir = Anon_Main::APP_DIR . 'Plugin/';
+        $resolvedDir = Anon_System_Plugin::resolvePluginDir($pluginDir, $slug);
+        if (!$resolvedDir) return [];
+
+        $pagesFile = $pluginDir . $resolvedDir . '/app/pages.php';
+        if (file_exists($pagesFile)) {
+            $plugin = $instance;
+            $pages = include $pagesFile;
+            return is_array($pages) ? $pages : [];
+        }
+
+        return [];
+    }
+
+    private static function getPluginPagesList(string $slug, string $pluginPath): array
+    {
+        $pages = [];
+        $instance = self::getPluginInstance($slug);
+        $config = self::loadPluginPagesConfig($slug, $instance);
+
+        foreach ($config as $pageSlug => $pageConfig) {
+            $pages[] = [
+                'slug' => $pageSlug,
+                'title' => $pageConfig['title'] ?? $pageSlug,
+            ];
+        }
+        return $pages;
+    }
+
+    private static function getStoredOptionsValues(string $slug, array $schema): array
+    {
+        $storageKey = 'plugin:' . strtolower($slug);
+        $db = Anon_Database::getInstance();
+        $row = $db->db('options')->where('name', $storageKey)->first();
+
+        $storedValues = [];
+        if ($row && !empty($row['value'])) {
+            $decoded = json_decode($row['value'], true);
+            if (is_array($decoded)) $storedValues = $decoded;
+        }
+
+        $values = [];
+        foreach ($schema as $key => $def) {
+            if (!is_array($def)) continue;
+            $values[$key] = $storedValues[$key] ?? $def['default'] ?? null;
+        }
+        return $values;
+    }
+
+    private static function getPluginSettingsSchema(string $slugLower, string $pluginPath): array
+    {
+        $className = Anon_System_Plugin::getPluginClassNameFromSlug($slugLower);
+
+        // 尝试加载类
+        if ((!$className || !class_exists($className)) && file_exists($pluginPath)) {
+            $mainFile = Anon_System_Plugin::getPluginMainFile($pluginPath);
+            if ($mainFile) {
+                require_once $mainFile;
+                $className = Anon_System_Plugin::getPluginClassNameFromSlug($slugLower);
+            }
+        }
+
+        if ($className && class_exists($className)) {
+            foreach (['getSettingsSchema', 'options'] as $method) {
+                if (method_exists($className, $method)) {
+                    try {
+                        $ref = new ReflectionMethod($className, $method);
+                        $schema = $ref->isStatic()
+                            ? call_user_func([$className, $method])
+                            : call_user_func([new $className($slugLower), $method]);
+
+                        if (is_array($schema)) return $schema;
+                    } catch (Throwable $e) {
+                    }
+                }
+            }
+        }
+        return [];
+    }
+
+    private static function detectPluginName(string $extractDir, string $zipBasename): ?string
+    {
+        // 检查是否有单一顶层目录
+        $entries = array_diff(scandir($extractDir), ['.', '..']);
+        foreach ($entries as $entry) {
+            if (is_dir($extractDir . '/' . $entry) && file_exists($extractDir . '/' . $entry . '/Index.php')) {
+                return $entry;
+            }
+        }
+
+        // 检查根目录是否有 Index.php
+        if (file_exists($extractDir . '/Index.php')) {
+            return preg_match('/^[a-zA-Z0-9_-]+$/', $zipBasename) ? $zipBasename : ('plugin_' . uniqid());
+        }
+
+        return null;
+    }
+
+    private static function deleteDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) return;
         $files = array_diff(scandir($dir), ['.', '..']);
         foreach ($files as $file) {
             $path = $dir . '/' . $file;
-            if (is_dir($path)) {
-                self::deleteDirectory($path);
-            } else {
-                unlink($path);
-            }
+            is_dir($path) ? self::deleteDirectory($path) : unlink($path);
         }
         rmdir($dir);
     }

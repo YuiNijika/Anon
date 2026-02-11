@@ -28,6 +28,11 @@ class Anon_Database_Connection
     private static $connInstance = null;
 
     /**
+     * @var int SQL查询计数
+     */
+    private $queryCount = 0;
+
+    /**
      * 构造函数
      */
     protected function __construct()
@@ -72,6 +77,8 @@ class Anon_Database_Connection
      */
     public function query(string $sql)
     {
+        $this->queryCount++;
+
         if (
             preg_match('/(union|select.*from|insert.*into|update.*set|delete.*from|drop|alter|create|exec|execute)/i', $sql) &&
             preg_match('/(\$|%|_|\'|"|`)/', $sql)
@@ -107,6 +114,8 @@ class Anon_Database_Connection
      */
     public function prepare(string $sql, array $params = []): mysqli_stmt
     {
+        $this->queryCount++;
+
         $stmt = $this->conn->prepare($sql);
         if (!$stmt) {
             $errorMsg = self::sanitizeError($this->conn->error);
@@ -143,6 +152,15 @@ class Anon_Database_Connection
             }
         }
         return $stmt;
+    }
+
+    /**
+     * 获取查询次数
+     * @return int
+     */
+    public function getQueryCount(): int
+    {
+        return $this->queryCount;
     }
 
     /**

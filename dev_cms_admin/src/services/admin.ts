@@ -32,6 +32,7 @@ export interface ThemeOptionTableColumn {
 export interface ThemeOptionSchema {
   type:
   | 'text'
+  | 'boolean'
   | 'textarea'
   | 'select'
   | 'checkbox'
@@ -528,6 +529,16 @@ export const AdminApi = {
     return api.admin.post<PluginOptionsData>('/plugins/options', data)
   },
 
+  /** 获取插件自定义页面配置 */
+  getPluginPage: (api: ApiClient, params: { slug: string; page: string }) => {
+    return api.admin.get<any>('/plugins/page', params)
+  },
+
+  /** 插件自定义页面操作 - 执行 Action */
+  pluginPageAction: (api: ApiClient, data: { slug: string; page: string; action: string; data?: any }) => {
+    return api.admin.post<any>('/plugins/page/action', data)
+  },
+
   // 主题管理
   uploadTheme: (api: ApiClient, file: File, overwrite?: boolean) => {
     const formData = new FormData()
@@ -551,10 +562,20 @@ export interface Plugin {
   url: string
   mode: 'api' | 'cms' | 'auto'
   active: boolean
+  pages?: { slug: string; title: string }[]
 }
 
 export interface PluginListResponse {
   list: Plugin[]
+}
+
+export interface PageComponent {
+  id?: string
+  type: string
+  props?: Record<string, any>
+  children?: PageComponent[]
+  // 组件行为绑定，例如 onClick: { action: 'submit', target: '/api/...' }
+  events?: Record<string, any>
 }
 
 /** 插件设置 schema 单字段定义，与主题 ThemeOptionSchema 一致 */

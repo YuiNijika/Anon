@@ -22,11 +22,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   useLayoutEffect(() => {
     localStorage.setItem('theme', isDark ? 'dark' : 'light')
-    if (isDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+    document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
 
   const toggleTheme = () => {
