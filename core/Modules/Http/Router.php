@@ -11,7 +11,7 @@ class Anon_Http_Router
     private static $cachedRequestPath = null;
     private static $routerMetaCache = [];
     private static $usePersistentMetaCache = null;
-    private static $sortedParamRoutesCache = null;
+
 
     /**
      * 初始化
@@ -145,9 +145,13 @@ class Anon_Http_Router
         self::$routes = $routerConfig['routes'] ?? [];
         self::$errorHandlers = $routerConfig['error_handlers'] ?? [];
 
+        // 记录加载的路由信息
+        Anon_Debug::info('Router config loaded', [
+            'total_routes' => count(self::$routes),
+            'routes_list' => array_keys(self::$routes)
+        ]);
 
-        // 清除参数路由排序缓存，因为路由已重新加载
-        self::$sortedParamRoutesCache = null;
+
     }
 
     /**
@@ -1273,94 +1277,27 @@ class Anon_Http_Router
      */
     private static function matchParameterRoute(string $requestPath): ?array
     {
-        // 使用缓存避免每次请求都重新排序路由
-        if (self::$sortedParamRoutesCache === null) {
-            // 收集所有带参数的路由，并按参数数量排序
-            $paramRoutes = [];
-            foreach (self::$routes as $routePattern => $handler) {
-                if (strpos($routePattern, '{') !== false) {
-                    // 计算参数数量
-                    $paramCount = substr_count($routePattern, '{');
-                    $paramRoutes[] = [
-                        'pattern' => $routePattern,
-                        'handler' => $handler,
-                        'param_count' => $paramCount
-                    ];
-                }
+        // 直接遍历所有路由，按注册顺序匹配
+        foreach (self::$routes as $routePattern => $handler) {
+            if (strpos($routePattern, '{') === false) {
+                continue; // 跳过无参数路由
             }
-
-            // 按参数数量降序排序，确保更具体的路由优先匹配
-            usort($paramRoutes, function ($a, $b) {
-                return $b['param_count'] - $a['param_count'];
-            });
-
-            self::$sortedParamRoutesCache = $paramRoutes;
-
-            // 记录路由排序结果，仅在调试模式下
-            if (self::isDebugEnabled()) {
-                $routeList = array_map(function ($r) {
-                    return $r['pattern'] . ' (' . $r['param_count'] . ' params)';
-                }, $paramRoutes);
-                self::debugLog("Sorted parameter routes: " . implode(', ', $routeList));
-            }
-        }
-
-        // 遍历排序后的路由进行匹配
-        foreach (self::$sortedParamRoutesCache as $route) {
-            $routePattern = $route['pattern'];
 
             // 将路由模式转换为正则表达式
             $pattern = preg_quote($routePattern, '/');
-            $pattern = preg_replace('/\\\{([^\/]+)\\\}/', '([^\/]+)', $pattern);
+            $pattern = preg_replace('/\\\\{([^\\/]+)\\\\}/', '([^\\/]+)', $pattern);
             $pattern = '/^' . $pattern . '$/';
 
             if (preg_match($pattern, $requestPath, $matches)) {
                 // 提取参数名
-                preg_match_all('/\{([^\/]+)\}/', $routePattern, $paramNames);
+                preg_match_all('/\\{([^\\/]+)\\}/', $routePattern, $paramNames);
                 $paramNames = $paramNames[1];
-
-                // 验证路径段数：计算路由模式和请求路径的段数
-                // 使用 trim 去掉首尾的 /，然后按 / 分割，过滤空字符串
-                $routeParts = array_filter(explode('/', trim($routePattern, '/')), function ($part) {
-                    return $part !== '';
-                });
-                $requestParts = array_filter(explode('/', trim($requestPath, '/')), function ($part) {
-                    return $part !== '';
-                });
-                $routeSegments = count($routeParts);
-                $requestSegments = count($requestParts);
-
-                // 路由段数必须等于请求路径段数
-                if ($routeSegments !== $requestSegments) {
-                    if (self::isDebugEnabled()) {
-                        self::debugLog("Route pattern {$routePattern} matched regex but segment count mismatch. Route segments: {$routeSegments}, Request segments: {$requestSegments}");
-                    }
-                    continue;
-                }
-
-                // 验证匹配的段数是否正确
-                $expectedMatches = count($paramNames) + 1;
-                if (count($matches) < $expectedMatches) {
-                    // 匹配的段数不对，继续下一个路由
-                    if (self::isDebugEnabled()) {
-                        self::debugLog("Route pattern {$routePattern} matched but match count mismatch. Expected: {$expectedMatches}, Got: " . count($matches));
-                    }
-                    continue;
-                }
 
                 $params = [];
                 for ($i = 0; $i < count($paramNames); $i++) {
                     if (isset($matches[$i + 1])) {
                         $params[$paramNames[$i]] = $matches[$i + 1];
                     }
-                }
-
-                // 验证所有参数都已提取
-                if (count($params) !== count($paramNames)) {
-                    if (self::isDebugEnabled()) {
-                        self::debugLog("Route pattern {$routePattern} matched but param extraction failed. Expected: " . count($paramNames) . ", Got: " . count($params));
-                    }
-                    continue;
                 }
 
                 if (self::isDebugEnabled()) {
@@ -1372,10 +1309,6 @@ class Anon_Http_Router
                     'params' => $params
                 ];
             }
-        }
-
-        if (self::isDebugEnabled()) {
-            self::debugLog("No parameter route matched for: {$requestPath}. Tried " . count(self::$sortedParamRoutesCache) . " routes.");
         }
 
         return null;

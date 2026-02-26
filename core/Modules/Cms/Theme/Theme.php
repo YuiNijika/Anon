@@ -106,6 +106,7 @@ class Anon_Cms_Theme
             self::$initialized = true;
 
             self::loadThemeCode();
+            self::registerStaticResources();
         } catch (Error $e) {
             self::handleFatalError($e);
         } catch (Throwable $e) {
@@ -114,6 +115,31 @@ class Anon_Cms_Theme
             } else {
                 throw $e;
             }
+        }
+    }
+
+    /**
+     * 注册主题静态资源路由
+     * @return void
+     */
+    private static function registerStaticResources(): void
+    {
+        try {
+            $themeName = self::getCurrentTheme();
+            
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'assets');
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'css');
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'js');
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'images');
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'img');
+            Anon_Http_StaticResource::registerThemeRoute($themeName, 'fonts');
+            
+            Anon_Debug::info("Registered static resources for theme: {$themeName}");
+        } catch (Exception $e) {
+            Anon_Debug::error('Failed to register theme static resources', [
+                'theme' => self::getCurrentTheme(),
+                'message' => $e->getMessage()
+            ]);
         }
     }
 

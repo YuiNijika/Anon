@@ -1,8 +1,4 @@
 <?php
-
-/**
- * 系统配置
- */
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Anon_System_Config
@@ -30,7 +26,7 @@ class Anon_System_Config
         if (isset(self::$routerConfig['routes'][$normalized])) {
             $existingHandler = self::$routerConfig['routes'][$normalized];
             $conflictInfo = self::detectRouteConflict($normalized, $handler, $existingHandler);
-
+        
             if ($conflictInfo['conflict']) {
                 $message = "路由冲突: {$normalized}";
                 if (defined('ANON_DEBUG') && ANON_DEBUG) {
@@ -98,75 +94,13 @@ class Anon_System_Config
      * @param string $route 路由路径
      * @param string|callable $filePath 文件路径或回调函数
      * @param string|callable $mimeType MIME类型或回调函数
-     * @param int $cacheTime 缓存时间，单位为秒
+     * @param int $cacheTime 缓存时间
      * @param bool $compress 是否启用压缩
      */
     public static function addStaticRoute(string $route, $filePath, $mimeType = 'application/octet-stream', int $cacheTime = 31536000, bool $compress = true, array $meta = [])
     {
-        $defaultMeta = [
-            'header' => false,
-            'token' => false,
-            'requireLogin' => false
-        ];
-        $meta = array_merge($defaultMeta, $meta);
-
-        self::addRoute($route, function () use ($filePath, $mimeType, $cacheTime, $compress) {
-            $actualFilePath = is_callable($filePath) ? $filePath() : $filePath;
-            $actualMimeType = is_callable($mimeType) ? $mimeType() : $mimeType;
-
-            if (!$actualFilePath || !is_file($actualFilePath) || !is_readable($actualFilePath)) {
-                http_response_code(404);
-                exit;
-            }
-
-            header('Content-Type: ' . $actualMimeType);
-            header('Content-Length: ' . filesize($actualFilePath));
-
-            // 检测是否有 nocache 参数，如果有则不缓存
-            $hasNoCacheParam = isset($_GET['nocache']) && ($_GET['nocache'] === '1' || $_GET['nocache'] === 'true');
-
-            // 检测是否有 ver 参数，ver 参数作为版本标识，不同版本视为不同资源
-            $hasVerParam = isset($_GET['ver']) && $_GET['ver'] !== '';
-
-            if ($hasNoCacheParam) {
-                // 有 nocache 参数，强制不缓存
-                header('Cache-Control: no-cache, no-store, must-revalidate');
-                header('Pragma: no-cache');
-                header('Expires: 0');
-            } elseif ($cacheTime > 0) {
-                // 正常缓存逻辑
-                // ver 参数在 URL 中，不同版本号会被浏览器视为不同资源
-                // 当版本号变化时，浏览器会请求新 URL 并缓存新资源
-                header('Cache-Control: public, max-age=' . $cacheTime);
-                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
-                if ($hasVerParam) {
-                    // 设置 Last-Modified 为文件修改时间，帮助浏览器判断资源是否更新
-                    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($actualFilePath)) . ' GMT');
-                }
-            } else {
-                header('Cache-Control: no-cache, no-store, must-revalidate');
-                header('Pragma: no-cache');
-                header('Expires: 0');
-            }
-
-            if ($compress && extension_loaded('zlib')) {
-                $compressibleTypes = ['text/html', 'text/css', 'text/javascript', 'application/javascript', 'application/json', 'text/xml', 'application/xml'];
-                if (in_array($actualMimeType, $compressibleTypes)) {
-                    $acceptEncoding = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-                    $fileContent = file_get_contents($actualFilePath);
-                    if ($fileContent !== false && strpos($acceptEncoding, 'gzip') !== false) {
-                        $compressed = gzencode($fileContent);
-                        header('Content-Encoding: gzip');
-                        header('Content-Length: ' . strlen($compressed));
-                        echo $compressed;
-                        exit;
-                    }
-                }
-            }
-
-            readfile($actualFilePath);
-            exit;
-        }, $meta);
+        // 使用高性能静态资源服务
+        Anon_Http_StaticResource::registerRoute($route, $filePath, $mimeType, $cacheTime, $meta);
     }
 
     /**
@@ -189,7 +123,6 @@ class Anon_System_Config
 
     /**
      * 获取全局配置信息
-     * 可通过 config 钩子扩展配置字段
      * @return array
      */
     public static function getConfig(): array
@@ -238,6 +171,27 @@ class Anon_System_Config
         $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
 
+
+        self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Anon_Cms_Attachment::class, 'index'], [
+            'header' => false,
+            'requireLogin' => false,
+            'requireAdmin' => false,
+            'method' => 'GET',
+            'token' => false,
+        ]);
+        
+        self::addRoute('/anon/attachment/{filetype}/{filename}', [Anon_Cms_Attachment::class, 'index'], [
+            'header' => false,
+            'requireLogin' => false,
+            'requireAdmin' => false,
+            'method' => 'GET',
+            'token' => false,
+        ]);
+        
+        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 31536000, true, ['token' => false]);
+        
         if (Anon_System_Env::get('app.mode') === 'cms') {
             // 注册分页路由
             self::addRoute('/page/{page}', function () {
@@ -292,8 +246,6 @@ class Anon_System_Config
             self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
             self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
         }
-        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
-        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 31536000, true, ['token' => false]);
 
         self::addRoute('/anon/install', [Anon_System_Install::class, 'index']);
         self::addRoute('/anon/install/api/token', [Anon_System_Install::class, 'apiGetToken']);
@@ -404,7 +356,6 @@ class Anon_System_Config
                 ];
             }
         } catch (Exception $e) {
-            // 忽略
         }
 
         return null;

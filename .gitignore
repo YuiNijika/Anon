@@ -1,5 +1,7 @@
 app/Plugin/AppList
 
+.lingma
+
 # env
 .env.php
 

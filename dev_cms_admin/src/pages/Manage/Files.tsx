@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Upload, Trash2, MoreHorizontal, Inbox, CheckCircle, XCircle } from 'lucide-react'
+import { Upload, Trash2, MoreHorizontal, Inbox, CheckCircle, XCircle, Eye, Download, Copy } from 'lucide-react'
 import { getErrorMessage } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select'
 import { useAttachments } from '@/hooks'
 import { Lightbox } from '@/components/ui/lightbox'
+import { FileIcon } from '@/components/FileIcon'
 import { buildPublicUrl, getApiBaseUrl } from '@/utils/api'
 import { getAdminToken, checkLoginStatus, getApiPrefix } from '@/utils/token'
 
@@ -49,6 +50,34 @@ function formatFileSize(size: number): string {
   if (size < 1024) return `${size} B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`
   return `${(size / (1024 * 1024)).toFixed(2)} MB`
+}
+
+function getFileExtension(filename: string): string {
+  return filename.split('.').pop()?.toLowerCase() || ''
+}
+
+function isPreviewable(mimeType: string): boolean {
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf'
+}
+
+// 预览功能已在按钮点击事件中实现
+
+function downloadFile(url: string, filename: string) {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function copyUrl(url: string) {
+  navigator.clipboard.writeText(url).then(() => {
+    toast.success('URL已复制到剪贴板')
+  }).catch(() => {
+    toast.error('复制失败')
+  })
 }
 
 export default function ManageFiles() {
@@ -86,6 +115,7 @@ export default function ManageFiles() {
       const apiPrefix = await getApiPrefix()
       const prefix = apiPrefix || '/anon'
       const url = `${baseUrl}${prefix}/cms/admin/attachments`
+      // 注意：这里保持原有的上传API不变，只是改变了附件访问URL格式
       const isLoggedIn = await checkLoginStatus()
       const headers: HeadersInit = {}
       if (isLoggedIn) {
@@ -211,53 +241,105 @@ export default function ManageFiles() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        {row.mime_type?.startsWith('image/') ? (
-                          <button
-                            type="button"
-                            className="cursor-zoom-in rounded outline-none ring-offset-2 hover:ring-2 hover:ring-primary/50"
-                            onClick={() => {
-                              setLightboxSrc(buildPublicUrl(row.url))
-                              setLightboxOpen(true)
-                            }}
-                          >
-                            <img
-                              src={buildPublicUrl(row.url)}
-                              alt={row.name}
-                              className="h-14 w-14 rounded object-cover"
-                            />
-                          </button>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={row.name ?? row.original_name ?? row.filename ?? '-'}>
-                        {row.name ?? row.original_name ?? row.filename ?? '-'}
-                      </TableCell>
-                      <TableCell className="max-w-[120px] truncate text-muted-foreground">{row.mime_type ?? '-'}</TableCell>
-                      <TableCell>{formatFileSize(row.size ?? row.file_size ?? 0)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.created_at ? new Date(row.created_at * 1000).toLocaleString('zh-CN') : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(row.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {data.map((row) => {
+                    const filename = row.name ?? row.original_name ?? row.filename ?? '-'
+                    const extension = getFileExtension(filename)
+                    const mimeType = row.mime_type ?? ''
+                    const publicUrl = buildPublicUrl(row.url)
+                    const canPreview = isPreviewable(mimeType)
+                    
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell>
+                          <div className="flex items-center justify-center">
+                            {mimeType.startsWith('image/') ? (
+                              <button
+                                type="button"
+                                className="cursor-zoom-in rounded outline-none ring-offset-2 hover:ring-2 hover:ring-primary/50"
+                                onClick={() => {
+                                  setLightboxSrc(publicUrl)
+                                  setLightboxOpen(true)
+                                }}
+                              >
+                                <img
+                                  src={publicUrl}
+                                  alt={filename}
+                                  className="h-14 w-14 rounded object-cover"
+                                />
+                              </button>
+                            ) : (
+                              <div className="flex h-14 w-14 items-center justify-center rounded bg-muted">
+                                <FileIcon 
+                                  mimeType={mimeType} 
+                                  extension={extension} 
+                                  className="h-8 w-8 text-muted-foreground" 
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[300px] truncate" title={filename}>
+                          {filename}
+                        </TableCell>
+                        <TableCell className="max-w-[120px] truncate text-muted-foreground">{mimeType || '-'}</TableCell>
+                        <TableCell>{formatFileSize(row.size ?? row.file_size ?? 0)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.created_at ? new Date(row.created_at * 1000).toLocaleString('zh-CN') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <button
+                              className={`rounded p-2 ${canPreview ? 'hover:bg-muted cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                              onClick={() => {
+                                if (canPreview) {
+                                  if (mimeType === 'application/pdf') {
+                                    window.open(publicUrl, '_blank')
+                                  } else {
+                                    setLightboxSrc(publicUrl)
+                                    setLightboxOpen(true)
+                                  }
+                                }
+                              }}
+                              title={canPreview ? "预览" : "该文件类型不支持预览"}
+                              disabled={!canPreview}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="rounded p-2 hover:bg-muted cursor-pointer"
+                              onClick={() => downloadFile(publicUrl, filename)}
+                              title="下载"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="rounded p-2 hover:bg-muted cursor-pointer"
+                              onClick={() => copyUrl(publicUrl)}
+                              title="复制URL"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem 
+                                  className="text-destructive" 
+                                  onClick={() => handleDelete(row.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  删除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

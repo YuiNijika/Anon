@@ -66,6 +66,7 @@ export default defineConfig({
           { text: "评论功能", link: "/guide/cms/comments" },
           { text: "插件系统", link: "/guide/cms/plugin-system" },
           { text: "管理后台", link: "/guide/cms/admin" },
+          { text: "高性能附件系统", link: "/guide/cms/high-performance-attachments" },
         ]
       },
       {
@@ -111,6 +112,7 @@ export default defineConfig({
             { text: '评论功能', link: 'comments' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '管理后台', link: 'admin' },
+            { text: '高性能附件系统', link: 'high-performance-attachments' },
           ]
         }
       ],

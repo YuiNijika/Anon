@@ -35,6 +35,7 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Options.php';
         require_once Anon_Main::WIDGETS_DIR . 'Cms/User.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Attachment.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
 
         Anon_Cms_Admin::init();

@@ -184,6 +184,7 @@ export default function MediaLibrary({
     if (imageFormat === 'original') return attachment
     const url = typeof attachment?.url === 'string' ? attachment.url : ''
     if (!url) return attachment
+    // 新的高性能附件路由格式: /anon/attachment/{filetype}/{filename}/{imgtype}
     return { ...attachment, insert_url: `${url}/${imageFormat}` }
   }
 

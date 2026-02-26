@@ -44,6 +44,7 @@ class Anon_Main
         require_once self::MODULES_DIR . 'System/Config.php';
         require_once self::MODULES_DIR . 'Database/SqlConfig.php';
         require_once self::MODULES_DIR . 'Common.php';
+        require_once self::MODULES_DIR . 'Http/StaticResource.php';
         Anon_Common::defineConstantsFromEnv();
         
         require_once __DIR__ . '/Loader.php';
@@ -89,16 +90,47 @@ class Anon_Main
      */
     public static function runFpm()
     {
-        self::init();
-        Anon_System_Config::initSystemRoutes();
-        Anon_System_Config::initAppRoutes();
-        Anon_Http_Router::init();
+        try {
+            self::init();
+            Anon_System_Config::initSystemRoutes();
+            Anon_System_Config::initAppRoutes();
+            Anon_Http_Router::init();
 
-        Anon_Debug::info('Application started (FPM)', [
-            'php_version' => PHP_VERSION,
-            'memory_limit' => ini_get('memory_limit'),
-            'max_execution_time' => ini_get('max_execution_time')
-        ]);
+            Anon_Debug::info('Application started (FPM)', [
+                'php_version' => PHP_VERSION,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time')
+            ]);
+        } catch (Exception $e) {
+            self::handleError($e);
+        } catch (Error $e) {
+            self::handleError($e);
+        }
+    }
+
+    /**
+     * 处理错误
+     * @param Throwable $e 异常对象
+     * @return void
+     */
+    private static function handleError($e)
+    {
+        // 只在调试模式下输出详细错误信息
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+            echo "<pre>";
+            echo "Error: " . $e->getMessage() . "\n";
+            echo "File: " . $e->getFile() . "\n";
+            echo "Line: " . $e->getLine() . "\n";
+            echo "Trace: " . $e->getTraceAsString() . "\n";
+            echo "</pre>";
+        } else {
+            // 生产环境只显示简单错误
+            http_response_code(500);
+            echo "Internal Server Error";
+        }
+        exit(1);
     }
 
     /**
@@ -108,30 +140,30 @@ class Anon_Main
      */
     public static function runSwoole($argv)
     {
-        self::init();
-        require_once self::MODULES_DIR . 'Server/Manager.php';
-        $type = $argv[2] ?? 'http';
-        $action = $argv[3] ?? 'start';
-        $host = '0.0.0.0';
-        $port = 9501;
-        foreach ($argv as $arg) {
-            if (strpos($arg, '--port=') === 0) {
-                $port = (int) substr($arg, 7);
-            }
-            if (strpos($arg, '--host=') === 0) {
-                $host = substr($arg, 7);
-            }
-        }
-        if (!in_array('--port=', $argv)) {
-            switch ($type) {
-                case 'tcp': $port = 9502; break;
-                case 'websocket': $port = 9503; break;
-            }
-        }
-
-        $manager = new Anon_Server_Manager('swoole');
-
         try {
+            self::init();
+            require_once self::MODULES_DIR . 'Server/Manager.php';
+            $type = $argv[2] ?? 'http';
+            $action = $argv[3] ?? 'start';
+            $host = '0.0.0.0';
+            $port = 9501;
+            foreach ($argv as $arg) {
+                if (strpos($arg, '--port=') === 0) {
+                    $port = (int) substr($arg, 7);
+                }
+                if (strpos($arg, '--host=') === 0) {
+                    $host = substr($arg, 7);
+                }
+            }
+            if (!in_array('--port=', $argv)) {
+                switch ($type) {
+                    case 'tcp': $port = 9502; break;
+                    case 'websocket': $port = 9503; break;
+                }
+            }
+
+            $manager = new Anon_Server_Manager('swoole');
+
             $server = $manager->create($type, [
                 'host' => $host,
                 'port' => $port
@@ -152,7 +184,9 @@ class Anon_Main
                     break;
             }
         } catch (Exception $e) {
-            echo "错误: " . $e->getMessage() . "\n";
+            self::handleError($e);
+        } catch (Error $e) {
+            self::handleError($e);
         }
     }
 }
