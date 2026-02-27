@@ -11,6 +11,7 @@ class Anon_Cms_AccessLog
         '/anon/cms/admin',
         '/anon/install',
         '/anon/static',
+        '/anon/attachment',
         '/assets',
         '/static',
         '/.well-known',
