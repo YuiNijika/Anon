@@ -596,6 +596,12 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
         }
         $data['updated_at'] = date('Y-m-d H:i:s');
 
+        // 处理 MySQL 关键字字段
+        if (isset($data['group'])) {
+            $data['`group`'] = $data['group'];
+            unset($data['group']);
+        }
+
         return $this->db('users')
             ->where('uid', $uid)
             ->update($data) !== false;
