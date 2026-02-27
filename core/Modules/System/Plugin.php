@@ -501,7 +501,7 @@ class Anon_System_Plugin
      * @param string $pluginSlug 插件标识符
      * @return bool
      */
-    private static function isPluginActive(string $pluginSlug): bool
+    public static function isPluginActive(string $pluginSlug): bool
     {
         if (empty(self::$activePlugins)) {
             return true;
@@ -878,6 +878,11 @@ abstract class Anon_Plugin_Base
     {
         $this->slug = $pluginSlug !== '' ? strtolower($pluginSlug) : self::slugFromClass(get_class($this));
 
+        // 检查插件是否激活，未激活则不执行任何逻辑
+        if (!Anon_System_Plugin::isPluginActive($this->slug)) {
+            return;
+        }
+
         // 自动推导插件目录
         try {
             $reflector = new ReflectionClass($this);
@@ -895,6 +900,11 @@ abstract class Anon_Plugin_Base
      */
     protected function autoloadMode()
     {
+        // 检查插件是否激活
+        if (!Anon_System_Plugin::isPluginActive($this->slug)) {
+            return;
+        }
+
         if (empty($this->pluginDir)) {
             return;
         }
