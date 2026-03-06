@@ -42,8 +42,11 @@ let tokenRefreshPromise: Promise<string | null> | null = null
 
 async function getApiPrefix(): Promise<string> {
   const prefix = await getApiPrefixFromToken()
-  // 只返回 API 前缀部分
-  return prefix === '' ? '/anon' : prefix
+  // 只返回 API 前缀部分，确保以 / 开头
+  if (prefix === '' || prefix === '/') {
+    return '/api'
+  }
+  return prefix.startsWith('/') ? prefix : `/${prefix}`
 }
 
 function buildQueryString(params?: Record<string, any>): string {

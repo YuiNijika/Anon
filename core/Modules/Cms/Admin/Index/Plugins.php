@@ -554,15 +554,26 @@ class Anon_Cms_Admin_Plugins
 
     private static function detectPluginName(string $extractDir, string $zipBasename): ?string
     {
-        // 检查是否有单一顶层目录
+        // 过滤有效条目
         $entries = array_diff(scandir($extractDir), ['.', '..']);
+        
+        // 文件夹模式：只有一个文件夹且包含 Index.php
+        if (count($entries) === 1) {
+            $firstEntry = reset($entries);
+            $entryPath = $extractDir . '/' . $firstEntry;
+            if (is_dir($entryPath) && file_exists($entryPath . '/Index.php')) {
+                return $firstEntry;
+            }
+        }
+        
+        // 检查是否有任意顶层目录包含 Index.php
         foreach ($entries as $entry) {
             if (is_dir($extractDir . '/' . $entry) && file_exists($extractDir . '/' . $entry . '/Index.php')) {
                 return $entry;
             }
         }
 
-        // 检查根目录是否有 Index.php
+        // 文件模式：检查根目录是否有 Index.php
         if (file_exists($extractDir . '/Index.php')) {
             return preg_match('/^[a-zA-Z0-9_-]+$/', $zipBasename) ? $zipBasename : ('plugin_' . uniqid());
         }

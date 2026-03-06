@@ -3,6 +3,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 return [
     'app' => [
+        'baseUrl' => '/', // API 模式下的基础路径
         'autoRouter' => true,
         'avatar' => 'https://www.cravatar.cn/avatar',
         'cache' => [

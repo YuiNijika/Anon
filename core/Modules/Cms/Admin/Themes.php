@@ -36,6 +36,81 @@ class Anon_Cms_Admin_Themes
     }
 
     /**
+     * 从 ZIP 中提取主题信息
+     * 支持两种模式:
+     * 1. 文件夹模式：ZIP 内只有一个文件夹，文件夹内为主题文件
+     * 2. 文件模式：ZIP 内直接包含主题文件 (必须有 index.php 或 package.json)
+     * @param string $extractDir 解压目录
+     * @param string $zipFileName ZIP 文件名
+     * @return array|null 返回 ['name' => 主题名，'path' => 主题路径，'mode' => 'folder'|'file']，失败返回 null
+     */
+    private static function extractThemeFromZip(string $extractDir, string $zipFileName): ?array
+    {
+        $entries = scandir($extractDir);
+        if (!is_array($entries)) {
+            return null;
+        }
+        
+        // 过滤掉 . 和 ..
+        $validEntries = array_filter($entries, function($entry) {
+            return $entry !== '.' && $entry !== '..';
+        });
+        
+        // 文件夹模式：只有一个文件夹
+        if (count($validEntries) === 1) {
+            $firstEntry = reset($validEntries);
+            $entryPath = $extractDir . '/' . $firstEntry;
+            if (is_dir($entryPath)) {
+                // 检查文件夹内是否有主题入口文件
+                $hasIndexFile = file_exists($entryPath . '/index.php') || 
+                               file_exists($entryPath . '/package.json');
+                if ($hasIndexFile) {
+                    return [
+                        'name' => $firstEntry,
+                        'path' => $entryPath,
+                        'mode' => 'folder'
+                    ];
+                }
+            }
+        }
+        
+        // 文件模式：直接有入口文件
+        $hasIndexFile = file_exists($extractDir . '/index.php') || 
+                        file_exists($extractDir . '/package.json');
+        if ($hasIndexFile) {
+            // 优先从 package.json 读取主题名
+            $themeName = null;
+            $packageJsonPath = $extractDir . '/package.json';
+            if (file_exists($packageJsonPath)) {
+                $jsonContent = file_get_contents($packageJsonPath);
+                if ($jsonContent !== false) {
+                    $packageData = json_decode($jsonContent, true);
+                    if (is_array($packageData) && isset($packageData['name'])) {
+                        // 从 name 字段提取主题名
+                        $nameParts = explode('/', $packageData['name']);
+                        $themeName = end($nameParts);
+                        // 清理无效字符
+                        $themeName = preg_replace('/[^a-zA-Z0-9_-]/', '', $themeName);
+                    }
+                }
+            }
+            
+            // 如果无法从 package.json 获取，使用目录名作为后备
+            if (!$themeName) {
+                $themeName = basename($extractDir);
+            }
+            
+            return [
+                'name' => $themeName,
+                'path' => $extractDir,
+                'mode' => 'file'
+            ];
+        }
+        
+        return null;
+    }
+
+    /**
      * 上传主题
      * 若同名主题已存在，根据 package.json 版本比较返回需确认或直接覆盖，POST overwrite=1 时直接覆盖
      * @return void
@@ -85,25 +160,18 @@ class Anon_Cms_Admin_Themes
 
             $zip->close();
 
-            $themeName = null;
-            $entries = scandir($extractDir);
-            foreach ($entries as $entry) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-                $entryPath = $extractDir . '/' . $entry;
-                if (is_dir($entryPath)) {
-                    $themeName = $entry;
-                    break;
-                }
+            // 从 ZIP 中提取主题信息
+            $themeInfo = self::extractThemeFromZip($extractDir, $fileName);
+            
+            if (!$themeInfo) {
+                self::deleteDirectory($extractDir);
+                Anon_Http_Response::error('无效的主题包结构，无法找到主题入口文件', 400);
+                return;
             }
-
-            $sourcePath = $themeName ? ($extractDir . '/' . $themeName) : null;
-            if (!$themeName) {
-                $baseName = pathinfo($fileName, PATHINFO_FILENAME);
-                $themeName = preg_match('/^[a-zA-Z0-9_-]+$/', $baseName) ? $baseName : ('theme_' . uniqid());
-            }
-
+            
+            $themeName = $themeInfo['name'];
+            $sourcePath = $themeInfo['path'];
+            
             $targetDir = $themeDir . $themeName;
             if (is_dir($targetDir)) {
                 $existingVersion = self::getThemeVersionFromDir($targetDir);
@@ -121,8 +189,7 @@ class Anon_Cms_Admin_Themes
                 }
                 self::deleteDirectory($targetDir);
             }
-
-            $targetDir = $themeDir . $themeName;
+            // 移动文件时不再遍历$entries，直接移动 sourcePath
             if ($sourcePath && is_dir($sourcePath)) {
                 if (!rename($sourcePath, $targetDir)) {
                     self::deleteDirectory($extractDir);
@@ -130,11 +197,13 @@ class Anon_Cms_Admin_Themes
                     return;
                 }
             } else {
+                // 文件模式：需要复制所有文件
                 if (!mkdir($targetDir, 0755, true)) {
                     self::deleteDirectory($extractDir);
                     Anon_Http_Response::error('无法创建主题目录', 500);
                     return;
                 }
+                $entries = scandir($extractDir);
                 foreach ($entries as $entry) {
                     if ($entry === '.' || $entry === '..') {
                         continue;

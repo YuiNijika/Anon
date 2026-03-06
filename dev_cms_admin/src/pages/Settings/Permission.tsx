@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useApiAdmin } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
 import { AdminApi, type PermissionSettings } from '@/services/admin'
+import { clearApiPrefixCache } from '@/utils/token'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -73,6 +74,8 @@ export default function SettingsPermission() {
         api_enabled: values.api_enabled === true,
       }
       await AdminApi.updatePermissionSettings(apiAdmin, submitData)
+      // 清除 API 前缀缓存，强制下次请求时重新获取
+      clearApiPrefixCache()
       toast.success('权限设置已保存')
       await loadSettings()
     } catch (err) {

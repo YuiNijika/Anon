@@ -708,16 +708,21 @@ class Anon_Http_Router
         if (!class_exists('Anon_Cms_Options')) {
             Anon_Loader::loadCmsModules();
         }
-
-        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
-        $apiPrefix = rtrim($apiPrefix, '/');
-        if (empty($apiPrefix) || $apiPrefix === '/') {
-            return;
-        }
-
+    
+        // 使用统一的 API前缀管理
+        $apiPrefix = Anon_System_ApiPrefix::get();
+            
+        Anon_Debug::info("CMS mode: Registering API routes with prefix: {$apiPrefix}");
+            
         $autoRouter = Anon_System_Env::get('app.autoRouter', false);
-        if ($autoRouter) {
+            
+        // CMS 模式下总是启用自动路由，确保基础路由被注册
+        if ($autoRouter || !file_exists(__DIR__ . '/../../../app/useRouter.php')) {
+            // 在配置的 API前缀下注册路由
             self::autoRegisterRoutesWithPrefix($apiPrefix);
+                    
+            // 同时在根路径下注册一份，确保兼容性（不带任何前缀）
+            self::autoRegisterRoutesWithPrefix('');
         } else {
             $routerConfig = __DIR__ . '/../../../app/useRouter.php';
             if (file_exists($routerConfig)) {
@@ -779,14 +784,18 @@ class Anon_Http_Router
         $routerDir = __DIR__ . '/../../../app/Router';
 
         if (!is_dir($routerDir)) {
+            Anon_Debug::warn("Router directory not found: {$routerDir}");
             return;
         }
 
         Anon_System_Hook::do_action('router_before_auto_register');
 
+        Anon_Debug::info("Auto-registering routes with prefix: {$prefix}");
         self::scanDirectoryWithPrefix($routerDir, '', $prefix);
 
         Anon_System_Hook::do_action('router_after_auto_register');
+        
+        Anon_Debug::info("Auto-registered routes completed");
     }
 
     /**
@@ -827,6 +836,7 @@ class Anon_Http_Router
                 self::scanDirectoryWithPrefix($itemPath, $routePath, $prefix);
             } elseif (is_file($itemPath) && pathinfo($item, PATHINFO_EXTENSION) === 'php') {
                 $prefixedPath = $prefix . $routePath;
+                Anon_Debug::debug("Registering route: {$prefixedPath} (file: {$itemName}.php)");
                 self::registerAutoRoute($prefixedPath, $itemPath, $dir);
             }
         }
@@ -1258,8 +1268,14 @@ class Anon_Http_Router
 
         $path = strstr($path, '?', true) ?: $path;
 
-        if (strpos($path, '/apiService') === 0) {
-            $path = substr($path, strlen('/apiService'));
+        // 动态去除 API前缀
+        $mode = Anon_System_Env::get('app.mode', 'api');
+        if ($mode === 'cms' && class_exists('Anon_Cms_Options')) {
+            $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
+            $apiPrefix = rtrim($apiPrefix, '/');
+            if (!empty($apiPrefix) && $apiPrefix !== '/' && strpos($path, $apiPrefix) === 0) {
+                $path = substr($path, strlen($apiPrefix));
+            }
         }
 
         if (strpos($path, '/') !== 0) {

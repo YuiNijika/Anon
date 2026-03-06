@@ -24,10 +24,8 @@ class Anon_Cms_Admin
      */
     public static function getRoutePrefix(): string
     {
-        $apiPrefix = Anon_Cms_Options::get('apiPrefix', '');
-        // 如果 apiPrefix 为空，使用 /anon 作为默认值
-        $prefix = empty($apiPrefix) ? '/anon' : ($apiPrefix[0] === '/' ? $apiPrefix : '/' . $apiPrefix);
-        return $prefix . '/cms/admin';
+        // 使用统一的 API前缀管理
+        return Anon_System_ApiPrefix::get() . '/cms/admin';
     }
 
     /**
@@ -36,6 +34,7 @@ class Anon_Cms_Admin
      */
     public static function init()
     {
+        Anon_Debug::info("Initializing CMS Admin with route prefix: " . self::getRoutePrefix());
         self::initRoutes();
     }
 
@@ -51,13 +50,19 @@ class Anon_Cms_Admin
         if (!isset($meta['requireAdmin'])) {
             $meta['requireAdmin'] = '需要管理员权限';
         }
-
-        // 设置requireAdmin时自动添加requireLogin
+    
+        // 设置 requireAdmin 时自动添加 requireLogin
         if (!empty($meta['requireAdmin'])) {
             $meta['requireLogin'] = true;
         }
-
-        Anon_System_Config::addRoute(self::getRoutePrefix() . $path, $handler, $meta);
+    
+        $routePrefix = self::getRoutePrefix();
+            
+        // 在配置的 API前缀下注册路由
+        Anon_System_Config::addRoute($routePrefix . $path, $handler, $meta);
+            
+        // 同时在根路径下注册一份，确保兼容性
+        Anon_System_Config::addRoute('/cms/admin' . $path, $handler, $meta);
     }
 
     /**
@@ -91,6 +96,9 @@ class Anon_Cms_Admin
      */
     public static function initRoutes()
     {
+        $routePrefix = self::getRoutePrefix();
+        Anon_Debug::info("Registering CMS Admin routes with prefix: {$routePrefix}");
+        
         self::addRoute('/navbar', function () {
             Anon_Cms_Admin_UI_Navbar::get();
         }, [

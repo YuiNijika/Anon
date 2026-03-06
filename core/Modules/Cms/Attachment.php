@@ -269,29 +269,51 @@ class Anon_Cms_Attachment
         }
 
         // 转换格式
-        $outputFunction = match($targetFormat) {
-            'webp' => 'imagewebp',
-            'jpg', 'jpeg' => 'imagejpeg',
-            'png' => 'imagepng',
-            'gif' => 'imagegif',
-            'avif' => 'imageavif',
-            default => null
-        };
+        $outputFunction = null;
+        switch ($targetFormat) {
+            case 'webp':
+                $outputFunction = 'imagewebp';
+                break;
+            case 'jpg':
+            case 'jpeg':
+                $outputFunction = 'imagejpeg';
+                break;
+            case 'png':
+                $outputFunction = 'imagepng';
+                break;
+            case 'gif':
+                $outputFunction = 'imagegif';
+                break;
+            case 'avif':
+                $outputFunction = 'imageavif';
+                break;
+        }
 
         if (!$outputFunction) {
             imagedestroy($src);
             Anon_Http_Response::error('Unsupported output format', 400);
         }
 
-        // 设置输出MIME类型
-        $outputMime = match($targetFormat) {
-            'webp' => 'image/webp',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'avif' => 'image/avif',
-            default => 'application/octet-stream'
-        };
+        // 设置输出 MIME 类型
+        $outputMime = 'application/octet-stream';
+        switch ($targetFormat) {
+            case 'webp':
+                $outputMime = 'image/webp';
+                break;
+            case 'jpg':
+            case 'jpeg':
+                $outputMime = 'image/jpeg';
+                break;
+            case 'png':
+                $outputMime = 'image/png';
+                break;
+            case 'gif':
+                $outputMime = 'image/gif';
+                break;
+            case 'avif':
+                $outputMime = 'image/avif';
+                break;
+        }
 
         // 输出转换后的图片
         header('Content-Type: ' . $outputMime);
@@ -307,6 +329,12 @@ class Anon_Cms_Attachment
             case 'jpeg':
                 imagejpeg($src, null, $quality);
                 break;
+            case 'png':
+                imagepng($src);
+                break;
+            case 'gif':
+                imagegif($src);
+                break;
             case 'avif':
                 if (function_exists('imageavif')) {
                     imageavif($src, null, $quality);
@@ -315,8 +343,6 @@ class Anon_Cms_Attachment
                     Anon_Http_Response::error('AVIF support not available', 500);
                 }
                 break;
-            default:
-                $outputFunction($src);
         }
 
         imagedestroy($src);

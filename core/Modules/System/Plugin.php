@@ -497,14 +497,15 @@ class Anon_System_Plugin
     }
 
     /**
-     * 检查激活状态
+     * 检查插件激活状态
      * @param string $pluginSlug 插件标识符
      * @return bool
      */
     public static function isPluginActive(string $pluginSlug): bool
     {
+        // 如果没有配置激活列表，默认不激活任何插件
         if (empty(self::$activePlugins)) {
-            return true;
+            return false;
         }
         return in_array(strtolower($pluginSlug), self::$activePlugins, true);
     }
@@ -895,12 +896,8 @@ abstract class Anon_Plugin_Base
         $this->autoloadMode();
     }
 
-    /**
-     * 自动加载 app/mode/ 下对应模式的文件
-     */
     protected function autoloadMode()
     {
-        // 检查插件是否激活
         if (!Anon_System_Plugin::isPluginActive($this->slug)) {
             return;
         }
@@ -910,12 +907,62 @@ abstract class Anon_Plugin_Base
         }
 
         $mode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
-        // 允许 mode 文件名为 api.php 或 cms.php
-        $file = $this->pluginDir . '/app/mode/' . $mode . '.php';
-
-        if (file_exists($file)) {
-            include_once $file;
+        
+        if ($mode === 'api') {
+            $file = $this->pluginDir . '/app/useApp.php';
+            if (file_exists($file)) {
+                include_once $file;
+            }
+            return;
         }
+        
+        if ($mode === 'cms') {
+            $this->loadRoutesFromDatabase();
+            return;
+        }
+        
+        if ($mode === 'auto') {
+            $loaded = $this->loadRoutesFromDatabase();
+            if (!$loaded) {
+                $file = $this->pluginDir . '/app/useApp.php';
+                if (file_exists($file)) {
+                    include_once $file;
+                }
+            }
+        }
+    }
+    
+    /**
+     * 从数据库加载插件路由定义
+     * @return bool 是否成功加载
+     */
+    private function loadRoutesFromDatabase(): bool
+    {
+        try {
+            $db = Anon_Database::getInstance();
+            $row = $db->db('options')
+                ->where('name', 'plugin:' . $this->slug . ':routes')
+                ->first();
+            
+            if ($row && !empty($row['value'])) {
+                $routes = json_decode($row['value'], true);
+                if (is_array($routes)) {
+                    foreach ($routes as $route) {
+                        if (isset($route['path']) && isset($route['handler'])) {
+                            Anon::route($route['path'], $route['handler'], $route['config'] ?? []);
+                        }
+                    }
+                    return true;
+                }
+            }
+        } catch (Throwable $e) {
+            Anon_Debug::error("Failed to load plugin routes from database", [
+                'plugin' => $this->slug,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        return false;
     }
 
     /**

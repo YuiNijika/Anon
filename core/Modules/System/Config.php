@@ -171,22 +171,23 @@ class Anon_System_Config
         $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
 
-
-        self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Anon_Cms_Attachment::class, 'index'], [
-            'header' => false,
-            'requireLogin' => false,
-            'requireAdmin' => false,
-            'method' => 'GET',
-            'token' => false,
-        ]);
-        
-        self::addRoute('/anon/attachment/{filetype}/{filename}', [Anon_Cms_Attachment::class, 'index'], [
-            'header' => false,
-            'requireLogin' => false,
-            'requireAdmin' => false,
-            'method' => 'GET',
-            'token' => false,
-        ]);
+        if (Anon_System_Env::get('app.mode') === 'cms' && class_exists('Anon_Cms_Attachment')) {
+            self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Anon_Cms_Attachment::class, 'index'], [
+                'header' => false,
+                'requireLogin' => false,
+                'requireAdmin' => false,
+                'method' => 'GET',
+                'token' => false,
+            ]);
+            
+            self::addRoute('/anon/attachment/{filetype}/{filename}', [Anon_Cms_Attachment::class, 'index'], [
+                'header' => false,
+                'requireLogin' => false,
+                'requireAdmin' => false,
+                'method' => 'GET',
+                'token' => false,
+            ]);
+        }
         
         self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
         self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
@@ -222,8 +223,9 @@ class Anon_System_Config
 
             self::addRoute('/anon/cms/api-prefix', function () {
                 Anon_Common::Header();
-                $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
-                Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API 前缀成功');
+                // 使用统一的 API前缀管理
+                $apiPrefix = Anon_System_ApiPrefix::get();
+                Anon_Http_Response::success(['apiPrefix' => $apiPrefix], '获取 API前缀成功');
             });
             self::addRoute('/anon/cms/comments', [Anon_Cms::class, 'handleCommentsRequest'], ['method' => 'GET,POST', 'token' => false]);
             self::addRoute('/admin', function () {

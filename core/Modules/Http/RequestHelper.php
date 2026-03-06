@@ -415,12 +415,7 @@ class Anon_Http_Request
         $path = parse_url($requestUri, PHP_URL_PATH);
         $path = strstr($path, '?', true) ?: $path;
         
-        // 去除前缀
-        if (strpos($path, '/apiService') === 0) {
-            $path = substr($path, strlen('/apiService'));
-        }
-        
-        // 去除 CMS 模式下的 API 前缀
+        // 动态去除 API 前缀（CMS 模式）
         $mode = Anon_System_Env::get('app.mode', 'api');
         if ($mode === 'cms' && class_exists('Anon_Cms_Options')) {
             $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
