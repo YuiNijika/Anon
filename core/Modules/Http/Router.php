@@ -40,10 +40,6 @@ class Anon_Http_Router
             $mode = Anon_System_Env::get('app.mode', 'api');
 
             if ($mode === 'cms') {
-                if (!class_exists('Anon_Cms_Theme')) {
-                    Anon_Loader::loadCmsModules();
-                }
-
                 Anon_Cms_Theme::init();
                 Anon_Cms_Theme::registerAssets();
 
@@ -71,17 +67,7 @@ class Anon_Http_Router
 
                 self::registerApiRoutesWithPrefix();
             } else {
-                $autoRouter = Anon_System_Env::get('app.autoRouter', false);
-                if ($autoRouter) {
-                    self::autoRegisterRoutes();
-                } else {
-                    $routerConfig = __DIR__ . '/../../../app/useRouter.php';
-                    if (file_exists($routerConfig)) {
-                        self::registerAppRoutes(require $routerConfig);
-                    } else {
-                        throw new RuntimeException("Router config file not found: {$routerConfig}");
-                    }
-                }
+                self::registerApiRoutesWithPrefix();
             }
 
             self::loadConfig();
@@ -466,12 +452,7 @@ class Anon_Http_Router
                 Anon_Http_Request::requireToken(true, false);
             }
         } else {
-            // 确保 Token 模块已加载
-            if (!class_exists('Anon_Auth_Token')) {
-                Anon_Loader::loadOptionalModules('token');
-            }
-
-            if (class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled()) {
+            if (Anon_Auth_Token::isEnabled()) {
                 Anon_Http_Request::requireToken(true, false);
             }
         }
@@ -674,10 +655,6 @@ class Anon_Http_Router
      */
     private static function registerThemeTemplates(): void
     {
-        if (!class_exists('Anon_Cms_Theme')) {
-            Anon_Loader::loadCmsModules();
-        }
-
         $themeDir = Anon_Cms_Theme::getThemeDir();
         $indexFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'index');
 
@@ -705,30 +682,36 @@ class Anon_Http_Router
      */
     private static function registerApiRoutesWithPrefix(): void
     {
-        if (!class_exists('Anon_Cms_Options')) {
+        $mode = Anon_System_Env::get('app.mode', 'api');
+
+        if ($mode === 'cms' && !class_exists('Anon_Cms_Options')) {
             Anon_Loader::loadCmsModules();
         }
     
         // 使用统一的 API前缀管理
-        $apiPrefix = Anon_System_ApiPrefix::get();
+        $apiPrefix = self::normalizeRoutePrefix(Anon_System_ApiPrefix::get());
             
-        Anon_Debug::info("CMS mode: Registering API routes with prefix: {$apiPrefix}");
+        Anon_Debug::info(
+            strtoupper($mode) . " mode: Registering API routes with prefix: " . ($apiPrefix === '' ? '/' : $apiPrefix)
+        );
             
         $autoRouter = Anon_System_Env::get('app.autoRouter', false);
+        $routerConfig = __DIR__ . '/../../../app/useRouter.php';
             
         // CMS 模式下总是启用自动路由，确保基础路由被注册
-        if ($autoRouter || !file_exists(__DIR__ . '/../../../app/useRouter.php')) {
+        if ($autoRouter || !file_exists($routerConfig)) {
             // 在配置的 API前缀下注册路由
             self::autoRegisterRoutesWithPrefix($apiPrefix);
                     
-            // 同时在根路径下注册一份，确保兼容性（不带任何前缀）
-            self::autoRegisterRoutesWithPrefix('');
-        } else {
-            $routerConfig = __DIR__ . '/../../../app/useRouter.php';
-            if (file_exists($routerConfig)) {
-                self::registerAppRoutesWithPrefix(require $routerConfig, $apiPrefix);
+            // 同时在根路径下注册一份，确保兼容性
+            if ($apiPrefix !== '') {
+                self::autoRegisterRoutesWithPrefix('');
             }
+
+            return;
         }
+
+        self::registerAppRoutesWithPrefix(require $routerConfig, $apiPrefix);
     }
 
     /**
@@ -740,6 +723,8 @@ class Anon_Http_Router
      */
     private static function registerAppRoutesWithPrefix(array $routeTree, string $prefix, string $basePath = ''): void
     {
+        $prefix = self::normalizeRoutePrefix($prefix);
+
         foreach ($routeTree as $key => $value) {
             $currentPath = $basePath ? $basePath . '/' . $key : $key;
 
@@ -747,7 +732,7 @@ class Anon_Http_Router
                 $currentPath = '/' . $currentPath;
             }
 
-            $prefixedPath = $prefix . $currentPath;
+            $prefixedPath = self::buildPrefixedRoutePath($prefix, $currentPath);
 
             if (is_string($value)) {
                 $view = $value;
@@ -782,6 +767,7 @@ class Anon_Http_Router
     private static function autoRegisterRoutesWithPrefix(string $prefix): void
     {
         $routerDir = __DIR__ . '/../../../app/Router';
+        $prefix = self::normalizeRoutePrefix($prefix);
 
         if (!is_dir($routerDir)) {
             Anon_Debug::warn("Router directory not found: {$routerDir}");
@@ -835,7 +821,7 @@ class Anon_Http_Router
             if (is_dir($itemPath)) {
                 self::scanDirectoryWithPrefix($itemPath, $routePath, $prefix);
             } elseif (is_file($itemPath) && pathinfo($item, PATHINFO_EXTENSION) === 'php') {
-                $prefixedPath = $prefix . $routePath;
+                $prefixedPath = self::buildPrefixedRoutePath($prefix, $routePath);
                 Anon_Debug::debug("Registering route: {$prefixedPath} (file: {$itemName}.php)");
                 self::registerAutoRoute($prefixedPath, $itemPath, $dir);
             }
@@ -843,7 +829,39 @@ class Anon_Http_Router
     }
 
     /**
-     * 注册 CMS 路由指向关系
+     * 规范化路由前缀
+     * @param string $prefix
+     * @return string
+     */
+    private static function normalizeRoutePrefix(string $prefix): string
+    {
+        $prefix = trim($prefix);
+        if ($prefix === '' || $prefix === '/') {
+            return '';
+        }
+
+        return '/' . trim($prefix, '/');
+    }
+
+    /**
+     * 组合前缀和路由路径
+     * @param string $prefix
+     * @param string $routePath
+     * @return string
+     */
+    private static function buildPrefixedRoutePath(string $prefix, string $routePath): string
+    {
+        $prefix = self::normalizeRoutePrefix($prefix);
+
+        if ($routePath === '' || $routePath[0] !== '/') {
+            $routePath = '/' . ltrim($routePath, '/');
+        }
+
+        return $prefix === '' ? $routePath : $prefix . $routePath;
+    }
+
+    /**
+     * 注册 CMS 路由映射关系
      * @param array $routeMappings 路由映射
      * @return void
      */
@@ -1268,19 +1286,29 @@ class Anon_Http_Router
 
         $path = strstr($path, '?', true) ?: $path;
 
-        // 动态去除 API前缀
-        $mode = Anon_System_Env::get('app.mode', 'api');
-        if ($mode === 'cms' && class_exists('Anon_Cms_Options')) {
-            $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
-            $apiPrefix = rtrim($apiPrefix, '/');
-            if (!empty($apiPrefix) && $apiPrefix !== '/' && strpos($path, $apiPrefix) === 0) {
-                $path = substr($path, strlen($apiPrefix));
-            }
-        }
-
+        // 确保路径以 / 开头
         if (strpos($path, '/') !== 0) {
             $path = '/' . $path;
         }
+
+        // 使用 ApiPrefix 管理器获取配置的 baseUrl/apiPrefix
+        $configuredPrefix = Anon_System_ApiPrefix::get();
+        
+        // 如果配置的前缀不是 / 或空，则必须匹配该前缀
+        if (!empty($configuredPrefix) && $configuredPrefix !== '/') {
+            if (strpos($path, $configuredPrefix) === 0) {
+                // 去除配置的前缀
+                $path = substr($path, strlen($configuredPrefix));
+                if (empty($path)) {
+                    $path = '/';
+                }
+            } else {
+                // 请求路径不包含配置的前缀，返回 404
+                self::handleError(404);
+                exit;
+            }
+        }
+        // 如果配置的是 / 或空，直接使用原路径
 
         self::$cachedRequestPath = $path;
         return $path;
@@ -1408,16 +1436,12 @@ class Anon_Http_Router
                 ]);
             } catch (Error $e) {
                 // 严重错误
-                if (class_exists('Anon_Cms_Theme_FatalError')) {
-                    Anon_Cms_Theme_FatalError::render(
-                        $e->getMessage(),
-                        $e->getFile(),
-                        $e->getLine(),
-                        get_class($e)
-                    );
-                } else {
-                    self::showSimpleError($statusCode, $e->getMessage());
-                }
+                Anon_Cms_Theme_FatalError::render(
+                    $e->getMessage(),
+                    $e->getFile(),
+                    $e->getLine(),
+                    get_class($e)
+                );
             } catch (Throwable $e) {
                 // 检查是否是严重错误
                 $message = $e->getMessage();
@@ -1425,7 +1449,7 @@ class Anon_Http_Router
                     strpos($message, 'not found') !== false ||
                     strpos($message, 'Class') !== false;
 
-                if ($isFatal && class_exists('Anon_Cms_Theme_FatalError')) {
+                if ($isFatal) {
                     Anon_Cms_Theme_FatalError::render(
                         $message,
                         $e->getFile(),

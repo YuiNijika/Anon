@@ -36,10 +36,8 @@ class Anon_Cms_Theme_FatalError
      */
     private static function renderFatalError(string $errorType, string $message, ?string $file, ?int $line, bool $showDetails): string
     {
-        $siteName = 'Anon CMS';
-        if (class_exists('Anon_Common') && defined('Anon_Common::NAME')) {
-            $siteName = Anon_Common::NAME;
-        }
+        $siteName = Anon_Common::NAME;
+        
         $siteUrl = isset($_SERVER['HTTP_HOST']) ? 'http' . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 's' : '') . '://' . $_SERVER['HTTP_HOST'] : '';
         
         $detailsHtml = '';

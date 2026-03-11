@@ -794,10 +794,7 @@ class Anon_Cms
         // 验证码验证
         // 确保验证码模块已加载
         if ($commentType === 'guest' && Anon_System_Env::get('app.captcha.enabled', false)) {
-            if (!class_exists('Anon_Auth_Captcha')) {
-                require_once Anon_Main::MODULES_DIR . 'Auth/Captcha.php';
-            }
-            if (class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled()) {
+            if (Anon_Auth_Captcha::isEnabled()) {
                 $captchaCode = trim((string) ($_POST['captcha'] ?? ''));
                 if ($captchaCode === '') {
                     if ($isAjax) {

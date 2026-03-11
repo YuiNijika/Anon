@@ -45,7 +45,7 @@ class Anon_Server_Manager
         $class = 'Anon_Server_Driver_' . ucfirst($this->driver) . '_' . ucfirst($type);
 
         if (!class_exists($class)) {
-            // 自动加载逻辑或假设文件路径约定
+            // 自动加载逻辑or文件路径约定
             $file = __DIR__ . '/Driver/' . ucfirst($this->driver) . '/' . ucfirst($type) . '.php';
             if (file_exists($file)) {
                 require_once $file;

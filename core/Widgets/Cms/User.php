@@ -76,7 +76,7 @@ class Anon_Cms_User
      */
     public static function isLoggedIn(): bool
     {
-        return class_exists('Anon_Check') && Anon_Check::isLoggedIn();
+        return Anon_Check::isLoggedIn();
     }
 
     /**
@@ -88,7 +88,7 @@ class Anon_Cms_User
         if (!self::isLoggedIn() || $this->uid() <= 0) {
             return false;
         }
-        $currentUid = class_exists('Anon_Http_Request') ? Anon_Http_Request::getUserId() : 0;
+        $currentUid = Anon_Http_Request::getUserId() ?: 0;
         return $currentUid && (int) $currentUid === $this->uid();
     }
 

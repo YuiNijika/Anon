@@ -128,9 +128,9 @@ class Anon_System_Config
     public static function getConfig(): array
     {
         $config = [
-            'token' => class_exists('Anon_Auth_Token') && Anon_Auth_Token::isEnabled(),
-            'captcha' => class_exists('Anon_Auth_Captcha') && Anon_Auth_Captcha::isEnabled(),
-            'csrfToken' => class_exists('Anon_Auth_Csrf') ? Anon_Auth_Csrf::generateToken() : ''
+            'token' => Anon_Auth_Token::isEnabled(),
+            'captcha' => Anon_Auth_Captcha::isEnabled(),
+            'csrfToken' => Anon_Auth_Csrf::generateToken() ?: ''
         ];
 
         $config = Anon_System_Hook::apply_filters('config', $config);

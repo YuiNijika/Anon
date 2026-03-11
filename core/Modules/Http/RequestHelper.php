@@ -319,12 +319,7 @@ class Anon_Http_Request
      */
     public static function generateUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        // 确保 Token 模块已加载
-        if (!class_exists('Anon_Auth_Token')) {
-            Anon_Loader::loadOptionalModules('token');
-        }
-        
-        if (!class_exists('Anon_Auth_Token') || !Anon_Auth_Token::isEnabled()) {
+        if (!Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
@@ -354,12 +349,7 @@ class Anon_Http_Request
      */
     public static function getUserToken(int $userId, string $username, ?bool $rememberMe = null): ?string
     {
-        // 确保 Token 模块已加载
-        if (!class_exists('Anon_Auth_Token')) {
-            Anon_Loader::loadOptionalModules('token');
-        }
-        
-        if (!class_exists('Anon_Auth_Token') || !Anon_Auth_Token::isEnabled()) {
+        if (!Anon_Auth_Token::isEnabled()) {
             return null;
         }
 
@@ -395,16 +385,6 @@ class Anon_Http_Request
             return true;
         }
         
-        // 确保 Token 模块已加载
-        if (!class_exists('Anon_Auth_Token')) {
-            Anon_Loader::loadOptionalModules('token');
-        }
-        
-        // 如果类仍然不存在，说明 Token 模块未启用，直接返回 true
-        if (!class_exists('Anon_Auth_Token')) {
-            return true;
-        }
-        
         // 检查启用
         if (!Anon_Auth_Token::isEnabled()) {
             return true;
@@ -415,9 +395,9 @@ class Anon_Http_Request
         $path = parse_url($requestUri, PHP_URL_PATH);
         $path = strstr($path, '?', true) ?: $path;
         
-        // 动态去除 API 前缀（CMS 模式）
+        // 动态去除 API 前缀
         $mode = Anon_System_Env::get('app.mode', 'api');
-        if ($mode === 'cms' && class_exists('Anon_Cms_Options')) {
+        if ($mode === 'cms') {
             $apiPrefix = Anon_Cms_Options::get('apiPrefix', '/api');
             $apiPrefix = rtrim($apiPrefix, '/');
             if (!empty($apiPrefix) && $apiPrefix !== '/' && strpos($path, $apiPrefix) === 0) {
@@ -429,7 +409,7 @@ class Anon_Http_Request
             $path = '/' . $path;
         }
 
-        // 检查白名单（先检查原始路径，再检查去除前缀后的路径）
+        // 检查白名单
         if (Anon_Auth_Token::isWhitelisted($path)) {
             return true;
         }

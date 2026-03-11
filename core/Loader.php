@@ -83,6 +83,8 @@ class Anon_Loader
 
         require_once Anon_Main::WIDGETS_DIR . 'Connection.php';
         require_once Anon_Main::MODULES_DIR . 'System/Exception.php';
+        require_once Anon_Main::MODULES_DIR . 'System/Env.php';
+        require_once Anon_Main::MODULES_DIR . 'System/ApiPrefix.php';
         require_once Anon_Main::MODULES_DIR . 'Database.php';
         require_once Anon_Main::MODULES_DIR . 'System/Install.php';
         require_once Anon_Main::MODULES_DIR . 'Http/ResponseHelper.php';

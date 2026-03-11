@@ -84,33 +84,24 @@ class Anon_System_Env
         }
 
         if (strpos($key, 'app.cms.') === 0) {
-            if (!class_exists('Anon_Cms_Options')) {
-                $optionsFile = __DIR__ . '/../Cms/Options.php';
-                if (file_exists($optionsFile)) {
-                    require_once $optionsFile;
-                }
-            }
-            
-            if (class_exists('Anon_Cms_Options')) {
-                $optionName = str_replace('app.cms.', '', $key);
-                if ($optionName === 'routes') {
-                    $routes = Anon_Cms_Options::get('routes', $default);
-                    if (is_string($routes)) {
-                        $routes = json_decode($routes, true);
-                        if (json_last_error() !== JSON_ERROR_NONE) {
-                            $routes = $default;
-                        }
+            $optionName = str_replace('app.cms.', '', $key);
+            if ($optionName === 'routes') {
+                $routes = Anon_Cms_Options::get('routes', $default);
+                if (is_string($routes)) {
+                    $routes = json_decode($routes, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        $routes = $default;
                     }
-                    return $routes ?? $default;
                 }
-                if ($optionName === 'apiPrefix') {
-                    return Anon_Cms_Options::get('apiPrefix', $default);
-                }
-                if ($optionName === 'theme') {
-                    return Anon_Cms_Options::get('theme', $default);
-                }
-                return Anon_Cms_Options::get($optionName, $default);
+                return $routes ?? $default;
             }
+            if ($optionName === 'apiPrefix') {
+                return Anon_Cms_Options::get('apiPrefix', $default);
+            }
+            if ($optionName === 'theme') {
+                return Anon_Cms_Options::get('theme', $default);
+            }
+            return Anon_Cms_Options::get($optionName, $default);
         }
 
         if (isset(self::$valueCache[$key])) {
@@ -158,4 +149,3 @@ class Anon_System_Env
         return self::$initialized;
     }
 }
-

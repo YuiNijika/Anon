@@ -1549,22 +1549,12 @@ class Anon_Cms_Theme
      */
     private static function handleFatalError(Throwable $e): void
     {
-        if (class_exists('Anon_Cms_Theme_FatalError')) {
-            Anon_Cms_Theme_FatalError::render(
-                $e->getMessage(),
-                $e->getFile(),
-                $e->getLine(),
-                get_class($e)
-            );
-        } else {
-            http_response_code(500);
-            header('Content-Type: text/html; charset=utf-8');
-            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>严重错误</title></head><body>';
-            echo '<h1>站点遇到严重错误</h1>';
-            echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
-            echo '</body></html>';
-            exit;
-        }
+        Anon_Cms_Theme_FatalError::render(
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine(),
+            get_class($e)
+        );
     }
 
     /**

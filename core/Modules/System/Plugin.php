@@ -473,7 +473,7 @@ class Anon_System_Plugin
         $appMode = defined('ANON_APP_MODE') ? ANON_APP_MODE : Anon_System_Env::get('app.mode', 'api');
 
         // CMS 模式下从 options 表读取
-        if ($appMode === 'cms' && class_exists('Anon_Cms_Options')) {
+        if ($appMode === 'cms') {
             $active = Anon_Cms_Options::get('plugins:active', []);
             if (is_string($active)) {
                 $active = json_decode($active, true);
@@ -1082,9 +1082,6 @@ abstract class Anon_Plugin_Base
      */
     public function options()
     {
-        if (!class_exists('Anon_Cms_Options_Proxy')) {
-            return null;
-        }
         return new Anon_Cms_Options_Proxy('plugin', $this->slug, null);
     }
 
