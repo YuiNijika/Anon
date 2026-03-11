@@ -41,8 +41,7 @@ class Anon_Loader
 
         Anon_Cms_Admin::init();
         self::$loadedModules['cms'] = true;
-        Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputCopyright']);
-        Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputPageLoadTimeScript']);
+        Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputBottomScript']);
     }
 
     /**

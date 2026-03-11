@@ -264,24 +264,40 @@ class Anon_Cms
      * 输出版权
      * @return void
      */
-    public static function outputCopyright(): void
+    private static function outputCopyright(): void
     {
         $version = Anon_Common::VERSION;
-        echo '<script>';
-        echo 'console.log("%c Anon Framework v' . $version . ' %c https://github.com/YuiNijika/Anon", "color: #fff; background: #34495e; padding:5px 0;", "color: #fff; background: #d6293e; padding:5px 0;");';
-        echo '</script>' . "\n";
+        // $cialloLines = explode("\n", trim(Anon_Common::Ciallo()));
+        // foreach ($cialloLines as $line) {
+        //     echo 'console.log("' . addslashes(trim($line)) . '");' . "\n";
+        // }
+        $console = 'console.log("%c Anon Framework v' . $version . ' %c https://github.com/YuiNijika/Anon", "color: #fff; background: #34495e; padding:5px 0;", "color: #fff; background: #d6293e; padding:5px 0;");';
+        echo $console;
     }
 
     /**
      * 输出页面加载耗时脚本
      * @return void
      */
-    public static function outputPageLoadTimeScript(): void
+    private static function outputPageLoadTimeScript(): void
+    {
+        $loadTime = self::getPageLoadTime();
+        $queryCount = Anon_Database::getQueryCount() ?? null;
+        $console = 'console.log("页面加载耗时：' . $loadTime . 'ms | SQL 查询：' . $queryCount . '次");';
+        echo $console;
+    }
+
+    /**
+     * 输出底部 script 标签
+     * @return void
+     */
+    public static function outputBottomScript(): void
     {
         $loadTime = self::getPageLoadTime();
         $queryCount = Anon_Database::getQueryCount() ?? null;
         echo '<script>';
-        echo 'console.log("页面加载耗时: ' . $loadTime . 'ms | SQL查询: ' . $queryCount . '次");';
+            self::outputCopyright();
+            self::outputPageLoadTimeScript();
         echo '</script>' . "\n";
     }
 

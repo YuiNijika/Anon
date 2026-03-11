@@ -1296,17 +1296,21 @@ class Anon_Http_Router
         
         // 如果配置的前缀不是 / 或空，则必须匹配该前缀
         if (!empty($configuredPrefix) && $configuredPrefix !== '/') {
-            if (strpos($path, $configuredPrefix) === 0) {
-                // 去除配置的前缀
-                $path = substr($path, strlen($configuredPrefix));
-                if (empty($path)) {
-                    $path = '/';
+            // 只对 /auth/ 路由进行前缀检查，/anon/ 下所有路由不检查
+            if (strpos($path, '/auth/') === 0) {
+                if (strpos($path, $configuredPrefix) === 0) {
+                    // 去除配置的前缀
+                    $path = substr($path, strlen($configuredPrefix));
+                    if (empty($path)) {
+                        $path = '/';
+                    }
+                } else {
+                    // 请求路径不包含配置的前缀，返回 404
+                    self::handleError(404);
+                    exit;
                 }
-            } else {
-                // 请求路径不包含配置的前缀，返回 404
-                self::handleError(404);
-                exit;
             }
+            // 其他路由直接使用原路径，不进行前缀检查
         }
         // 如果配置的是 / 或空，直接使用原路径
 
