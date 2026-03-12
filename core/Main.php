@@ -64,6 +64,8 @@ class Anon_Main
         if (Anon_System_Env::get('app.security.csrf.enabled', false)) {
             Anon_Loader::loadOptionalModules('csrf');
         }
+        // 始终加载速率限制模块
+        Anon_Loader::loadOptionalModules('ratelimit');
         
         // Debug 已在 loadCoreModules 中加载，这里只需要初始化
         if (class_exists('Anon_Debug')) {
