@@ -130,7 +130,7 @@ class Anon_System_Config
         $config = [
             'token' => Anon_Auth_Token::isEnabled(),
             'captcha' => Anon_Auth_Captcha::isEnabled(),
-            'csrfToken' => Anon_Auth_Csrf::generateToken() ?: ''
+            // 'csrfToken' => Anon_Auth_Csrf::generateToken() ?: ''
         ];
 
         $config = Anon_System_Hook::apply_filters('config', $config);
