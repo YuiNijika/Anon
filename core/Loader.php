@@ -29,6 +29,7 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Cms.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Options.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/PageMeta.php';
+        require_once Anon_Main::MODULES_DIR . 'System/AccessLog.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/AccessLog.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/FatalError.php';
         require_once Anon_Main::WIDGETS_DIR . 'Cms/ThemeHelper.php';
