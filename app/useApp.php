@@ -8,14 +8,18 @@ return [
         'avatar' => 'https://www.cravatar.cn/avatar',
         'cache' => [
             'enabled' => true,
-            'driver' => 'memory', // file, redis, memory
+            'driver' => 'redis', // file, redis, memory
             'time' => 3600,
             'redis' => [
                 'host' => '127.0.0.1',
                 'port' => 6379,
                 'password' => '',
-                'database' => 0,
+                'database' => 1,
                 'prefix' => 'anon:',
+                'timeout' => 2.5,
+            ],
+            'file' => [
+                'path' => __DIR__ . '/../../cache',
             ],
             'exclude' => [
                 '/auth/',

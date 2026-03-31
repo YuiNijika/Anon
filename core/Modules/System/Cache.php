@@ -382,26 +382,45 @@ class Anon_RedisCache implements Anon_CacheInterface
     private $defaultTtl;
 
     /**
+     * 获取 Redis 实例
+     * @return Redis
+     */
+    public function getRedis(): Redis
+    {
+        return $this->redis;
+    }
+
+    /**
      * @param array $config 配置
      */
     public function __construct(array $config = [])
     {
         if (!extension_loaded('redis')) {
-            throw new RuntimeException('Redis 扩展未安装');
+            Anon_Debug::error('Redis extension not installed', [
+                'required_extension' => 'redis',
+                'php_version' => PHP_VERSION,
+                'suggestion' => 'Please install php-redis extension or change cache driver to "file" in useApp.php'
+            ]);
+            throw new RuntimeException(
+                "Redis 扩展未安装。请安装 php-redis 扩展或在 useApp.php 中将缓存驱动改为 'file'。\n" .
+                "安装方法:\n" .
+                "  - Ubuntu/Debian: sudo apt-get install php-redis\n" .
+                "  - CentOS/RHEL: sudo yum install php-redis\n" .
+                "  - Windows: 在 php.ini 中启用 extension=php_redis.dll\n" .
+                "临时解决方案：将 app/cache/driver 配置改为 'file'"
+            );
         }
-
+    
         $this->redis = new Redis();
         $host = (string)($config['host'] ?? '127.0.0.1');
         $port = (int)($config['port'] ?? 6379);
-        $timeout = (float)($config['timeout'] ?? 2.0); // 默认超时改为 2.0 秒
+        $timeout = (float)($config['timeout'] ?? 2.0);
         $maxRetries = 3;
-        $retryInterval = 100000; // 100ms
-
+        $retryInterval = 100000;
+    
         $connected = false;
-        /** @var Throwable|null $lastException */
         $lastException = null;
-
-        // 连接重试机制
+    
         for ($i = 0; $i < $maxRetries; $i++) {
             try {
                 if ($this->redis->connect($host, $port, $timeout)) {
@@ -411,45 +430,47 @@ class Anon_RedisCache implements Anon_CacheInterface
             } catch (Throwable $e) {
                 $lastException = $e;
             }
-            // 最后一次尝试失败不需要等待
             if ($i < $maxRetries - 1) {
                 usleep($retryInterval);
             }
         }
-
+    
         if (!$connected) {
-            $msg = $lastException ? $lastException->getMessage() : "无法连接到 Redis 服务器: {$host}:{$port}";
+            $msg = $lastException ? $lastException->getMessage() : "无法连接到 Redis 服务器：{$host}:{$port}";
+            Anon_Debug::error('Redis connection failed', [
+                'host' => $host,
+                'port' => $port,
+                'error' => $msg
+            ]);
             throw new RuntimeException($msg, 0, $lastException);
         }
-
+    
         try {
             if (!empty($config['password'])) {
                 if (!$this->redis->auth($config['password'])) {
                     throw new RuntimeException("Redis 认证失败");
                 }
             }
-
+    
             if (isset($config['database'])) {
                 $this->redis->select((int)$config['database']);
             }
-
-            // 确保连接可用
+    
             try {
-                $this->redis->ping();
+                $pingResult = $this->redis->ping();
+                Anon_Debug::log('INFO', 'Redis connected successfully', [
+                    'host' => $host,
+                    'port' => $port,
+                    'db' => $config['database'] ?? 0,
+                    'ping_result' => $pingResult
+                ]);
             } catch (Throwable $e) {
-                throw new RuntimeException("Redis PING 失败: " . $e->getMessage());
+                throw new RuntimeException("Redis PING 失败：" . $e->getMessage());
             }
-
-            // 记录连接成功日志
-            Anon_Debug::log('INFO', "Redis connected successfully", [
-                'host' => $host,
-                'port' => $port,
-                'db' => $config['database'] ?? 0
-            ]);
         } catch (Throwable $e) {
-            throw new RuntimeException("Redis 内部错误: " . $e->getMessage(), 0, $e);
+            throw new RuntimeException("Redis 内部错误：" . $e->getMessage(), 0, $e);
         }
-
+    
         $this->prefix = $config['prefix'] ?? 'anon:';
         $this->defaultTtl = $config['ttl'] ?? 3600;
     }
@@ -485,17 +506,16 @@ class Anon_RedisCache implements Anon_CacheInterface
 
             $data = @json_decode($value, true);
             if ($data === null || json_last_error() !== JSON_ERROR_NONE) {
-                // 如果 JSON 解析失败，视为无效数据，返回默认值，避免类型不一致
-                if (defined('ANON_DEBUG') && ANON_DEBUG) {
-                    Anon_Debug::warning("Redis cache key '{$key}' contains invalid JSON data.");
-                }
+                Anon_Debug::warning("Redis cache key '{$key}' contains invalid JSON data.");
                 return $default;
             }
 
             return $data;
         } catch (RedisException $e) {
-            // 发生异常时返回默认值，并记录错误
-            Anon_Debug::error("Redis get error: " . $e->getMessage());
+            Anon_Debug::error("Redis get error: " . $e->getMessage(), [
+                'key' => $key,
+                'full_key' => $this->getKey($key)
+            ]);
             return $default;
         }
     }
@@ -513,16 +533,25 @@ class Anon_RedisCache implements Anon_CacheInterface
         $json = json_encode($value, JSON_UNESCAPED_UNICODE);
 
         if ($json === false) {
+            Anon_Debug::error("Redis set error: JSON encode failed", [
+                'key' => $key,
+                'error' => json_last_error_msg()
+            ]);
             return false;
         }
 
         try {
-            if ($ttl > 0) {
-                return $this->redis->setex($this->getKey($key), $ttl, $json);
-            }
-            return $this->redis->set($this->getKey($key), $json);
+            $result = $ttl > 0 
+                ? $this->redis->setex($this->getKey($key), $ttl, $json)
+                : $this->redis->set($this->getKey($key), $json);
+            
+            return $result;
         } catch (RedisException $e) {
-            Anon_Debug::error("Redis set error: " . $e->getMessage());
+            Anon_Debug::error("Redis set error: " . $e->getMessage(), [
+                'key' => $key,
+                'full_key' => $this->getKey($key),
+                'ttl' => $ttl
+            ]);
             return false;
         }
     }
@@ -535,8 +564,13 @@ class Anon_RedisCache implements Anon_CacheInterface
     public function delete(string $key): bool
     {
         try {
-            return (bool)$this->redis->del($this->getKey($key));
+            $result = (bool)$this->redis->del($this->getKey($key));
+            return $result;
         } catch (RedisException $e) {
+            Anon_Debug::error("Redis delete error: " . $e->getMessage(), [
+                'key' => $key,
+                'full_key' => $this->getKey($key)
+            ]);
             return false;
         }
     }
@@ -550,24 +584,24 @@ class Anon_RedisCache implements Anon_CacheInterface
     {
         $iterator = null;
         $pattern = $this->prefix . '*';
-        $count = 100; // 每次扫描数量限制
+        $count = 100;
 
         try {
-            // 使用 do-while 循环正确处理 SCAN 游标
             do {
-                // scan 返回 false 表示出错或结束，但 php-redis 中通常返回数组，iterator 引用被更新
                 $keys = $this->redis->scan($iterator, $pattern, $count);
 
                 if ($keys !== false && !empty($keys)) {
                     $this->redis->del($keys);
                 }
             } while ($iterator > 0);
+            
+            return true;
         } catch (RedisException $e) {
-            Anon_Debug::error("Redis clear error: " . $e->getMessage());
+            Anon_Debug::error("Redis clear error: " . $e->getMessage(), [
+                'pattern' => $pattern
+            ]);
             return false;
         }
-
-        return true;
     }
 
     /**
@@ -577,7 +611,67 @@ class Anon_RedisCache implements Anon_CacheInterface
      */
     public function has(string $key): bool
     {
-        return (bool)$this->redis->exists($this->getKey($key));
+        try {
+            return (bool)$this->redis->exists($this->getKey($key));
+        } catch (RedisException $e) {
+            Anon_Debug::error("Redis has error: " . $e->getMessage(), [
+                'key' => $key,
+                'full_key' => $this->getKey($key)
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * 为缓存添加标签
+     * @param string $key 缓存键
+     * @param string|array $tags 标签
+     * @return bool
+     */
+    public function tag(string $key, $tags): bool
+    {
+        $tags = is_array($tags) ? $tags : [$tags];
+        
+        try {
+            foreach ($tags as $tag) {
+                $tagKey = $this->prefix . 'tag:' . $tag;
+                $this->redis->sAdd($tagKey, $this->prefix . $key);
+            }
+            return true;
+        } catch (RedisException $e) {
+            Anon_Debug::error("Redis tag error: " . $e->getMessage(), [
+                'key' => $key,
+                'tags' => $tags
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * 清除指定标签的所有缓存
+     * @param string $tag 标签名
+     * @return int 清除的数量
+     */
+    public function clearByTag(string $tag): int
+    {
+        try {
+            $tagKey = $this->prefix . 'tag:' . $tag;
+            $keys = $this->redis->sMembers($tagKey);
+            
+            if (empty($keys)) {
+                return 0;
+            }
+            
+            $count = $this->redis->del($keys);
+            $this->redis->del($tagKey);
+            
+            return $count;
+        } catch (RedisException $e) {
+            Anon_Debug::error("Redis clearByTag error: " . $e->getMessage(), [
+                'tag' => $tag
+            ]);
+            return 0;
+        }
     }
 }
 
@@ -637,7 +731,7 @@ class Anon_Cache
      * 获取缓存实例
      * @return Anon_CacheInterface
      */
-    private static function getInstance(): Anon_CacheInterface
+    public static function getInstance(): Anon_CacheInterface
     {
         if (self::$instance === null) {
             $driver = Anon_System_Env::get('app.cache.driver', 'file');
@@ -737,5 +831,112 @@ class Anon_Cache
         self::set($key, $value, $ttl);
 
         return $value;
+    }
+
+    /**
+     * 为缓存添加标签
+     * @param string $key 缓存键
+     * @param string|array $tags 标签
+     * @return bool
+     */
+    public static function tag(string $key, $tags): bool
+    {
+        return self::getInstance()->tag($key, $tags);
+    }
+
+    /**
+     * 清除指定标签的所有缓存
+     * @param string $tag 标签名
+     * @return int 清除的数量
+     */
+    public static function clearByTag(string $tag): int
+    {
+        return self::getInstance()->clearByTag($tag);
+    }
+
+    /**
+     * 带锁的缓存获取防止缓存击穿
+     * @param string $key 缓存键
+     * @param callable $callback 回调函数
+     * @param int|null $ttl 缓存过期时间
+     * @param int $lockTimeout 锁超时时间秒
+     * @return mixed
+     */
+    public static function rememberWithLock(string $key, callable $callback, ?int $ttl = null, int $lockTimeout = 10)
+    {
+        $cache = self::getInstance();
+        
+        try {
+            $value = $cache->get($key);
+            if ($value !== null) {
+                return $value;
+            }
+        } catch (Throwable $e) {
+            Anon_Debug::error("Redis rememberWithLock get error: " . $e->getMessage(), [
+                'key' => $key
+            ]);
+        }
+        
+        $lockKey = 'lock:' . $key;
+        $lockValue = uniqid('lock_', true);
+        
+        $gotLock = false;
+        $redis = null;
+        
+        if ($cache instanceof Anon_RedisCache) {
+            $redis = $cache->getRedis();
+            try {
+                $gotLock = $redis->set($cache->prefix . $lockKey, $lockValue, ['nx', 'ex' => $lockTimeout]);
+            } catch (RedisException $e) {
+                Anon_Debug::error("Redis lock set error: " . $e->getMessage(), [
+                    'key' => $key,
+                    'lock_key' => $cache->prefix . $lockKey
+                ]);
+            }
+        } else {
+            if (!$cache->has($lockKey)) {
+                $cache->set($lockKey, $lockValue, $lockTimeout);
+                $gotLock = true;
+            }
+        }
+        
+        try {
+            if ($gotLock) {
+                $value = $callback();
+                $cache->set($key, $value, $ttl);
+                return $value;
+            } else {
+                usleep(rand(10000, 50000));
+                
+                try {
+                    $retryValue = $cache->get($key);
+                    if ($retryValue !== null) {
+                        return $retryValue;
+                    }
+                } catch (Throwable $e) {
+                    Anon_Debug::error("Redis rememberWithLock retry get error: " . $e->getMessage(), [
+                        'key' => $key
+                    ]);
+                }
+                
+                return $callback();
+            }
+        } finally {
+            if ($gotLock && $redis !== null) {
+                try {
+                    $currentValue = $redis->get($cache->prefix . $lockKey);
+                    if ($currentValue === $lockValue) {
+                        $redis->del($cache->prefix . $lockKey);
+                    }
+                } catch (RedisException $e) {
+                    Anon_Debug::error("Redis unlock error: " . $e->getMessage(), [
+                        'key' => $key,
+                        'lock_key' => $cache->prefix . $lockKey
+                    ]);
+                }
+            } elseif ($gotLock) {
+                $cache->delete($lockKey);
+            }
+        }
     }
 }

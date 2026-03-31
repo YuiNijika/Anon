@@ -72,6 +72,18 @@ class Anon_Main
             Anon_Debug::init();
         }
         
+        // 初始化缓存系统
+        if (class_exists('Anon_Cache')) {
+            $driver = Anon_System_Env::get('app.cache.driver', 'file');
+            $config = Anon_System_Env::get('app.cache', []);
+            Anon_Cache::init($driver, $config);
+        }
+        
+        // 初始化访问日志
+        if (class_exists('Anon_System_AccessLog')) {
+            Anon_System_AccessLog::log();
+        }
+        
         if (class_exists('Anon_System_Plugin')) {
             Anon_System_Plugin::init();
         }

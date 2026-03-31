@@ -291,6 +291,49 @@ class Anon_System_Config
             self::addRoute('/anon/debug/api/clear', [Anon_Debug::class, 'clearData']);
             self::addRoute('/anon/debug/login', [Anon_Debug::class, 'login']);
             self::addRoute('/anon/debug/console', [Anon_Debug::class, 'console']);
+            
+            // 缓存状态诊断路由
+            self::addRoute('/anon/cache/status', function() {
+                if (!Anon_System_Env::get('app.debug.global', false)) {
+                    Anon_Http_Response::forbidden('仅在调试模式下可用');
+                    return;
+                }
+                
+                try {
+                    $cache = Anon_Cache::getInstance();
+                    $driver = get_class($cache);
+                    
+                    $stats = [];
+                    if (method_exists($cache, 'stats')) {
+                        $stats = $cache->stats();
+                    } elseif ($driver === 'Anon_RedisCache' && isset($cache->redis)) {
+                        $reflection = new ReflectionClass($cache);
+                        $property = $reflection->getProperty('redis');
+                        $property->setAccessible(true);
+                        $redis = $property->getValue($cache);
+                        $info = $redis->info();
+                        $stats = [
+                            'connected' => true,
+                            'redis_version' => $info['redis_version'] ?? 'unknown',
+                            'used_memory' => $info['used_memory_human'] ?? 'unknown',
+                            'total_keys' => $redis->dbSize(),
+                        ];
+                    }
+                    
+                    Anon_Http_Response::success([
+                        'driver' => $driver,
+                        'enabled' => Anon_System_Env::get('app.cache.enabled', false),
+                        'config' => [
+                            'driver' => Anon_System_Env::get('app.cache.driver', 'file'),
+                            'prefix' => Anon_System_Env::get('app.cache.redis.prefix', 'anon:'),
+                            'database' => Anon_System_Env::get('app.cache.redis.database', 0),
+                        ],
+                        'stats' => $stats,
+                    ], '缓存状态获取成功');
+                } catch (Throwable $e) {
+                    Anon_Http_Response::error('获取缓存状态失败：' . $e->getMessage());
+                }
+            });
         }
 
         Anon_Debug::info("Registered app routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
