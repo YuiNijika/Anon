@@ -88,6 +88,6 @@ return [
         'plugins' => [
             'enabled' => false,
             'active' => [],
-        ]
+        ],
     ]
 ];

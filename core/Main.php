@@ -84,8 +84,14 @@ class Anon_Main
             Anon_System_AccessLog::log();
         }
         
+        // 初始化插件系统（插件会自动注册中间件）
         if (class_exists('Anon_System_Plugin')) {
             Anon_System_Plugin::init();
+        }
+        
+        // 初始化扩展系统（在插件系统之后）
+        if (class_exists('Anon_System_Extension')) {
+            Anon_System_Extension::init();
         }
         
         $codeFile = self::APP_DIR . 'useCode.php';

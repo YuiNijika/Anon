@@ -512,6 +512,75 @@ public static function init()
 }
 ```
 
+## 中间件扩展系统
+
+插件可以通过 `registerMiddleware()` 方法注册中间件，该方法在插件加载时自动调用。
+
+### 基本用法
+
+```php
+class Anon_Plugin_MyPlugin
+{
+    public static function registerMiddleware()
+    {
+        // 注册中间件到 request.start 钩子
+        Anon_System_Extension::register(
+            'myMiddleware',
+            [self::class, 'handle'],
+            10,
+            ['hooks' => ['request.start']]
+        );
+    }
+    
+    public static function handle($data)
+    {
+        // 中间件逻辑
+        header('X-Custom-Header: MyPlugin');
+        return $data;
+    }
+}
+```
+
+### 注册多个中间件
+
+```php
+public static function registerMiddleware()
+{
+    // CORS 中间件（高优先级）
+    Anon_System_Extension::register(
+        'cors',
+        [CorsMiddleware::class, 'handle'],
+        1,
+        ['hooks' => ['request.start']]
+    );
+    
+    // 日志中间件（低优先级）
+    Anon_System_Extension::register(
+        'logger',
+        [LoggerMiddleware::class, 'handle'],
+        100,
+        ['hooks' => ['request.end']]
+    );
+}
+```
+
+### 使用匿名函数
+
+```php
+public static function registerMiddleware()
+{
+    Anon_System_Extension::register(
+        'customHeader',
+        function ($data) {
+            header('X-Powered-By: Anon Framework');
+            return $data;
+        },
+        20,
+        ['hooks' => ['response.before_send']]
+    );
+}
+```
+
 ## 插件系统钩子
 
 框架为插件系统提供了以下钩子：

@@ -621,6 +621,19 @@ class Anon_System_Plugin
                 'loaded_at' => microtime(true)
             ];
 
+            // 自动注册插件的中间件
+            if (class_exists('Anon_System_Extension') && method_exists($className, 'registerMiddleware')) {
+                try {
+                    $className::registerMiddleware();
+                    Anon_Debug::debug("Plugin middleware registered", ['plugin' => $pluginSlug]);
+                } catch (Throwable $e) {
+                    Anon_Debug::error("Failed to register plugin middleware", [
+                        'plugin' => $pluginSlug,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
             Anon_System_Hook::do_action('plugin_after_load', $pluginSlug, $meta);
         } catch (Throwable $e) {
             Anon_Debug::error("Failed to load plugin", [
