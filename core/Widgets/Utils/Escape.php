@@ -1,54 +1,70 @@
 <?php
-
-/**
- * 转义工具类
- *
- * 提供 HTML、URL、Attribute、JS 等内容的转义方法，防止 XSS 攻击。
- *
- * @package Anon/Core/Widgets/Utils
- */
-
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Utils_Escape
+/**
+ * XSS 防护工具类
+ */
+class Anon_Widget_Utils_Escape
 {
     /**
-     * 转义 HTML 内容
-     * @param string $text 原始文本
-     * @return string 转义后的 HTML
+     * 转义输出
+     * @param mixed $data 数据
+     * @param string $context 上下文：html, js, css, url, attribute
+     * @return mixed
      */
-    public static function html(string $text): string
+    public static function output($data, string $context = 'html')
     {
-        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+        if (is_array($data)) {
+            return array_map(function($value) use ($context) {
+                return self::output($value, $context);
+            }, $data);
+        }
+        
+        if (!is_string($data)) {
+            return $data;
+        }
+        
+        switch ($context) {
+            case 'html':
+                return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            
+            case 'js':
+                return json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            
+            case 'css':
+                return addslashes($data);
+            
+            case 'url':
+                return urlencode($data);
+            
+            case 'attribute':
+                return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            
+            default:
+                return $data;
+        }
     }
-
+    
     /**
-     * 转义 URL
-     * @param string $url 原始 URL
-     * @return string 转义后的 URL
+     * 净化 HTML（允许安全标签）
+     * @param string $html HTML 内容
+     * @return string
      */
-    public static function url(string $url): string
+    public static function purify(string $html): string
     {
-        return htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+        // 简单实现，生产建议使用 HTMLPurifier
+        $allowedTags = '<p><br><strong><em><u><ul><ol><li><a><img><code><pre>';
+        return strip_tags($html, $allowedTags);
     }
-
+    
     /**
-     * 转义 HTML 属性值
-     * @param string $text 原始文本
-     * @return string 转义后的属性值
+     * 移除危险 HTML 标签
+     * @param string $html HTML 内容
+     * @return string
      */
-    public static function attr(string $text): string
+    public static function stripDangerousTags(string $html): string
     {
-        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-    }
-
-    /**
-     * 转义 JavaScript 字符串
-     * @param string $text 原始文本
-     * @return string 转义后的 JSON 字符串，包含引号
-     */
-    public static function js(string $text): string
-    {
-        return json_encode($text, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        // 移除 script、iframe、object 等危险标签
+        return preg_replace('/<(script|iframe|object|embed|form|input|textarea|select|button)[^>]*>.*?<\/\1>/is', '', $html);
     }
 }

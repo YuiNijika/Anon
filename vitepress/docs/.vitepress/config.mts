@@ -60,7 +60,7 @@ export default defineConfig({
         text: "API 模式",
         items: [
           { text: "API 模式概述", link: "/guide/api/overview" },
-          { text: "路由与请求", link: "/guide/api/routing" },
+          { text: "路由系统", link: "/guide/routing" },
           { text: "请求与响应", link: "/guide/api/request-response" },
           { text: "认证与安全", link: "/guide/api/authentication" },
           { text: "API 参考", link: "/api/reference" },
@@ -139,6 +139,7 @@ export default defineConfig({
           text: '通用功能',
           base: '/guide/',
           items: [
+            { text: '路由系统', link: 'routing' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '中间件扩展', link: 'extension-system' },
             { text: 'Widget 组件', link: 'widget-system' },

@@ -69,6 +69,12 @@ class Anon_Http_Router
             } else {
                 self::registerApiRoutesWithPrefix();
             }
+            
+            // 自动扫描 app/Router 目录注册路由（Nuxt.js 风格）
+            // 优先级：useRouter.php 配置 > 文件系统扫描
+            if (!file_exists(ANON_ROOT . 'app/useRouter.php')) {
+                self::scanAndRegisterAutoRoutes();
+            }
 
             self::loadConfig();
 
@@ -264,6 +270,97 @@ class Anon_Http_Router
         }
 
         return $result;
+    }
+    
+    /**
+     * 自动扫描并注册路由（Nuxt.js 风格）
+     * 当不存在 useRouter.php 时启用
+     */
+    private static function scanAndRegisterAutoRoutes(): void
+    {
+        $routerDir = ANON_ROOT . 'app/Router';
+        if (!is_dir($routerDir)) {
+            return;
+        }
+        
+        try {
+            self::scanDirectoryRecursively($routerDir, '');
+            Anon_Debug::info('Auto-scanned routes from app/Router');
+        } catch (Throwable $e) {
+            Anon_Debug::error('Failed to auto-scan routes', ['error' => $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * 递归扫描目录
+     * @param string $dir 目录路径
+     * @param string $pathPrefix 路径前缀
+     */
+    private static function scanDirectoryRecursively(string $dir, string $pathPrefix): void
+    {
+        $files = scandir($dir);
+        
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            
+            $fullPath = $dir . DIRECTORY_SEPARATOR . $file;
+            
+            if (is_dir($fullPath)) {
+                // 跳过特殊目录
+                if (in_array(strtolower($file), ['auth', 'user'])) {
+                    // 特殊目录作为 API 分组
+                    $subPrefix = $pathPrefix . '/' . strtolower($file);
+                    self::scanDirectoryRecursively($fullPath, $subPrefix);
+                } else {
+                    // 普通子目录
+                    self::scanDirectoryRecursively($fullPath, $pathPrefix . '/' . $file);
+                }
+            } elseif (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
+                // PHP 文件作为路由
+                $routeName = pathinfo($file, PATHINFO_FILENAME);
+                
+                // 构建路由路径
+                $routePath = $pathPrefix;
+                if ($routeName !== 'index') {
+                    $routePath .= '/' . $routeName;
+                }
+                
+                if (empty($routePath)) {
+                    $routePath = '/';
+                }
+                
+                // 注册路由
+                self::registerAutoRouteByScan($fullPath, $routePath);
+            }
+        }
+    }
+    
+    /**
+     * 注册自动路由
+     * @param string $filePath 文件路径
+     * @param string $routePath 路由路径
+     */
+    private static function registerAutoRouteByScan(string $filePath, string $routePath): void
+    {
+        // 读取文件元数据
+        $meta = self::readRouterMeta($filePath);
+        
+        // 应用元数据
+        self::applyRouterMeta($meta);
+        
+        // 注册路由
+        self::route($routePath, function() use ($filePath, $meta) {
+            if (isset($meta['middleware'])) {
+                $middlewares = is_array($meta['middleware']) ? $meta['middleware'] : [$meta['middleware']];
+                Anon_Http_Middleware::pipeline($middlewares, $_REQUEST, function() use ($filePath) {
+                    require $filePath;
+                });
+            } else {
+                require $filePath;
+            }
+        }, $meta);
     }
 
     /**
