@@ -1,105 +1,92 @@
-# 插件系统
+# 插件系统（CMS 模式）
 
-一句话：类似 WordPress 的灵活插件系统，支持插件扫描、加载、激活/停用，通过钩子执行方法。
+本文档介绍 CMS 模式下特有的插件功能。关于插件系统的完整说明，请参考 [插件系统](../plugin-system.md)。
 
-插件系统允许开发者在不修改核心代码的情况下扩展框架功能，插件位于 `server/app/Plugin/` 目录，每个插件都是一个独立的目录。
+## CMS 模式特有功能
 
-## 插件结构
+### 管理后台页面
 
-### 基本结构
+插件可以在 CMS 管理后台注册自定义页面，详见 [插件系统](../plugin-system.md#自定义管理页面)。
 
-插件目录与主入口文件名不区分大小写，系统按 slug 解析实际目录名，并查找 Index.php 或 index.php 等。
+### 管理菜单扩展
 
-```text
-server/app/Plugin/
-└── HelloWorld/
-    ├── Index.php       # 主入口，必须，文件名不区分大小写
-    └── package.json    # 可选，用于元数据，无则从 Index.php 头部注释读取
-```
+插件可以向 CMS 管理后台侧边栏添加菜单项，详见 [插件系统](../plugin-system.md#管理后台菜单)。
 
-### 插件文件示例
+### CMS 模式下的 Widget
+
+在 CMS 模式下，插件可以注册 Widget 组件用于主题模板，详见 [Widget 组件系统](../widget-system.md)。
+
+### 主题集成
+
+插件可以与 CMS 主题系统集成，提供模板函数和短代码。
+
+### 用户权限
+
+插件可以扩展 CMS 的用户权限系统，添加新的权限项。
+
+## CMS 模式示例
+
+以上示例展示了 CMS 模式下插件的基本用法。完整的插件开发指南请参考 [插件系统](../plugin-system.md)。
+
+## 管理后台功能
+
+CMS 模式下的管理后台特有功能。
+
+### 插件管理页面
+
+在 CMS 管理后台「插件」页面可以：
+
+- **查看插件列表**：显示所有已安装的插件
+- **激活/停用插件**：切换插件状态
+- **插件设置**：配置插件参数（需要实现 `getSettingsSchema()`）
+- **上传插件**：上传 ZIP 格式的插件包
+- **删除插件**：移除不需要的插件
+
+详见：[管理后台 - 插件管理](admin.md#插件)
+
+### 插件设置页
+
+插件可以提供设置页面，供管理员配置选项。
+
+#### 定义 Schema
 
 ```php
-<?php
-/**
- * Name: HelloWorld
- * Description: Hello World 插件
- * Mode: auto
- * Version: 1.0.0
- * Author: YuiNijika
- * URI: https://github.com/YuiNijika
- */
-if (!defined('ANON_ALLOWED_ACCESS')) exit;
-
-// 插件主类，类名不区分大小写
-class Anon_Plugin_HelloWorld
+class Anon_Plugin_MyPlugin
 {
-    /**
-     * 插件初始化方法
-     */
-    public static function init()
+    public static function getSettingsSchema(): array
     {
-        // 判断当前应用模式
-        if (Anon_System_Plugin::isApiMode()) {
-            // API 模式下的初始化逻辑
-            Anon::route('/hello', function () {
-                Anon::success([
-                    self::index()
-                ], 'Hello World from Plugin (API Mode)');
-            }, [
-                'header' => true,
-                'requireLogin' => false,
-                'method' => ['GET'],
-                'token' => false,
-                'cache' => [
-                    'enabled' => true,
-                    'time' => 3600,
-                ],
-            ]);
-        } elseif (Anon_System_Plugin::isCmsMode()) {
-            // CMS 模式下的初始化逻辑
-            Anon::route('/hello', function () {
-                Anon::success([
-                    self::index()
-                ], 'Hello World from Plugin (CMS Mode)');
-            }, [
-                'header' => true,
-                'requireLogin' => false,
-                'method' => ['GET'],
-                'token' => false,
-                'cache' => [
-                    'enabled' => true,
-                    'time' => 3600,
-                ],
-            ]);
-        }
-    }
-
-    /**
-     * 插件激活时调用
-     */
-    public static function activate()
-    {
-        Anon_Debug::info('HelloWorld 插件已激活');
-    }
-
-    /**
-     * 插件停用时调用
-     */
-    public static function deactivate()
-    {
-        Anon_Debug::info('HelloWorld 插件已停用');
-    }
-
-    /**
-     * 自定义方法
-     */
-    public static function index()
-    {
-        return 'Hello World';
+        return [
+            'api_key' => [
+                'type' => 'text',
+                'label' => 'API 密钥',
+                'default' => '',
+            ],
+        ];
     }
 }
 ```
+
+#### 访问设置页
+
+```
+/anon/cms/admin/plugins/options?slug=my-plugin
+```
+
+#### 读取设置
+
+```php
+// 从 options 表读取
+$options = Anon_System_Plugin::getPluginOptions('my-plugin');
+$apiKey = $options['api_key'] ?? '';
+```
+
+### 自定义页面
+
+插件可以在管理后台注册自定义页面，详见 [插件系统](../plugin-system.md#自定义管理页面)。
+
+### 菜单扩展
+
+插件可以向管理后台侧边栏添加菜单项，详见 [插件系统](../plugin-system.md#管理后台菜单)。
 
 ### 1.9 高级插件结构（推荐）
 
@@ -226,7 +213,7 @@ return [
     'demo-page' => [
         'title' => '示例页面',
         'content' => <<<HTML
-<!-- 模板部分：直接写 Element Plus 组件 -->
+<!-- 模板部分直接写 Element Plus 组件 -->
 <el-card>
     <template #header>
         <div class="card-header">
@@ -247,7 +234,7 @@ return [
     </el-table>
 </el-card>
 
-<!-- 逻辑部分：定义 Vue 组件 -->
+<!-- 逻辑部分定义 Vue 组件 -->
 <script>
 window.AnonPluginPage = {
     data() {

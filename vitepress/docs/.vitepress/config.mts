@@ -47,6 +47,16 @@ export default defineConfig({
       { text: "安装指南", link: "/guide/installation" },
       { text: "模式对比", link: "/guide/mode-overview" },
       {
+        text: "通用功能",
+        items: [
+          { text: "插件系统", link: "/guide/plugin-system" },
+          { text: "中间件扩展", link: "/guide/extension-system" },
+          { text: "Widget 组件", link: "/guide/widget-system" },
+          { text: "CLI 命令", link: "/guide/cli-system" },
+          { text: "钩子系统", link: "/guide/hook-system" },
+        ]
+      },
+      {
         text: "API 模式",
         items: [
           { text: "API 模式概述", link: "/guide/api/overview" },
@@ -61,20 +71,20 @@ export default defineConfig({
         text: "CMS 模式",
         items: [
           { text: "CMS 模式概述", link: "/guide/cms/overview" },
-          { text: "路由与页面", link: "/guide/cms/routes" },
           { text: "主题系统", link: "/guide/cms/theme-system" },
           { text: "评论功能", link: "/guide/cms/comments" },
-          { text: "插件系统", link: "/guide/cms/plugin-system" },
           { text: "管理后台", link: "/guide/cms/admin" },
-          { text: "高性能附件系统", link: "/guide/cms/high-performance-attachments" },
+          { text: "高性能附件", link: "/guide/cms/high-performance-attachments" },
         ]
       },
       {
         text: "更多",
         items: [
-          { text: "配置说明", link: "/guide/configuration" },
+          { text: "访问日志", link: "/guide/access-log" },
+          { text: "配置管理", link: "/guide/configuration-management" },
+          { text: "缓存系统", link: "/guide/cache-redis-guide" },
+          { text: "调试工具", link: "/guide/api/debugging" },
           { text: "数据库", link: "/guide/api/database" },
-          { text: "调试与性能", link: "/guide/api/debugging" },
           { text: "开发规范", link: "/guide/coding-standards" },
         ]
       },
@@ -110,7 +120,6 @@ export default defineConfig({
             { text: '路由与页面', link: 'routes' },
             { text: '主题系统与开发', link: 'theme-system' },
             { text: '评论功能', link: 'comments' },
-            { text: '插件系统', link: 'plugin-system' },
             { text: '管理后台', link: 'admin' },
             { text: '高性能附件系统', link: 'high-performance-attachments' },
           ]
@@ -123,14 +132,35 @@ export default defineConfig({
           items: [
             { text: '快速开始', link: 'quick-start' },
             { text: '安装指南', link: 'installation' },
-            { text: '配置说明', link: 'configuration' },
             { text: '模式对比 API vs CMS', link: 'mode-overview' },
           ]
         },
         {
-          text: '开发规范',
+          text: '通用功能',
           base: '/guide/',
           items: [
+            { text: '插件系统', link: 'plugin-system' },
+            { text: '中间件扩展', link: 'extension-system' },
+            { text: 'Widget 组件', link: 'widget-system' },
+            { text: 'CLI 命令', link: 'cli-system' },
+            { text: '钩子系统', link: 'hook-system' },
+          ]
+        },
+        {
+          text: '系统管理',
+          base: '/guide/',
+          items: [
+            { text: '访问日志', link: 'access-log' },
+            { text: '配置管理', link: 'configuration-management' },
+            { text: '缓存系统', link: 'cache-redis-guide' },
+          ]
+        },
+        {
+          text: '开发与工具',
+          base: '/guide/',
+          items: [
+            { text: '数据库', link: 'api/database' },
+            { text: '调试工具', link: 'api/debugging' },
             { text: '代码规范', link: 'coding-standards' },
             { text: '工具说明', link: 'tools' },
             { text: '自动化测试', link: 'testing' }

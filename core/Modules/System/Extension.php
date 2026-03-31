@@ -6,7 +6,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
  */
 class Anon_System_Extension
 {
-    /**
+    /**  
      * @var array 已注册的中间件
      */
     private static $middlewares = [];
