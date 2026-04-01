@@ -233,7 +233,7 @@ HTML;
      */
     private static function sanitizePath(string $path): string
     {
-        $rootPath = defined('ANON_ROOT') ? ANON_ROOT : (defined('__DIR__') ? __DIR__ : '');
+        $rootPath = ANON_ROOT;
         if (!empty($rootPath) && strpos($path, $rootPath) === 0) {
             return '...' . substr($path, strlen($rootPath));
         }

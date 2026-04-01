@@ -36,7 +36,6 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Theme.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Theme/Options.php';
         require_once Anon_Main::WIDGETS_DIR . 'Cms/User.php';
-        require_once Anon_Main::MODULES_DIR . 'Cms/Attachment.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
         require_once Anon_Main::MODULES_DIR . 'System/ApiPrefix.php';
 
@@ -100,6 +99,7 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Database/QueryBuilder.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryOptimizer.php';
         require_once Anon_Main::MODULES_DIR . 'Database/Sharding.php';
+        require_once Anon_Main::MODULES_DIR . 'System/Attachment.php';
 
         self::$loadedModules['core'] = true;
     }

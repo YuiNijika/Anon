@@ -6,7 +6,6 @@ require_once __DIR__ . '/Settings/Permission.php';
 require_once __DIR__ . '/Settings/Page.php';
 require_once __DIR__ . '/Manage/Categories.php';
 require_once __DIR__ . '/Manage/Tags.php';
-require_once __DIR__ . '/Manage/Attachments.php';
 require_once __DIR__ . '/Manage/Posts.php';
 require_once __DIR__ . '/Manage/Users.php';
 require_once __DIR__ . '/Manage/Comments.php';
@@ -325,16 +324,14 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
-        Anon_Cms_Admin_Attachments::initStaticRoutes();
-
         self::addRoute('/attachments', function () {
             $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
             if ($requestMethod === 'GET') {
-                Anon_Cms_Admin_Attachments::get();
+                Anon_System_Attachment::handleGetList();
             } elseif ($requestMethod === 'POST') {
-                Anon_Cms_Admin_Attachments::upload();
+                Anon_System_Attachment::handleUpload();
             } elseif ($requestMethod === 'DELETE') {
-                Anon_Cms_Admin_Attachments::delete();
+                Anon_System_Attachment::handleDelete();
             } else {
                 Anon_Http_Response::error('不支持的请求方法', 405);
             }

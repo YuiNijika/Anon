@@ -69,12 +69,6 @@ class Anon_Http_Router
             } else {
                 self::registerApiRoutesWithPrefix();
             }
-            
-            // 自动扫描 app/Router 目录注册路由（Nuxt.js 风格）
-            // 优先级：useRouter.php 配置 > 文件系统扫描
-            if (!file_exists(ANON_ROOT . 'app/useRouter.php')) {
-                self::scanAndRegisterAutoRoutes();
-            }
 
             self::loadConfig();
 
@@ -547,6 +541,9 @@ class Anon_Http_Router
         if (isset($meta['token'])) {
             if ($meta['token'] === true) {
                 Anon_Http_Request::requireToken(true, false);
+            } elseif ($meta['token'] === false) {
+                // 明确禁用 token 验证
+                Anon_Http_Request::requireToken(false, false);
             }
         } else {
             if (Anon_Auth_Token::isEnabled()) {

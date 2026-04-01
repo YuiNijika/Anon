@@ -140,6 +140,7 @@ export default defineConfig({
           base: '/guide/',
           items: [
             { text: '路由系统', link: 'routing' },
+            { text: '附件系统', link: 'attachment-system' },
             { text: '插件系统', link: 'plugin-system' },
             { text: '中间件扩展', link: 'extension-system' },
             { text: 'Widget 组件', link: 'widget-system' },

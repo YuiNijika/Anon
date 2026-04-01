@@ -19,6 +19,10 @@ class Anon_Main
      */
     public static function init()
     {
+        if (!defined('ANON_ROOT')) {
+            define('ANON_ROOT', self::ROOT_DIR);
+        }
+        
         require_once self::ROOT_DIR . '.env.php';
         
         $appConfigFile = self::APP_DIR . 'useApp.php';

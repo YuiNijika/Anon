@@ -261,9 +261,12 @@ class Anon_Http_StaticResource
             'requireLogin' => false,
             'requireAdmin' => false,
             'method' => 'GET',
-            'token' => false,
+            'token' => false, // 静态资源不需要token
         ];
         $meta = array_merge($defaultMeta, $meta);
+        
+        // 强制确保 token 为 false，避免被覆盖
+        $meta['token'] = false;
 
         try {
             Anon_System_Config::addRoute($route, function () use ($filePath, $mimeType, $cacheTime) {

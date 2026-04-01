@@ -171,8 +171,8 @@ class Anon_System_Config
         $debugCacheTime = Anon_System_Env::get('app.debug.cache.time', 0);
         $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
 
-        if (Anon_System_Env::get('app.mode') === 'cms' && class_exists('Anon_Cms_Attachment')) {
-            self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Anon_Cms_Attachment::class, 'index'], [
+        if (Anon_System_Env::get('app.mode') === 'cms' && class_exists('Anon_System_Attachment')) {
+            self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Anon_System_Attachment::class, 'index'], [
                 'header' => false,
                 'requireLogin' => false,
                 'requireAdmin' => false,
@@ -180,7 +180,7 @@ class Anon_System_Config
                 'token' => false,
             ]);
             
-            self::addRoute('/anon/attachment/{filetype}/{filename}', [Anon_Cms_Attachment::class, 'index'], [
+            self::addRoute('/anon/attachment/{filetype}/{filename}', [Anon_System_Attachment::class, 'index'], [
                 'header' => false,
                 'requireLogin' => false,
                 'requireAdmin' => false,
