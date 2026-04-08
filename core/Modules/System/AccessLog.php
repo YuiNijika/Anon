@@ -58,7 +58,7 @@ class Anon_System_AccessLog
 
     private static function isEnabled(): bool
     {
-        return Anon_System_Env::get('app.accessLog.enabled', true);
+        return Anon_Cms_Options::get('access_log_enabled', true);
     }
 
     public static function log(array $options = []): void
@@ -85,10 +85,33 @@ class Anon_System_AccessLog
         $parsedUrl = parse_url($requestUri);
         $path = $parsedUrl['path'] ?? '/';
 
+        // 通过钩子允许插件或配置动态决定是否记录
+        $shouldLog = Anon_System_Hook::apply_filters('access_log_should_log', null, [
+            'path' => $path,
+            'uri' => $requestUri
+        ]);
+
+        // 如果钩子返回了明确布尔值则直接使用
+        if (is_bool($shouldLog)) {
+            return $shouldLog;
+        }
+
         foreach (self::$excludedPaths as $excludedPath) {
             if (strpos($path, $excludedPath) === 0) {
                 return false;
             }
+        }
+
+        // 检查是否记录 API 请求
+        $logApi = Anon_Cms_Options::get('access_log_api', false);
+        if (!$logApi && (strpos($path, '/api/') === 0 || strpos($path, '/anon/') === 0)) {
+            return false;
+        }
+
+        // 检查是否记录静态资源
+        $logStatic = Anon_Cms_Options::get('access_log_static', false);
+        if (!$logStatic && self::isStaticResource($path)) {
+            return false;
         }
 
         if (strpos($path, '/anon/') === 0) {
@@ -113,6 +136,17 @@ class Anon_System_AccessLog
         }
 
         return true;
+    }
+
+    private static function isStaticResource(string $path): bool
+    {
+        $staticExtensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot'];
+        foreach ($staticExtensions as $ext) {
+            if (substr($path, -strlen($ext)) === $ext) {
+                return true;
+            }
+        }
+        return strpos($path, '/assets') === 0 || strpos($path, '/static') === 0 || strpos($path, '/anon/static') === 0;
     }
 
     private static function collectLogData(array $options = []): array
