@@ -177,7 +177,7 @@ return [
 
 ## 插件自定义页面 (Plugin Pages)
 
-插件可以在管理后台注册自定义页面，支持使用 **Vue 3 + Element Plus** 进行开发，系统采用了混合渲染架构（React Host + Vue Guest）。
+插件可以在管理后台注册自定义页面，支持使用 **Vue 3 + Tailwind CSS** 进行开发。
 
 ### 页面配置 (`app/pages.php`)
 
@@ -196,16 +196,16 @@ return [
 ];
 ```
 
-### 前端开发 (Vue 3 + Element Plus)
+### 前端开发 (Vue 3 + Tailwind CSS)
 
-页面内容通过 `content` 字段返回 HTML 字符串。你可以在其中编写 Element Plus 组件，并通过 `<script>` 标签定义 Vue 组件逻辑。
+页面内容通过 `content` 字段返回 HTML 字符串。你可以在其中编写原生 HTML + Tailwind CSS 类名，并通过 `<script>` 标签定义 Vue 组件逻辑。
 
 **关键机制：**
-1.  **挂载点**：无需手动挂载，系统会自动查找 `window.AnonPluginPage` 对象并挂载 Vue 应用。
-2.  **组件定义**：将 Vue 组件选项对象（data, methods, mounted 等）赋值给全局变量 `window.AnonPluginPage`。
-3.  **Element Plus**：环境已内置 Vue 3 和 Element Plus，可直接使用 `<el-button>`、`<el-table>` 等组件，无需额外引入。
+1. **挂载点**：系统会自动查找 `window.AnonPluginPage` 对象并挂载 Vue 应用。
+2. **组件定义**：将 Vue 组件选项对象赋值给全局变量 `window.AnonPluginPage`。
+3. **Tailwind CSS**：环境已内置 Tailwind CSS，可直接使用工具类。
 
-**完整示例 (`app/pages.php`)：**
+**完整示例：**
 
 ```php
 <?php
@@ -213,65 +213,27 @@ return [
     'demo-page' => [
         'title' => '示例页面',
         'content' => <<<HTML
-<!-- 模板部分直接写 Element Plus 组件 -->
-<el-card>
-    <template #header>
-        <div class="card-header">
-            <span>用户列表</span>
-            <el-button class="button" text @click="fetchData">刷新</el-button>
-        </div>
-    </template>
-    
-    <el-table :data="tableData" style="width: 100%" v-loading="loading">
-        <el-table-column prop="date" label="日期" width="180"></el-table-column>
-        <el-table-column prop="name" label="姓名" width="180"></el-table-column>
-        <el-table-column prop="address" label="地址"></el-table-column>
-        <el-table-column label="操作">
-            <template #default="scope">
-                <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
-            </template>
-        </el-table-column>
-    </el-table>
-</el-card>
+<div class="p-6 bg-white rounded-lg shadow">
+    <h2 class="text-xl font-semibold mb-4">用户列表</h2>
+    <button @click="fetchData" class="px-4 py-2 bg-blue-500 text-white rounded">刷新</button>
+    <ul>
+        <li v-for="item in tableData">{{ item.name }}</li>
+    </ul>
+</div>
 
-<!-- 逻辑部分定义 Vue 组件 -->
 <script>
 window.AnonPluginPage = {
     data() {
-        return {
-            tableData: [],
-            loading: false
-        };
-    },
-    mounted() {
-        this.fetchData();
+        return { tableData: [] };
     },
     methods: {
         fetchData() {
-            this.loading = true;
-            setTimeout(() => {
-                this.tableData = [
-                    { date: '2024-05-01', name: 'Tom', address: 'No. 189, Grove St, Los Angeles' },
-                    { date: '2024-05-02', name: 'Jerry', address: 'No. 189, Grove St, Los Angeles' },
-                ];
-                this.loading = false;
-            }, 1000);
-        },
-        handleEdit(row) {
-            console.log('Edit', row);
-            this.$message.success('编辑: ' + row.name);
+            this.tableData = [{ name: 'Tom' }, { name: 'Jerry' }];
         }
     }
 };
 </script>
 HTML,
-        // 后端处理逻辑 (可选)
-        'handler' => function ($action, $data) {
-            if ($action === 'get_data') {
-                return ['data' => 'Server Data'];
-            }
-            return null;
-        }
     ]
 ];
 ```
