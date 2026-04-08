@@ -63,7 +63,7 @@ export function ItemCard({
 
   return (
     <>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden h-full flex flex-col">
         {showScreenshot && (
           <button
             type="button"
@@ -176,6 +176,7 @@ interface ItemGridProps {
     md?: number
     lg?: number
     xl?: number
+    '2xl'?: number
   }
   renderCustomActions?: (item: ItemCardData) => React.ReactNode
 }
@@ -196,14 +197,12 @@ export function ItemGrid({
   columns = { sm: 1, md: 2, lg: 3, xl: 4 },
   renderCustomActions,
 }: ItemGridProps) {
-  const gridCols = `grid-cols-${columns.sm} sm:grid-cols-${columns.md} md:grid-cols-${columns.lg} lg:grid-cols-${columns.xl}`
-
   if (loading) {
     return (
-      <div className={`grid gap-4 ${gridCols}`}>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {[...Array(skeletonCount)].map((_, i) => (
           <Card key={i}>
-            {showScreenshot && <Skeleton className="h-[200px] w-full rounded-t-lg" />}
+            {showScreenshot && <Skeleton className="aspect-[4/3] w-full rounded-t-lg" />}
             <CardContent className="pt-4">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="mt-2 h-3 w-full" />
@@ -225,7 +224,7 @@ export function ItemGrid({
   }
 
   return (
-    <div className={`grid gap-4 ${gridCols}`}>
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       {items.map((item) => (
         <ItemCard
           key={item.name}

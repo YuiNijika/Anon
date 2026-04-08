@@ -513,17 +513,10 @@ class Anon_Cms_Admin
         ]);
 
         // 商店路由
-        self::addRoute('/store/list', function () {
-            Anon_Cms_Admin_Store::getList();
+        self::addRoute('/store/check-version', function () {
+            Anon_Cms_Admin_Store::checkVersion();
         }, [
             'method' => 'GET',
-            'token' => true,
-        ]);
-
-        self::addRoute('/store/detail', function () {
-            Anon_Cms_Admin_Store::getDetail();
-        }, [
-            'method' => 'POST',
             'token' => true,
         ]);
 

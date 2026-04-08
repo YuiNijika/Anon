@@ -2,13 +2,11 @@ import { useApiAdmin } from './useApiAdmin';
 
 export interface StoreItem {
   name: string;
-  version: string;
-  description: string;
   author: string;
+  description: string;
   screenshot?: string;
-  download_url: string;
-  updated_at: string;
   type: 'theme' | 'plugin';
+  category?: string;
   url?: {
     github?: string;
     gitee?: string;
@@ -28,13 +26,108 @@ export function useStore() {
   const api = useApiAdmin();
 
   /**
+   * 获取 GitHub 镜像配置
+   */
+  const getMirrorConfig = async () => {
+    try {
+      const response = await api.admin.get('/settings/basic');
+      if (response.data) {
+        return {
+          github_mirror: response.data.github_mirror || '',
+          github_raw_mirror: response.data.github_raw_mirror || '',
+        };
+      }
+    } catch (error) {
+      console.warn('获取镜像配置失败:', error);
+    }
+    return { github_mirror: '', github_raw_mirror: '' };
+  };
+
+  /**
+   * 应用 GitHub 镜像
+   */
+  const applyGithubMirror = (url: string, mirror: string, rawMirror: string): string => {
+    // 优先使用 raw 镜像
+    if (url.includes('raw.githubusercontent.com') && rawMirror) {
+      return url.replace('https://raw.githubusercontent.com', rawMirror.replace(/\/$/, ''));
+    }
+    
+    // 使用通用镜像
+    if (mirror) {
+      return url.replace('https://github.com', mirror.replace(/\/$/, ''));
+    }
+    
+    return url;
+  };
+
+  /**
    * 获取项目列表
-   * @param type 类型
    */
   const getItems = async (type: 'theme' | 'plugin' = 'theme') => {
     try {
-      const response = await api.admin.get('/store/list', { type });
-      return response.data as StoreResponse;
+      // 获取镜像配置
+      const { github_mirror, github_raw_mirror } = await getMirrorConfig();
+      
+      // 直接请求 GitHub raw JSON
+      let repoUrl = type === 'plugin' 
+        ? 'https://raw.githubusercontent.com/YuiNijika/AnonCMS-Plugin-API/main/list.json'
+        : 'https://raw.githubusercontent.com/YuiNijika/AnonCMS-Theme-API/main/list.json';
+      
+      // 应用镜像
+      repoUrl = applyGithubMirror(repoUrl, github_mirror, github_raw_mirror);
+      
+      const response = await fetch(repoUrl);
+      if (!response.ok) {
+        throw new Error('获取列表失败');
+      }
+      
+      const indexData = await response.json();
+      
+      if (!indexData.data || !indexData.repository) {
+        throw new Error('数据格式错误');
+      }
+
+      // 转换 repository URL 为 raw URL
+      let baseUrl = indexData.repository.replace(
+        'https://github.com/',
+        'https://raw.githubusercontent.com/'
+      ).replace('/blob/main/', '/main/').replace(/\/$/, '');
+      
+      // 应用镜像
+      baseUrl = applyGithubMirror(baseUrl, github_mirror, github_raw_mirror);
+
+      // 遍历所有类型合并数据
+      const allItems: StoreItem[] = [];
+      
+      for (const [typeName, jsonFile] of Object.entries(indexData.data)) {
+        try {
+          const typeUrl = `${baseUrl}/${jsonFile}`;
+          const typeResponse = await fetch(typeUrl);
+          
+          if (typeResponse.ok) {
+            const typeData = await typeResponse.json();
+            
+            if (typeData.data && Array.isArray(typeData.data)) {
+              // 添加类型和分类字段
+              const itemsWithType = typeData.data.map((item: any) => ({
+                ...item,
+                type,
+                category: typeName,
+              }));
+              
+              allItems.push(...itemsWithType);
+            }
+          }
+        } catch (error) {
+          console.warn(`获取 ${typeName} 失败:`, error);
+        }
+      }
+
+      return {
+        items: allItems,
+        total: allItems.length,
+        type,
+      } as StoreResponse;
     } catch (error) {
       console.error('获取列表失败:', error);
       throw error;
@@ -43,14 +136,13 @@ export function useStore() {
 
   /**
    * 下载项目
-   * @param itemName 项目名称
-   * @param type 类型
    */
-  const downloadItem = async (itemName: string, type: 'theme' | 'plugin' = 'theme') => {
+  const downloadItem = async (itemName: string, type: 'theme' | 'plugin' = 'theme', downloadUrl: string) => {
     try {
       const response = await api.admin.post('/store/download', {
         name: itemName,
         type,
+        url: downloadUrl,
       });
       return response.data;
     } catch (error) {
@@ -60,22 +152,101 @@ export function useStore() {
   };
 
   /**
-   * 获取项目详情
-   * @param name 项目名称
-   * @param type 类型
+   * 获取项目详情（README）
    */
-  const getDetail = async (name: string, type: 'theme' | 'plugin' = 'theme') => {
+  const getDetail = async (item: StoreItem) => {
     try {
-      const response = await api.admin.post('/store/detail', {
-        name,
-        type,
-      });
-      return response.data;
+      if (!item.url?.github) {
+        throw new Error('缺少仓库地址');
+      }
+
+      // 获取镜像配置
+      const { github_mirror, github_raw_mirror } = await getMirrorConfig();
+
+      // 从 GitHub URL 构建 raw URL
+      let rawBaseUrl = item.url.github.replace(
+        'https://github.com/',
+        'https://raw.githubusercontent.com/'
+      ).replace(/\/$/, '');
+      
+      // 应用镜像
+      rawBaseUrl = applyGithubMirror(rawBaseUrl, github_mirror, github_raw_mirror);
+
+      // 获取 README.md
+      const readmeUrl = `${rawBaseUrl}/main/README.md`;
+      const readmeResponse = await fetch(readmeUrl);
+      
+      if (!readmeResponse.ok) {
+        throw new Error('获取 README 失败');
+      }
+      
+      const readmeContent = await readmeResponse.text();
+
+      // 获取 package.json 版本信息
+      let remoteVersion = '1.0.0';
+      try {
+        const packageUrl = `${rawBaseUrl}/main/package.json`;
+        const packageResponse = await fetch(packageUrl);
+        
+        if (packageResponse.ok) {
+          const packageData = await packageResponse.json();
+          if (packageData.version) {
+            remoteVersion = packageData.version;
+          }
+        }
+      } catch (error) {
+        console.warn('获取版本信息失败:', error);
+      }
+
+      // 检查本地版本
+      let localVersion: string | null = null;
+      try {
+        const checkUrl = `/api/admin/store/check-version?name=${encodeURIComponent(item.name)}&type=${item.type}`;
+        const checkResponse = await fetch(checkUrl);
+        
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          if (checkData.data && checkData.data.version) {
+            localVersion = checkData.data.version;
+          }
+        }
+      } catch (error) {
+        console.warn('检查本地版本失败:', error);
+      }
+
+      const needsUpdate = localVersion !== null && compareVersions(localVersion, remoteVersion) < 0;
+
+      return {
+        readme: readmeContent,
+        remote_version: remoteVersion,
+        local_version: localVersion,
+        is_installed: localVersion !== null,
+        needs_update: needsUpdate,
+      };
     } catch (error) {
       console.error('获取详情失败:', error);
       throw error;
     }
   };
+
+  /**
+   * 比较版本号
+   */
+  function compareVersions(v1: string, v2: string): number {
+    const parts1 = v1.split('.').map(Number);
+    const parts2 = v2.split('.').map(Number);
+    const len = Math.max(parts1.length, parts2.length);
+    
+    for (let i = 0; i < len; i++) {
+      const n1 = parts1[i] || 0;
+      const n2 = parts2[i] || 0;
+      
+      if (n1 > n2) return 1;
+      if (n1 < n2) return -1;
+    }
+    
+    return 0;
+  }
 
   return {
     getItems,

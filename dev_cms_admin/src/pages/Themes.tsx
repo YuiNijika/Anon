@@ -406,7 +406,6 @@ export default function SettingsTheme() {
             loading={themeListLoading}
             emptyMessage="暂无可用主题"
             showScreenshot={true}
-            columns={{ sm: 1, md: 4, lg: 4, xl: 6 }}
             getItemBadgeText={(item) => {
               const theme = sortedThemes.find((t) => t.name === item.name)
               return theme?.name === currentTheme ? '当前使用' : undefined

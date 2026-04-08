@@ -238,9 +238,9 @@ export default function SettingsBasic() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>通用镜像</FormLabel>
-                <FormDescription>替换 raw.githubusercontent.com，如：https://mirror.ghproxy.com</FormDescription>
+                <FormDescription>替换 raw.githubusercontent.com</FormDescription>
                 <FormControl>
-                  <Input placeholder="https://mirror.ghproxy.com" {...field} />
+                  <Input placeholder="https://gh-proxy.org/https://raw.githubusercontent.com/" {...field} />
                 </FormControl>
               </FormItem>
             )}
@@ -251,9 +251,9 @@ export default function SettingsBasic() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Raw 文件镜像（优先）</FormLabel>
-                <FormDescription>专门用于 raw.githubusercontent.com，优先级高于通用镜像，如：https://raw.fastgit.org</FormDescription>
+                <FormDescription>专门用于 raw.githubusercontent.com，优先级高于通用镜像</FormDescription>
                 <FormControl>
-                  <Input placeholder="https://raw.fastgit.org" {...field} />
+                  <Input placeholder="https://gh-proxy.org/https://raw.githubusercontent.com/" {...field} />
                 </FormControl>
               </FormItem>
             )}

@@ -129,8 +129,8 @@ class Anon_Cms_Admin_UI_Navbar
                     ],
                     [
                         'key' => '/settings/statistics',
-                        'icon' => 'Settings2Outlined',
-                        'label' => '访问日志设置',
+                        'icon' => 'BarChartOutlined',
+                        'label' => '统计设置',
                     ],
                 ],
             ],

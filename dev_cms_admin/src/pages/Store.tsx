@@ -38,16 +38,13 @@ export function Store() {
   };
 
   const handleViewDetail = async (item: ItemCardData) => {
-    console.log('handleViewDetail called:', item);
     setSelectedItem(item as StoreItem);
     setDetailDialogOpen(true);
     setDetailLoading(true);
     setDetailData(null);
     
     try {
-      console.log('Calling getDetail:', item.name, activeTab);
-      const data = await getDetail(item.name, activeTab);
-      console.log('getDetail response:', data);
+      const data = await getDetail(item as StoreItem);
       setDetailData(data);
     } catch (error) {
       console.error('获取详情失败:', error);
@@ -58,19 +55,17 @@ export function Store() {
   };
 
   const handleDownload = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !selectedItem.url?.github) return;
     
     try {
       setDownloading(selectedItem.name);
-      const result = await downloadItem(selectedItem.name, selectedItem.type);
+      // 构建下载 URL
+      const downloadUrl = selectedItem.url.github + '/archive/refs/heads/main.zip';
       
-      if (result.status === 'installed') {
-        toast.success(result.message || '已是最新版本');
-      } else {
-        toast.success(result.action === 'upgrade' ? '升级成功' : '安装成功');
-        loadItems();
-      }
+      const result = await downloadItem(selectedItem.name, selectedItem.type, downloadUrl);
       
+      toast.success(result.message || '安装成功');
+      loadItems();
       setDetailDialogOpen(false);
     } catch (error: any) {
       console.error('下载失败:', error);
@@ -107,7 +102,7 @@ export function Store() {
             showScreenshot={true}
             onDetailClick={handleViewDetail}
             detailButtonText="查看详情"
-            columns={{ sm: 1, md: 4, lg: 4, xl: 6 }}
+            columns={{ sm: 1, md: 3, lg: 5, xl: 6 }}
           />
         </TabsContent>
 
@@ -119,7 +114,6 @@ export function Store() {
             showScreenshot={false}
             onDetailClick={handleViewDetail}
             detailButtonText="查看详情"
-            columns={{ sm: 1, md: 4, lg: 4, xl: 6 }}
           />
         </TabsContent>
       </Tabs>
@@ -128,7 +122,7 @@ export function Store() {
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedItem?.name} - 详情</DialogTitle>
+            <DialogTitle>{selectedItem?.name}</DialogTitle>
           </DialogHeader>
           
           {detailLoading ? (
@@ -168,7 +162,7 @@ export function Store() {
             
             <Button 
               onClick={handleDownload} 
-              disabled={downloading === selectedItem?.name || (detailData?.is_installed && !detailData?.needs_update)}
+              disabled={downloading === selectedItem?.name || !selectedItem?.url?.github}
             >
               {downloading === selectedItem?.name ? (
                 <>
