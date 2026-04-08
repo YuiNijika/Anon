@@ -465,31 +465,22 @@ return [
     'settings' => [
         'title' => '插件设置',
         'content' => <<<HTML
-<div id="my-plugin-settings">
-    <el-form :model="form" label-width="120px">
-        <el-form-item label="API 密钥">
-            <el-input v-model="form.api_key"></el-input>
-        </el-form-item>
-        <el-form-item>
-            <el-button type="primary" @click="save">保存</el-button>
-        </el-form-item>
-    </el-form>
+<div class="max-w-2xl mx-auto p-6">
+    <div class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium mb-2">API 密钥</label>
+            <input type="text" id="api_key" class="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <button onclick="saveSettings()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+            保存
+        </button>
+    </div>
 </div>
 <script>
-window.AnonPluginPage = {
-    data() {
-        return {
-            form: {
-                api_key: ''
-            }
-        };
-    },
-    methods: {
-        save() {
-            // 保存逻辑
-        }
-    }
-};
+function saveSettings() {
+    const apiKey = document.getElementById('api_key').value;
+    // 保存逻辑
+}
 </script>
 HTML,
         'handler' => function($action, $data) {
@@ -775,10 +766,59 @@ if (!$user['is_admin']) {
 }
 ```
 
+## 短代码系统
+
+插件可以注册短代码，在内容中嵌入 React 组件。
+
+### 默认短代码
+
+系统已默认注册以下短代码：
+
+| 短代码 | 说明 | 示例 |
+|--------|------|------|
+| `[Anon_Plugin_Editor]` | Markdown 编辑器 | `[Anon_Plugin_Editor placeholder="输入..." height="400px"]` |
+| `[Anon_Plugin_Gallery]` | 图片画廊 | `[Anon_Plugin_Gallery images="url1,url2" columns="3"]` |
+| `[Anon_Plugin_Alert]` | 警告框 | `[Anon_Plugin_Alert type="success" title="提示"]` |
+
+### 扩展短代码
+
+通过钩子注册自定义短代码：
+
+```php
+<?php
+// 监听短代码注册钩子
+Anon_System_Hook::add_action('anon_register_shortcodes', function() {
+    // 注册代码编辑器
+    Anon_System_Shortcode::add_shortcode('Anon_Code', function($attrs) {
+        return Anon_System_Shortcode::render_react_component('CodeEditor', [
+            'language' => $attrs['language'] ?? 'javascript',
+            'height' => $attrs['height'] ?? '300px',
+        ]);
+    });
+});
+```
+
+### 前端注册组件
+
+在 `dev_cms_admin/src/components/ReactComponents/index.ts` 中注册：
+
+```typescript
+import { registerReactComponent } from '@/hooks/useReactComponents'
+import { CodeEditor } from './CodeEditor'
+
+export function registerAllComponents() {
+  // ... 现有组件
+  registerReactComponent('CodeEditor', CodeEditor)
+}
+```
+
+详见：[短代码系统](plugin-shortcode-system.md)
+
 ## 相关文档
 
 - [中间件扩展系统](extension-system.md) - 中间件注册与管理
 - [Widget 组件系统](widget-system.md) - UI 组件开发
 - [钩子系统](hook-system.md) - 钩子与事件
+- [短代码系统](shortcode-system.md) - React 组件集成
 - [CLI 命令系统](cli-system.md) - 命令行工具
 - [配置管理](configuration-management.md) - 插件配置存储

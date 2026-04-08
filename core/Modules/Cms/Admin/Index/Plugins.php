@@ -274,7 +274,14 @@ class Anon_Cms_Admin_Plugins
                 return;
             }
 
-            Anon_Http_Response::success($config[$page], '获取页面配置成功');
+            $pageConfig = $config[$page];
+            
+            // 解析内容中的短代码为 React 组件挂载点
+            if (isset($pageConfig['content']) && is_string($pageConfig['content'])) {
+                $pageConfig['content'] = Anon_System_Shortcode::do_shortcode($pageConfig['content']);
+            }
+
+            Anon_Http_Response::success($pageConfig, '获取页面配置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
         }

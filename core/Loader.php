@@ -96,6 +96,7 @@ class Anon_Loader
         require_once Anon_Main::MODULES_DIR . 'Http/Middleware.php';
         require_once Anon_Main::MODULES_DIR . 'System/Cache.php';
         require_once Anon_Main::MODULES_DIR . 'System/Extension.php';
+        require_once Anon_Main::MODULES_DIR . 'System/Shortcode.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryBuilder.php';
         require_once Anon_Main::MODULES_DIR . 'Database/QueryOptimizer.php';
         require_once Anon_Main::MODULES_DIR . 'Database/Sharding.php';

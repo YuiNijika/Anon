@@ -49,6 +49,9 @@ class Anon_System_Plugin
 
         self::scanAndLoadPlugins();
 
+        // 初始化短代码系统
+        Anon_System_Shortcode::init();
+
         self::$initialized = true;
 
         Anon_System_Hook::do_action('plugin_system_after_init', self::$loadedPlugins);

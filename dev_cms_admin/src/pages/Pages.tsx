@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
-import { useApiAdmin } from '@/hooks'
+import { useApiAdmin, useReactComponentMounter } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
 import { AdminApi } from '@/services/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,9 @@ export default function Pages() {
   const [pageConfig, setPageConfig] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // 使用 React 组件挂载器
+  const { remount } = useReactComponentMounter([pageConfig?.content])
 
   useEffect(() => {
     if (pluginSlug && pageSlug) {
@@ -84,6 +87,9 @@ export default function Pages() {
 
     // 注入纯净的 HTML 内容
     container.innerHTML = tempDiv.innerHTML
+
+    // 挂载 React 组件（短代码）
+    setTimeout(() => remount(), 0)
 
     // 轮询检查并挂载 Vue 应用
     let retryCount = 0
