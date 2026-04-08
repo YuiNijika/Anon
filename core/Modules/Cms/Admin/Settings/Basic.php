@@ -81,6 +81,8 @@ class Anon_Cms_Admin_SettingsBasic
                 'keywords' => Anon_Cms_Options::get('keywords', ''),
                 'upload_allowed_types' => $uploadAllowedTypes,
                 'routes' => $routes,
+                'github_mirror' => Anon_Cms_Options::get('github_mirror', ''),
+                'github_raw_mirror' => Anon_Cms_Options::get('github_raw_mirror', ''),
             ];
 
             Anon_Http_Response::success($settings, '获取基本设置成功');
@@ -141,12 +143,26 @@ class Anon_Cms_Admin_SettingsBasic
              * 处理上传允许类型配置
              */
             $uploadAllowedTypes = [];
-            if (isset($data['upload_allowed_types']) && is_array($data['upload_allowed_types'])) {
-                $uploadAllowedTypes = $data['upload_allowed_types'];
+            if (isset($data['upload_allowed_types'])) {
+                // 如果是数组
+                if (is_array($data['upload_allowed_types'])) {
+                    $uploadAllowedTypes = [
+                        'image' => isset($data['upload_allowed_types']['image']) ? trim($data['upload_allowed_types']['image']) : '',
+                        'media' => isset($data['upload_allowed_types']['media']) ? trim($data['upload_allowed_types']['media']) : '',
+                        'document' => isset($data['upload_allowed_types']['document']) ? trim($data['upload_allowed_types']['document']) : '',
+                        'other' => isset($data['upload_allowed_types']['other']) ? trim($data['upload_allowed_types']['other']) : '',
+                    ];
+                } else {
+                    // 从旧格式字段读取
+                    $uploadAllowedTypes = [
+                        'image' => isset($data['upload_allowed_image']) ? trim($data['upload_allowed_image']) : '',
+                        'media' => isset($data['upload_allowed_media']) ? trim($data['upload_allowed_media']) : '',
+                        'document' => isset($data['upload_allowed_document']) ? trim($data['upload_allowed_document']) : '',
+                        'other' => isset($data['upload_allowed_other']) ? trim($data['upload_allowed_other']) : '',
+                    ];
+                }
             } else {
-                /**
-                 * 从旧格式字段读取
-                 */
+                // 从旧格式字段读取
                 $uploadAllowedTypes = [
                     'image' => isset($data['upload_allowed_image']) ? trim($data['upload_allowed_image']) : '',
                     'media' => isset($data['upload_allowed_media']) ? trim($data['upload_allowed_media']) : '',
@@ -165,6 +181,15 @@ class Anon_Cms_Admin_SettingsBasic
             Anon_Cms_Options::set('description', $siteDescription);
             Anon_Cms_Options::set('keywords', $keywords);
             Anon_Cms_Options::set('upload_allowed_types', json_encode($uploadAllowedTypes, JSON_UNESCAPED_UNICODE));
+            
+            if (isset($data['github_mirror'])) {
+                Anon_Cms_Options::set('github_mirror', trim($data['github_mirror']));
+            }
+            
+            if (isset($data['github_raw_mirror'])) {
+                Anon_Cms_Options::set('github_raw_mirror', trim($data['github_raw_mirror']));
+            }
+            
             /**
              * 仅当请求中带 routes 时才更新链接设置，链接设置已迁移到链接设置页
              */
@@ -182,6 +207,8 @@ class Anon_Cms_Admin_SettingsBasic
                 'keywords' => $keywords,
                 'upload_allowed_types' => $uploadAllowedTypes,
                 'routes' => $routes,
+                'github_mirror' => Anon_Cms_Options::get('github_mirror', ''),
+                'github_raw_mirror' => Anon_Cms_Options::get('github_raw_mirror', ''),
             ], '保存设置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
