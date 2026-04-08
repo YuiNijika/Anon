@@ -5,9 +5,11 @@ import Console from '@/pages/Console'
 import SettingsBasic from '@/pages/Settings/Basic'
 import SettingsPage from '@/pages/Settings/Page'
 import SettingsPermission from '@/pages/Settings/Permission'
+import SettingsStatistics from '@/pages/Settings/Statistics'
 import Statistics from '@/pages/Statistics'
 import Write from '@/pages/Write'
 import Themes from '@/pages/Themes'
+import { Store } from '@/pages/Store'
 import Plugins from '@/pages/Plugins'
 import ManageCategories from '@/pages/Manage/Categories'
 import ManageTags from '@/pages/Manage/Tags'
@@ -56,6 +58,10 @@ export const routes = [
         element: <Themes />,
       },
       {
+        path: 'store',
+        element: <Store />,
+      },
+      {
         path: 'manage/categories',
         element: <ManageCategories />,
       },
@@ -90,6 +96,10 @@ export const routes = [
       {
         path: 'settings/permission',
         element: <SettingsPermission />,
+      },
+      {
+        path: 'settings/statistics',
+        element: <SettingsStatistics />,
       },
       {
         path: 'error',
