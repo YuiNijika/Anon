@@ -9,6 +9,7 @@ require_once __DIR__ . '/Manage/Tags.php';
 require_once __DIR__ . '/Manage/Posts.php';
 require_once __DIR__ . '/Manage/Users.php';
 require_once __DIR__ . '/Manage/Comments.php';
+require_once __DIR__ . '/Manage/Store.php';
 require_once __DIR__ . '/Index/Statistics.php';
 require_once __DIR__ . '/Index/Plugins.php';
 require_once __DIR__ . '/Index/Themes.php';
@@ -259,6 +260,51 @@ class Anon_Cms_Admin
             'token' => true,
         ]);
 
+        // 通用系统配置读写接口
+        self::addRoute('/settings/system', function () {
+            $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+            if ($requestMethod === 'GET') {
+                // 获取系统配置
+                $keys = isset($_GET['keys']) ? $_GET['keys'] : [];
+                
+                // 确保 keys 是数组
+                if (!is_array($keys)) {
+                    // 如果是逗号分隔的字符串，拆分为数组
+                    if (is_string($keys) && strpos($keys, ',') !== false) {
+                        $keys = explode(',', $keys);
+                    } else {
+                        $keys = [$keys];
+                    }
+                }
+                
+                $result = [];
+                foreach ($keys as $key) {
+                    $key = trim($key);
+                    if (!empty($key)) {
+                        $result[$key] = Anon_Cms_Options::get($key, null);
+                    }
+                }
+                Anon_Http_Response::success($result, '获取系统配置成功');
+            } elseif ($requestMethod === 'POST') {
+                // 保存系统配置
+                $data = Anon_Http_Request::getInput();
+                if (empty($data)) {
+                    Anon_Http_Response::error('请求数据不能为空', 400);
+                    return;
+                }
+                foreach ($data as $key => $value) {
+                    Anon_Cms_Options::set($key, $value);
+                }
+                Anon_Cms_Options::clearCache();
+                Anon_Http_Response::success($data, '保存系统配置成功');
+            } else {
+                Anon_Http_Response::error('不支持的请求方法', 405);
+            }
+        }, [
+            'method' => ['GET', 'POST'],
+            'token' => true,
+        ]);
+
         Anon_Cms_Admin_Themes::initStaticRoutes();
 
         self::addRoute('/settings/theme', function () {
@@ -463,6 +509,28 @@ class Anon_Cms_Admin
             }
         }, [
             'method' => ['POST', 'DELETE'],
+            'token' => true,
+        ]);
+
+        // 商店路由
+        self::addRoute('/store/list', function () {
+            Anon_Cms_Admin_Store::getList();
+        }, [
+            'method' => 'GET',
+            'token' => true,
+        ]);
+
+        self::addRoute('/store/detail', function () {
+            Anon_Cms_Admin_Store::getDetail();
+        }, [
+            'method' => 'POST',
+            'token' => true,
+        ]);
+
+        self::addRoute('/store/download', function () {
+            Anon_Cms_Admin_Store::download();
+        }, [
+            'method' => 'POST',
             'token' => true,
         ]);
     }
