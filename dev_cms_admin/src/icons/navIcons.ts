@@ -12,6 +12,7 @@ import {
   Settings,
   MessageCircle,
   Link,
+  ShoppingBag,
 } from 'lucide-react'
 
 /** Nav icon key -> Lucide component */
@@ -28,4 +29,5 @@ export const iconMap: Record<string, React.ComponentType<{ className?: string }>
   SettingOutlined: Settings,
   CommentOutlined: MessageCircle,
   LinkOutlined: Link,
+  ShopOutlined: ShoppingBag,
 }
