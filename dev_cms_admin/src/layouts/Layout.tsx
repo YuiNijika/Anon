@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom'
 import { toast } from 'sonner'
-import { LogOut, Sun, Moon, Menu, ChevronDown, Github } from 'lucide-react'
+import { LogOut, Menu, ChevronDown, Github } from 'lucide-react'
 import { iconMap } from '@/icons/navIcons'
 import { useAuth } from '@/hooks'
 import { AdminApi, type BasicSettings, type NavbarItem } from '@/services/admin'
 import { useApiAdmin } from '@/hooks/useApiAdmin'
-import { useTheme } from '@/components/ThemeProvider'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -163,7 +163,6 @@ function SidebarNav({
 export default function Layout() {
   const auth = useAuth()
   const apiAdmin = useApiAdmin()
-  const { isDark, toggleTheme } = useTheme()
   const { isMobile } = useResponsive()
   const navigate = useNavigate()
   const location = useLocation()
@@ -328,9 +327,7 @@ export default function Layout() {
           ) : null}
           <div className="flex-1" />
           <div className="flex items-center">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} title={isDark ? '切换到浅色' : '切换到深色'}>
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">

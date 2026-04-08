@@ -72,3 +72,11 @@
     padding: 0;
   }
 }
+
+/* 激光过渡效果优化 */
+.laser-transition-layer {
+  will-change: clip-path;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
