@@ -7,7 +7,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { TooltipContentProps } from 'recharts'
 import { toast } from 'sonner'
 import {
   Eye,
@@ -98,7 +97,7 @@ function StatBlock({ title, value, icon: Icon }: { title: string; value: number;
   )
 }
 
-function ChartTooltip({ active, payload, label }: TooltipContentProps<number, string>) {
+function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length || label == null) return null
   const date = new Date(label)
   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -337,7 +336,7 @@ export default function Console() {
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                     stroke="hsl(var(--border))"
                   />
-                  <Tooltip content={(props: TooltipContentProps<number, string>) => <ChartTooltip {...props} />} />
+                  <Tooltip content={(props) => <ChartTooltip {...props} />} />
                   <Line
                     type="monotone"
                     dataKey="count"

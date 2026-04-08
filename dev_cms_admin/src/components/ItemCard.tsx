@@ -194,9 +194,8 @@ export function ItemGrid({
   showScreenshot = true,
   getItemBadgeText,
   isActionDisabled,
-  columns = { sm: 1, md: 2, lg: 3, xl: 4 },
   renderCustomActions,
-}: ItemGridProps) {
+}: Omit<ItemGridProps, 'columns'>) {
   if (loading) {
     return (
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">

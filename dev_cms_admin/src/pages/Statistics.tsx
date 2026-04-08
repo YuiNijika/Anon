@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApiAdmin, useTheme } from '@/hooks'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/utils'
-import { AdminApi, type StatisticsData, type AccessLog, type AccessLogListResponse, type AccessStats } from '@/services/admin'
+import { AdminApi, type StatisticsData, type AccessLog, type AccessStats } from '@/services/admin'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,10 +39,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
 } from 'recharts'
 import {
   Eye,
@@ -51,20 +47,15 @@ import {
   TrendingUp,
   Search,
   RefreshCw,
-  Calendar,
   Globe,
-  Smartphone,
   Filter,
   Download,
   Trash2,
   Clock,
   MapPin,
-  Monitor,
   MoreHorizontal,
   X,
 } from 'lucide-react'
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
 
 export default function Statistics() {
   const apiAdmin = useApiAdmin()

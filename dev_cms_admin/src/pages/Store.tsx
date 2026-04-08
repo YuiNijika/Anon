@@ -102,7 +102,6 @@ export function Store() {
             showScreenshot={true}
             onDetailClick={handleViewDetail}
             detailButtonText="查看详情"
-            columns={{ sm: 1, md: 3, lg: 5, xl: 6 }}
           />
         </TabsContent>
 

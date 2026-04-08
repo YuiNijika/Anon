@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { OptionField } from '@/components/OptionField'
-import { ItemGrid, type ItemCardData } from '@/components/ItemCard'
+import { ItemGrid } from '@/components/ItemCard'
 import {
   Dialog,
   DialogContent,
@@ -303,22 +303,6 @@ export default function SettingsTheme() {
     if (b.name === currentTheme) return 1
     return 0
   })
-
-  const getUrlLabel = (url: string): string => {
-    try {
-      const urlObj = new URL(url)
-      const hostname = urlObj.hostname.toLowerCase()
-      const domain = hostname.replace(/^www\./, '')
-      if (domain.includes('github.com')) return 'GitHub'
-      if (domain.includes('gitee.com')) return 'Gitee'
-      if (domain.includes('gitlab.com')) return 'GitLab'
-      if (domain.includes('bitbucket.org')) return 'Bitbucket'
-      if (domain.includes('coding.net')) return 'Coding'
-      return '访问网站'
-    } catch {
-      return '访问网站'
-    }
-  }
 
   const handleUploadTheme = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
