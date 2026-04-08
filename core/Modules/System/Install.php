@@ -792,6 +792,8 @@ class Anon_System_Install
             'api_enabled' => '0',
             'allow_register' => '0',
             'access_log_enabled' => '1',
+            'access_log_api' => '0',
+            'access_log_static' => '0',
             'upload_allowed_types' => json_encode([
                 'image' => 'gif,jpg,jpeg,png,tiff,bmp,webp,avif',
                 'media' => 'mp3,mp4,mov,wmv,wma,rmvb,rm,avi,flv,ogg,oga,ogv',
