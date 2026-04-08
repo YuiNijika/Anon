@@ -61,6 +61,11 @@ class Anon_Cms_Admin_UI_Navbar
                 'label' => '主题',
             ],
             [
+                'key' => '/store',
+                'icon' => 'ShopOutlined',
+                'label' => '商店',
+            ],
+            [
                 'key' => '/plugins',
                 'icon' => 'AppstoreOutlined',
                 'label' => '插件',
@@ -122,6 +127,11 @@ class Anon_Cms_Admin_UI_Navbar
                         'icon' => 'SettingOutlined',
                         'label' => '权限设置',
                     ],
+                    [
+                        'key' => '/settings/statistics',
+                        'icon' => 'Settings2Outlined',
+                        'label' => '访问日志设置',
+                    ],
                 ],
             ],
         ];
@@ -136,7 +146,7 @@ class Anon_Cms_Admin_UI_Navbar
     }
 
     /**
-     * 辅助方法：将菜单项挂载到指定组
+     * 将菜单项挂载到指定组
      * @param array $items 菜单数组引用
      * @param string $groupKey 目标组 Key
      * @param array $newItem 新菜单项
