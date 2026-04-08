@@ -183,6 +183,8 @@ export interface BasicSettings {
     other: string
   }
   routes?: Record<string, string>
+  github_mirror?: string
+  github_raw_mirror?: string
 }
 
 export interface PageSettings {
@@ -333,6 +335,16 @@ export const AdminApi = {
 
   updatePermissionSettings: (api: ApiClient, data: PermissionSettings) => {
     return api.admin.post<PermissionSettings>('/settings/permission', data)
+  },
+
+  /** 获取系统配置项 */
+  getSystemConfig: (api: ApiClient, keys: string[]) => {
+    return api.admin.get<Record<string, any>>('/settings/system', { keys })
+  },
+
+  /** 更新系统配置项 */
+  updateSystemConfig: (api: ApiClient, data: Record<string, any>) => {
+    return api.admin.post<Record<string, any>>('/settings/system', data)
   },
 
   getPageSettings: (api: ApiClient) => {
