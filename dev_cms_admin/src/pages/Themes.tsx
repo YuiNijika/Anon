@@ -4,14 +4,13 @@ import { toast } from 'sonner'
 import { useApiAdmin, useThemes } from '@/hooks'
 import { getErrorMessage } from '@/lib/utils'
 import { AdminApi, type ThemeOptionSchema, type ThemeInfo, type ThemeOptionsSchemaTree } from '@/services/admin'
-import { getApiBaseUrl } from '@/utils/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { OptionField } from '@/components/OptionField'
-import { Lightbox } from '@/components/ui/lightbox'
+import { ItemGrid, type ItemCardData } from '@/components/ItemCard'
 import {
   Dialog,
   DialogContent,
@@ -31,20 +30,9 @@ import {
 
 const DISPLAY_ONLY_TYPES = ['badge', 'divider', 'alert', 'notice', 'alert_dialog', 'content', 'heading', 'accordion', 'result', 'card', 'description_list', 'table', 'tooltip', 'tag'] as const
 
-const nullSvgUrl = `${getApiBaseUrl()}/anon/static/img/null`
-
-// 占位图 data URL，onError 时使用，避免 404 时反复请求同一 URL
-const PLACEHOLDER_IMG =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="%23e5e7eb"/></svg>'
-  )
-
 export default function SettingsTheme() {
   const apiAdmin = useApiAdmin()
   const { uploadTheme, deleteTheme, loading: themeUploading } = useThemes()
-  const hasReportedNullError = useRef(false)
-
   const [loading, setLoading] = useState(false)
   const [optionsLoading, setOptionsLoading] = useState(false)
   const [themeListLoading, setThemeListLoading] = useState(false)
@@ -54,8 +42,6 @@ export default function SettingsTheme() {
   const [currentTheme, setCurrentTheme] = useState<string>('')
   const [themes, setThemes] = useState<ThemeInfo[]>([])
   const [activeTab, setActiveTab] = useState('list')
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [lightboxSrc, setLightboxSrc] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [activeGroupTab, setActiveGroupTab] = useState<string>('')
@@ -318,15 +304,6 @@ export default function SettingsTheme() {
     return 0
   })
 
-  const getScreenshotUrl = (theme: ThemeInfo) => {
-    const screenshot = theme.screenshot?.trim()
-    if (!screenshot) return nullSvgUrl
-    const baseUrl = getApiBaseUrl()
-    if (screenshot.startsWith('http://') || screenshot.startsWith('https://')) return screenshot
-    if (screenshot.startsWith('/')) return `${baseUrl}${screenshot}`
-    return `${baseUrl}/${screenshot}`
-  }
-
   const getUrlLabel = (url: string): string => {
     try {
       const urlObj = new URL(url)
@@ -416,118 +393,64 @@ export default function SettingsTheme() {
             </Button>
           </div>
 
-          {themeListLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[1, 2, 3, 4].map((i) => (
-                <Card key={i}>
-                  <Skeleton className="h-[200px] w-full rounded-t-lg" />
-                  <CardContent className="pt-4">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="mt-2 h-3 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : themes.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                暂无可用主题
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {sortedThemes.map((theme) => (
-                <Card key={theme.name} className="overflow-hidden">
-                  <button
-                    type="button"
-                    className="relative aspect-[4/3] w-full overflow-hidden bg-muted cursor-zoom-in outline-none"
-                    onClick={() => {
-                      setLightboxSrc(getScreenshotUrl(theme))
-                      setLightboxOpen(true)
-                    }}
+          <ItemGrid
+            items={sortedThemes.map((theme) => ({
+              name: theme.name,
+              displayName: theme.displayName,
+              description: theme.description,
+              version: theme.version,
+              author: theme.author,
+              screenshot: theme.screenshot,
+              url: theme.url ? { github: theme.url } : undefined,
+            }))}
+            loading={themeListLoading}
+            emptyMessage="暂无可用主题"
+            showScreenshot={true}
+            columns={{ sm: 1, md: 4, lg: 4, xl: 6 }}
+            getItemBadgeText={(item) => {
+              const theme = sortedThemes.find((t) => t.name === item.name)
+              return theme?.name === currentTheme ? '当前使用' : undefined
+            }}
+            renderCustomActions={(item) => {
+              const theme = sortedThemes.find((t) => t.name === item.name)
+              if (!theme) return null
+              
+              return (
+                <>
+                  <Button
+                    variant={theme.name === currentTheme ? 'secondary' : 'default'}
+                    size="sm"
+                    disabled={theme.name === currentTheme}
+                    onClick={() => handleSwitchTheme(theme.name)}
                   >
-                    <img
-                      draggable={false}
-                      alt={theme.displayName}
-                      src={getScreenshotUrl(theme)}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        if (target.src?.startsWith('data:')) return
-                        const failedUrl = target.src ?? ''
-                        target.src = PLACEHOLDER_IMG
-                        if (failedUrl.includes('/anon/static/img/null') && !hasReportedNullError.current) {
-                          hasReportedNullError.current = true
-                          toast.error('占位图加载失败，请检查 /anon/static/img/null 是否可访问')
-                        }
-                      }}
-                    />
-                  </button>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      {theme.displayName}
-                      {theme.name === currentTheme && (
-                        <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-normal text-primary">
-                          当前使用
-                        </span>
-                      )}
-                    </CardTitle>
-                    {theme.description && (
-                      <p className="text-sm text-muted-foreground">{theme.description}</p>
+                    {switchingTheme === theme.name ? (
+                      '切换中...'
+                    ) : theme.name === currentTheme ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        当前使用
+                      </>
+                    ) : (
+                      <>
+                        <ArrowLeftRight className="mr-2 h-4 w-4" />
+                        切换主题
+                      </>
                     )}
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                      {theme.version && (
-                        <span className="rounded bg-muted px-1.5 py-0.5">{theme.version}</span>
-                      )}
-                      {theme.author && <span>{theme.author}</span>}
-                      {theme.url && (
-                        <a
-                          href={theme.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2"
-                        >
-                          {getUrlLabel(theme.url)}
-                        </a>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2 pt-0">
-                    <Button
-                      variant={theme.name === currentTheme ? 'secondary' : 'default'}
-                      size="sm"
-                      disabled={theme.name === currentTheme}
-                      onClick={() => handleSwitchTheme(theme.name)}
-                    >
-                      {switchingTheme === theme.name ? (
-                        '切换中...'
-                      ) : theme.name === currentTheme ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          当前使用
-                        </>
-                      ) : (
-                        <>
-                          <ArrowLeftRight className="mr-2 h-4 w-4" />
-                          切换主题
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      disabled={theme.name === currentTheme}
-                      onClick={() => handleDeleteTheme(theme)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      删除
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={theme.name === currentTheme}
+                    onClick={() => handleDeleteTheme(theme)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    删除
+                  </Button>
+                </>
+              )
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="options">
@@ -630,12 +553,6 @@ export default function SettingsTheme() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Lightbox
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
-        src={lightboxSrc}
-      />
       <AlertDialog open={overwriteDialog.open} onOpenChange={(open) => !open && setOverwriteDialog((d) => ({ ...d, open: false, pendingFile: null }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
