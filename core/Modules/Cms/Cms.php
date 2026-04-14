@@ -534,25 +534,38 @@ class Anon_Cms
     /** 将扁平评论列表转为树形，根节点带 children */
     private static function flatCommentsToTree(array $rows): array
     {
+        if (empty($rows)) {
+            return [];
+        }
+
+        // 按 ID 索引，用于快速查找父节点
+        $byId = [];
         $roots = [];
-        $childrenMap = [];
-        foreach ($rows as $r) {
-            $pid = isset($r['parent_id']) ? (int) $r['parent_id'] : 0;
+        
+        foreach ($rows as $row) {
+            $row['children'] = [];
+            $byId[(int) $row['id']] = $row;
+            
+            $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
             if ($pid === 0) {
-                $roots[] = $r;
-            } else {
-                if (!isset($childrenMap[$pid])) {
-                    $childrenMap[$pid] = [];
-                }
-                $childrenMap[$pid][] = $r;
+                $roots[] = (int) $row['id'];
             }
         }
-        $tree = [];
-        foreach ($roots as $r) {
-            $node = $r;
-            $node['children'] = $childrenMap[(int) $r['id']] ?? [];
-            $tree[] = $node;
+        
+        // 将子评论关联到父评论
+        foreach ($rows as $row) {
+            $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
+            if ($pid > 0 && isset($byId[$pid])) {
+                $byId[$pid]['children'][] = $row;
+            }
         }
+        
+        // 返回顶级评论（已包含 children）
+        $tree = [];
+        foreach ($roots as $rootId) {
+            $tree[] = $byId[$rootId];
+        }
+
         return $tree;
     }
 
@@ -603,43 +616,7 @@ class Anon_Cms
         }
         unset($r);
 
-        // Build Tree
-        $tree = [];
-        foreach ($rows as $key => &$row) {
-            $row['children'] = [];
-            if (empty($row['parent_id'])) {
-                $tree[] = &$row;
-            } else {
-                if (isset($byId[(int) $row['parent_id']])) {
-                    // Find parent in the reference array (which should be linked to the rows)
-                    // Since $byId is a copy, we need to find the parent in $rows
-                    // But $rows is a list.
-                    // Easier approach: Use references.
-                }
-            }
-        }
-
-        // Re-implement with references for robust tree building
-        $refs = [];
-        foreach ($rows as &$r) {
-            $r['children'] = [];
-            $refs[$r['id']] = &$r;
-        }
-        unset($r);
-
-        $tree = [];
-        foreach ($rows as &$r) {
-            if (empty($r['parent_id'])) {
-                $tree[] = &$r;
-            } else {
-                if (isset($refs[$r['parent_id']])) {
-                    $refs[$r['parent_id']]['children'][] = &$r;
-                }
-            }
-        }
-        unset($r);
-
-        return $tree;
+        return $rows;
     }
 
     /**
