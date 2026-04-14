@@ -17,7 +17,10 @@ if (!$post || $post->get('comment_status', 'open') !== 'open') {
             <span>{{ message }}</span>
           </div>
 
-          <p v-if="!comments.length" class="text-base-content/60 mb-6">暂无评论，来抢沙发～</p>
+          <p v-if="!comments.length && !loading" class="text-base-content/60 mb-6">暂无评论，来抢沙发～</p>
+          <div v-if="loading" class="flex justify-center py-8">
+              <span class="loading loading-spinner loading-md text-primary"></span>
+          </div>
           <div v-else class="space-y-4 mb-8" aria-label="评论列表">
             <template v-for="c in topLevelComments" :key="c.id">
               <div class="chat chat-start">
@@ -33,7 +36,7 @@ if (!$post || $post->get('comment_status', 'open') !== 'open') {
                   <time class="text-xs opacity-50 ml-1">{{ formatDate(c.created_at) }}</time>
                   <button type="button" class="btn btn-ghost btn-xs opacity-70 hover:opacity-100 ml-1" @click="setReplyTo(c)">回复</button>
                 </div>
-                <div class="chat-bubble chat-bubble-primary">{{ c.content }}</div>
+                <div class="chat-bubble chat-bubble-primary prose prose-sm max-w-none" v-html="c.content"></div>
               </div>
               <template v-for="r in (c.children || [])" :key="r.id">
                 <div class="chat chat-start pl-8">
@@ -50,7 +53,7 @@ if (!$post || $post->get('comment_status', 'open') !== 'open') {
                     <time class="text-xs opacity-50 ml-1">{{ formatDate(r.created_at) }}</time>
                     <button type="button" class="btn btn-ghost btn-xs opacity-70 hover:opacity-100 ml-1" @click="setReplyTo(c)">回复</button>
                   </div>
-                  <div class="chat-bubble chat-bubble-secondary text-sm">{{ r.content }}</div>
+                  <div class="chat-bubble chat-bubble-secondary text-sm prose prose-sm max-w-none" v-html="r.content"></div>
                 </div>
               </template>
             </template>
