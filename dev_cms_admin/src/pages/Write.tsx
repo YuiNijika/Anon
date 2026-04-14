@@ -144,6 +144,7 @@ const writeSchema = z.object({
   category: z.number().nullable(),
   tags: z.array(z.string()).optional(),
   content: z.string().optional(),
+  comment_status: z.enum(['open', 'closed']).optional().default('open'),
 }).refine(
   (data) => {
     // 如果是文章且状态为发布，则分类必填
@@ -181,6 +182,7 @@ export default function Write() {
       category: null, // 将在useEffect中动态设置
       tags: [],
       content: '',
+      comment_status: 'open',
     },
   })
 
@@ -231,6 +233,7 @@ export default function Write() {
           category: (post.category as number) ?? null,
           tags: tagNames,
           content: (post.content as string) || '',
+          comment_status: (post.comment_status as WriteFormValues['comment_status']) || 'open',
         })
       } else {
         toast.error('加载文章失败')
@@ -272,12 +275,21 @@ export default function Write() {
     }
   }, [categories, searchParams, form])
 
-  const handleSubmit = async (values: WriteFormValues) => {
+  const handleSubmit = async (values: WriteFormValues): Promise<void> => {
     try {
       setLoading(true)
-      const submitData = {
-        ...values,
+      const submitData: Record<string, unknown> = {
+        title: values.title,
+        slug: values.slug || '',
+        status: values.status || 'publish',
+        type: values.type,
+        tags: values.tags || [],
         content: values.content ?? '',
+        comment_status: values.comment_status || 'open',
+      }
+      // 只有当 category 有值时才添加
+      if (values.category !== null && values.category !== undefined) {
+        submitData.category = values.category
       }
       let response
       if (postId) {
@@ -436,6 +448,26 @@ export default function Write() {
                     </FormItem>
                   )}
                 />
+                {contentType === 'post' && (
+                  <FormField
+                    control={form.control}
+                    name="comment_status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>评论</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">开启评论</SelectItem>
+                            <SelectItem value="closed">关闭评论</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <Button type="submit" className="w-full" disabled={loading || loadingPost}>
                   {postId ? '更新' : '立即发布'}
                 </Button>

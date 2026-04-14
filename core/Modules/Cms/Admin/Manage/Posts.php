@@ -327,6 +327,7 @@ class Anon_Cms_Admin_Posts
             $type = $data['type'];
             $categoryId = isset($data['category']) && $data['category'] > 0 ? (int)$data['category'] : null;
             $tags = isset($data['tags']) && is_array($data['tags']) ? $data['tags'] : [];
+            $commentStatus = isset($data['comment_status']) ? trim($data['comment_status']) : 'open';
             
             if ($categoryId !== null && !self::checkCategoryExists($categoryId)) {
                 Anon_Http_Response::error('分类不存在', 400);
@@ -357,6 +358,7 @@ class Anon_Cms_Admin_Posts
                 'author_id' => $userId,
                 'category_id' => $categoryId,
                 'tag_ids' => $tagIds,
+                'comment_status' => $commentStatus,
             ]);
             
             if (!$id) {
@@ -408,6 +410,7 @@ class Anon_Cms_Admin_Posts
             $status = isset($data['status']) ? trim($data['status']) : 'publish';
             $categoryId = isset($data['category']) && $data['category'] > 0 ? (int)$data['category'] : null;
             $tags = isset($data['tags']) && is_array($data['tags']) ? $data['tags'] : [];
+            $commentStatus = isset($data['comment_status']) ? trim($data['comment_status']) : 'open';
             
             if ($categoryId !== null && !self::checkCategoryExists($categoryId)) {
                 Anon_Http_Response::error('分类不存在', 400);
@@ -436,6 +439,7 @@ class Anon_Cms_Admin_Posts
                 'status' => $status,
                 'category_id' => $categoryId,
                 'tag_ids' => !empty($tagIds) ? json_encode($tagIds, JSON_UNESCAPED_UNICODE) : null,
+                'comment_status' => $commentStatus,
             ];
             
             $result = self::updatePost($id, $updateData);
