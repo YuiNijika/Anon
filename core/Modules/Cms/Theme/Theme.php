@@ -656,11 +656,12 @@ class Anon_Cms_Theme
         if (self::$assetCacheMode !== null) {
             $dev = self::$assetCacheMode === 'dev';
         } elseif ($dev === null) {
-            $dev = Anon_Cms_Options::get('theme:dev_mode', false);
+            // 检查 Vite 开发服务器是否运行
+            $dev = self::isViteDevMode();
         }
 
         if ($dev) {
-            return '?nocache=1';
+            '?nocache=1';
         }
 
         if (self::$assetCacheVersion === null) {
@@ -668,6 +669,31 @@ class Anon_Cms_Theme
             self::$assetCacheVersion = ($themeVersion !== null && $themeVersion !== '') ? (string)$themeVersion : '1';
         }
         return '?ver=' . self::$assetCacheVersion;
+    }
+
+    /**
+     * 检测 Vite 开发模式是否启用
+     * @return bool
+     */
+    public static function isViteDevMode(): bool
+    {
+        $devModeConfig = self::info('devMode');
+        return is_array($devModeConfig) && isset($devModeConfig['enabled']) && $devModeConfig['enabled'] === true;
+    }
+
+    /**
+     * 获取 Vite 开发服务器 URL
+     * @return string|null Vite 服务器地址，未运行时返回 null
+     */
+    public static function getViteDevServerUrl(): ?string
+    {
+        if (!self::isViteDevMode()) {
+            return null;
+        }
+        
+        $devModeConfig = self::info('devMode');
+        $port = is_array($devModeConfig) && isset($devModeConfig['vitePort']) ? intval($devModeConfig['vitePort']) : 5173;
+        return "http://localhost:{$port}";
     }
 
     /**
@@ -1209,11 +1235,12 @@ class Anon_Cms_Theme
 
         if (!isset(self::$themeInfoCache[$cacheKey])) {
             $themeDir = self::getThemeDir();
-            $infoFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package', ['json', 'php', 'html', 'htm']);
-
             $themeInfo = [];
-            if ($infoFile !== null && Anon_Cms::fileExists($infoFile)) {
-                $jsonContent = file_get_contents($infoFile);
+
+            // 1. 优先从 package.json 读取
+            $packageFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'package', ['json']);
+            if ($packageFile !== null && Anon_Cms::fileExists($packageFile)) {
+                $jsonContent = file_get_contents($packageFile);
                 if ($jsonContent !== false) {
                     $decoded = json_decode($jsonContent, true);
                     if (is_array($decoded)) {
@@ -1223,6 +1250,20 @@ class Anon_Cms_Theme
                             $themeInfo = $decoded;
                         }
                     }
+                }
+            }
+
+            // 2. 从 PHP 文件头注释读取（作为补充或覆盖）
+            $headerFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'index', ['php']);
+            if ($headerFile === null) {
+                $headerFile = Anon_Cms::findFileCaseInsensitive($themeDir, 'theme', ['php']);
+            }
+            
+            if ($headerFile !== null && Anon_Cms::fileExists($headerFile)) {
+                $headerInfo = self::parsePhpHeaderComment($headerFile);
+                if (!empty($headerInfo)) {
+                    // 文件头注释优先级更高，覆盖 package.json 的值
+                    $themeInfo = array_merge($themeInfo, $headerInfo);
                 }
             }
 
@@ -1236,6 +1277,91 @@ class Anon_Cms_Theme
         }
 
         return $themeInfo[$key] ?? null;
+    }
+
+    /**
+     * 解析 PHP 文件头注释获取主题信息
+     * 支持格式：
+     * <?php
+     * /**
+     *  * Theme Name: Note
+     *  * Description: 简洁日志主题
+     *  * Version: 1.0.0
+     *  * Author: YuiNijika
+     *  * @anon devMode.enabled=true
+     *  * @anon devMode.vitePort=5173
+     *  * /
+     * 
+     * @param string $filePath PHP 文件路径
+     * @return array 解析后的主题信息
+     */
+    private static function parsePhpHeaderComment(string $filePath): array
+    {
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return [];
+        }
+
+        // 匹配文件开头的注释块
+        if (!preg_match('/^\s*<\?php\s*\/\*\*(.*?)\*\//s', $content, $matches)) {
+            return [];
+        }
+
+        $commentBlock = $matches[1];
+        $info = [];
+        $anonData = [];
+
+        // 解析标准字段
+        $fields = [
+            'Theme Name' => 'displayName',
+            'Description' => 'description',
+            'Version' => 'version',
+            'Author' => 'author',
+            'Author URI' => 'homepage',
+            'Theme URI' => 'url',
+        ];
+
+        foreach ($fields as $header => $key) {
+            if (preg_match('/' . preg_quote($header, '/') . ':\s*(.+)$/m', $commentBlock, $match)) {
+                $info[$key] = trim($match[1]);
+            }
+        }
+
+        // 解析 @anon 自定义字段
+        if (preg_match_all('/@anon\s+([\w.]+)=(.+)/m', $commentBlock, $anonMatches, PREG_SET_ORDER)) {
+            foreach ($anonMatches as $match) {
+                $path = explode('.', $match[1]);
+                $value = trim($match[2]);
+                
+                // 处理布尔值和数字
+                if ($value === 'true') $value = true;
+                elseif ($value === 'false') $value = false;
+                elseif (is_numeric($value)) $value = floatval($value);
+
+                // 构建嵌套数组
+                $target = &$anonData;
+                foreach ($path as $i => $segment) {
+                    if ($i === count($path) - 1) {
+                        $target[$segment] = $value;
+                    } else {
+                        if (!isset($target[$segment]) || !is_array($target[$segment])) {
+                            $target[$segment] = [];
+                        }
+                        $target = &$target[$segment];
+                    }
+                }
+            }
+        }
+
+        // 合并 @anon 数据到主信息
+        if (!empty($anonData)) {
+            $info['devMode'] = $anonData['devMode'] ?? ($info['devMode'] ?? []);
+            if (isset($anonData['devMode'])) {
+                $info['devMode'] = array_merge($info['devMode'], $anonData['devMode']);
+            }
+        }
+
+        return $info;
     }
 
     /**
@@ -1265,8 +1391,6 @@ class Anon_Cms_Theme
         if ($content === '') {
             return '';
         }
-
-        require_once Anon_Main::WIDGETS_DIR . 'Parsedown.php';
 
         $parser = new Parsedown();
         $parser->setSafeMode(true);

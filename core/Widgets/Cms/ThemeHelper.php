@@ -221,6 +221,24 @@ class Anon_Cms_Theme_Helper
     }
 
     /**
+     * 检测 Vite 开发模式是否启用
+     * @return bool
+     */
+    public function isViteDevMode(): bool
+    {
+        return Anon_Cms_Theme::getViteDevServerUrl() !== null;
+    }
+
+    /**
+     * 获取 Vite 开发服务器 URL
+     * @return string|null
+     */
+    public function getViteDevServerUrl(): ?string
+    {
+        return Anon_Cms_Theme::getViteDevServerUrl();
+    }
+
+    /**
      * 包含模板片段
      * @param string $partialName 片段名
      * @param array $data 数据
