@@ -24,15 +24,23 @@ class Anon_System_ApiPrefix
         }
 
         $mode = defined('ANON_APP_MODE') ? ANON_APP_MODE : 'api';
-        self::$prefix = $mode === 'cms' ? '/api' : '';
-
+        
         try {
-            if (Anon_System_Env::get('app.mode') === 'api') {
+            if ($mode === 'api') {
+                // API 模式
                 self::$prefix = self::normalize(Anon_System_Env::get('app.baseUrl', '/'));
-            } elseif (Anon_System_Env::get('app.mode') === 'cms' && class_exists('Anon_Cms_Options')) {
-                self::$prefix = self::normalize(Anon_Cms_Options::get('apiPrefix', '/api'));
+            } elseif ($mode === 'cms') {
+                // CMS 模式
+                if (class_exists('Anon_Cms_Options')) {
+                    self::$prefix = self::normalize(Anon_Cms_Options::get('apiPrefix', '/api'));
+                } else {
+                    self::$prefix = '/api';
+                }
+            } else {
+                self::$prefix = '';
             }
         } catch (Exception $e) {
+            self::$prefix = $mode === 'cms' ? '/api' : '';
         }
 
         Anon_Debug::info("API Prefix loaded: " . (self::$prefix === '' ? '/' : self::$prefix));
