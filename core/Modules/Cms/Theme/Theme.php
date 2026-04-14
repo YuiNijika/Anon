@@ -661,7 +661,7 @@ class Anon_Cms_Theme
         }
 
         if ($dev) {
-            '?nocache=1';
+            return '?nocache=1';
         }
 
         if (self::$assetCacheVersion === null) {
