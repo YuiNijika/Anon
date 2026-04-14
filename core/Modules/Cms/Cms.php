@@ -538,32 +538,28 @@ class Anon_Cms
             return [];
         }
 
-        // 按 ID 索引，用于快速查找父节点
-        $byId = [];
-        $roots = [];
-        
+        // 建立 ID => 引用的映射
+        $refs = [];
+        foreach ($rows as $key => $row) {
+            $rows[$key]['children'] = [];
+            $refs[(int) $row['id']] = &$rows[$key];
+        }
+
+        // 将子评论追加到父评论的 children
         foreach ($rows as $row) {
-            $row['children'] = [];
-            $byId[(int) $row['id']] = $row;
-            
+            $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
+            if ($pid > 0 && isset($refs[$pid])) {
+                $refs[$pid]['children'][] = $row;
+            }
+        }
+
+        // 只返回顶级评论
+        $tree = [];
+        foreach ($rows as $row) {
             $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
             if ($pid === 0) {
-                $roots[] = (int) $row['id'];
+                $tree[] = $row;
             }
-        }
-        
-        // 将子评论关联到父评论
-        foreach ($rows as $row) {
-            $pid = isset($row['parent_id']) ? (int) $row['parent_id'] : 0;
-            if ($pid > 0 && isset($byId[$pid])) {
-                $byId[$pid]['children'][] = $row;
-            }
-        }
-        
-        // 返回顶级评论（已包含 children）
-        $tree = [];
-        foreach ($roots as $rootId) {
-            $tree[] = $byId[$rootId];
         }
 
         return $tree;
