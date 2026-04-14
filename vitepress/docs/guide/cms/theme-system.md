@@ -4,6 +4,181 @@
 
 Anon Framework的主题系统提供了类似Typecho的模板机制，支持不区分大小写的文件查找，让主题开发更加灵活。建议与[CMS模式概述](./overview.md)、[路由与页面](./routes.md)配合使用。
 
+## 主题信息定义
+
+主题信息可以通过**两种方式**定义，框架会自动合并（PHP 文件头注释优先级更高）：
+
+### 方式一：package.json（推荐）
+
+在主题根目录创建 `package.json`：
+
+```json
+{
+  "name": "anon-theme-note",
+  "version": "1.0.0",
+  "description": "简洁日志主题",
+  "author": "YuiNijika",
+  "homepage": "https://github.com/YuiNijika/AnonCMS-Theme-Note",
+  "anon": {
+    "displayName": "Note",
+    "screenshot": "screenshot.jpg",
+    "devMode": {
+      "enabled": true,
+      "vitePort": 5173
+    }
+  }
+}
+```
+
+### 方式二：PHP 文件头注释
+
+在 `index.php` 或 `theme.php` 顶部添加注释块：
+
+```php
+<?php
+/**
+ * Theme Name: Note
+ * Description: 简洁日志主题
+ * Version: 1.0.0
+ * Author: YuiNijika
+ * Author URI: https://github.com/YuiNijika
+ * Theme URI: https://github.com/YuiNijika/AnonCMS-Theme-Note
+ * @anon devMode.enabled=true
+ * @anon devMode.vitePort=5173
+ */
+```
+
+**支持的字段映射：**
+
+| 文件头字段 | package.json 字段 | 说明 |
+|-----------|------------------|------|
+| `Theme Name` | `anon.displayName` | 主题显示名称 |
+| `Description` | `description` | 主题描述 |
+| `Version` | `version` | 版本号 |
+| `Author` | `author` | 作者 |
+| `Author URI` | `homepage` | 作者主页 |
+| `Theme URI` | `url` | 主题主页 |
+| `@anon key=value` | `anon.key` | 自定义字段（支持嵌套） |
+
+**自定义字段示例：**
+
+```php
+// PHP 文件头
+@anon devMode.enabled=true
+@anon devMode.vitePort=5173
+@anon features.comments=true
+```
+
+等价于：
+
+```json
+{
+  "anon": {
+    "devMode": {
+      "enabled": true,
+      "vitePort": 5173
+    },
+    "features": {
+      "comments": true
+    }
+  }
+}
+```
+
+## Vite 开发模式
+
+框架原生支持 Vite 开发服务器，提供热更新（HMR）和无缓存加载。
+
+### 配置开发模式
+
+在主题信息中配置 `devMode`：
+
+```json
+{
+  "anon": {
+    "devMode": {
+      "enabled": true,
+      "vitePort": 5173
+    }
+  }
+}
+```
+
+### 启动开发服务器
+
+```bash
+pnpm dev
+```
+
+### vite.config.ts 配置
+
+**关键配置：**
+
+```typescript
+export default {
+    base: '/',
+    build: {
+        outDir: 'assets',
+        emptyOutDir: false,
+        rollupOptions: {
+            input: 'src/main.ts',
+            output: {
+                entryFileNames: 'main.js',
+                format: 'iife',
+            },
+        },
+    },
+    server: {
+        port: 5173,
+        strictPort: true,
+        cors: true,
+        host: '0.0.0.0', // 允许外部访问（PHP 页面）
+        origin: 'http://localhost:5173', // 强制使用绝对路径
+        hmr: {
+            protocol: 'ws',
+            host: 'localhost',
+            port: 5173,
+        },
+    },
+};
+```
+
+**重要说明：**
+- `host: '0.0.0.0'` - 允许 PHP 服务器（80端口）访问 Vite（5173端口）
+- `origin: 'http://localhost:5173'` - Vite 注入的资源自动使用绝对路径，解决跨端口 404 问题
+- HMR 保持开启，支持热更新
+
+### 模板中使用
+
+框架会自动检测 Vite 是否运行，无需手动切换：
+
+```php
+<?php
+// head.php
+if ($this->isViteDevMode()) {
+    $viteUrl = $this->getViteDevServerUrl();
+    // Vite 会自动注入 @vite/client，只需引入入口文件
+    echo '<script type="module" src="' . $viteUrl . '/src/main.ts"></script>';
+} else {
+    // 生产模式：使用构建后的资源
+    $this->assets('main.js', null, ['defer' => 'defer']);
+    $this->assets('style.css');
+}
+?>
+```
+
+**注意事项：**
+- ✅ **只引入 main.ts** - Vite 会自动处理 `@vite/client`
+- ❌ **不要手动引入 `/@vite/client`** - 会导致 404
+- ❌ **不要使用相对路径** - 必须使用完整地址 `http://localhost:5173/src/main.ts`
+
+**特性：**
+- ✅ 基于配置的快速检测（零性能损耗）
+- ✅ 支持热更新（HMR）
+- ✅ 开发模式禁用缓存
+- ✅ 生产模式使用版本号文件缓存
+- ✅ 无缝切换，无需手动配置
+
 ## 主题目录结构
 
 主题文件位于 `server/app/Theme/{themeName}/` 目录：

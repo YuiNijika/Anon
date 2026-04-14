@@ -5,21 +5,21 @@ export default defineConfig({
   lang: 'zh-CN',
   title: "Anon Framework",
   description: "一个简单快速的 PHP API 开发框架",
+  
+  // 站点配置
   head: [
-    [
-      'link', { rel: 'icon', href: '/assets/favicon.jpg' } // 站点图标
-    ],
+    ['link', { rel: 'icon', href: '/assets/favicon.jpg' }]
   ],
   base: '/Anon/',
   lastUpdated: true,
   outDir: '../../docs',
+  ignoreDeadLinks: true,
+  
   themeConfig: {
-    // https://vitepress.dev/reference/default-theme-config
-
     // Logo
     logo: '/assets/anon.gif',
 
-    // 启用搜索
+    // 搜索配置
     search: {
       provider: 'local',
       options: {
@@ -41,7 +41,7 @@ export default defineConfig({
       }
     },
 
-    // 顶部栏
+    // 顶部导航栏
     nav: [
       { text: "快速开始", link: "/guide/quick-start" },
       { text: "安装指南", link: "/guide/installation" },
@@ -54,6 +54,8 @@ export default defineConfig({
           { text: "Widget 组件", link: "/guide/widget-system" },
           { text: "CLI 命令", link: "/guide/cli-system" },
           { text: "钩子系统", link: "/guide/hook-system" },
+          { text: "短代码系统", link: "/guide/shortcode-system" },
+          { text: "自定义代码", link: "/guide/custom-code" },
         ]
       },
       {
@@ -63,8 +65,11 @@ export default defineConfig({
           { text: "路由系统", link: "/guide/routing" },
           { text: "请求与响应", link: "/guide/api/request-response" },
           { text: "认证与安全", link: "/guide/api/authentication" },
-          { text: "API 参考", link: "/api/reference" },
-          { text: "API 端点", link: "/api/endpoints" },
+          { text: "Token 策略", link: "/guide/api/token-strategy" },
+          { text: "数据库操作", link: "/guide/api/database" },
+          { text: "大数据处理", link: "/guide/api/big-data" },
+          { text: "性能优化", link: "/guide/api/performance-optimization" },
+          { text: "服务端模式", link: "/guide/api/server-mode" },
         ]
       },
       {
@@ -84,21 +89,24 @@ export default defineConfig({
           { text: "配置管理", link: "/guide/configuration-management" },
           { text: "缓存系统", link: "/guide/cache-redis-guide" },
           { text: "调试工具", link: "/guide/api/debugging" },
-          { text: "数据库", link: "/guide/api/database" },
           { text: "开发规范", link: "/guide/coding-standards" },
+          { text: "自动化测试", link: "/guide/testing" },
+          { text: "工具说明", link: "/guide/tools" },
         ]
       },
+      { text: "API 参考", link: "/api/reference" },
     ],
 
-    // 侧边栏
+    // 侧边栏配置
     sidebar: {
+      // API 模式文档侧边栏
       '/guide/api/': [
         {
           base: '/guide/api/',
           text: 'API 模式',
           items: [
             { text: 'API 模式概述', link: 'overview' },
-            { text: '路由系统', link: 'routing' },
+            { text: '路由系统', link: '../routing' },
             { text: '请求与响应', link: 'request-response' },
             { text: '用户认证', link: 'authentication' },
             { text: 'Token 策略', link: 'token-strategy' },
@@ -111,6 +119,8 @@ export default defineConfig({
           ]
         }
       ],
+      
+      // CMS 模式文档侧边栏
       '/guide/cms/': [
         {
           base: '/guide/cms/',
@@ -125,6 +135,8 @@ export default defineConfig({
           ]
         }
       ],
+      
+      // 通用文档侧边栏
       '/guide/': [
         {
           base: '/guide/',
@@ -146,6 +158,8 @@ export default defineConfig({
             { text: 'Widget 组件', link: 'widget-system' },
             { text: 'CLI 命令', link: 'cli-system' },
             { text: '钩子系统', link: 'hook-system' },
+            { text: '短代码系统', link: 'shortcode-system' },
+            { text: '自定义代码', link: 'custom-code' },
           ]
         },
         {
@@ -164,11 +178,13 @@ export default defineConfig({
             { text: '数据库', link: 'api/database' },
             { text: '调试工具', link: 'api/debugging' },
             { text: '代码规范', link: 'coding-standards' },
+            { text: '自动化测试', link: 'testing' },
             { text: '工具说明', link: 'tools' },
-            { text: '自动化测试', link: 'testing' }
           ]
         }
       ],
+      
+      // API 参考文档侧边栏
       '/api/': [
         {
           base: '/api/',
@@ -192,7 +208,7 @@ export default defineConfig({
       copyright: `Copyright © 2024-${new Date().getFullYear()} Anon Framework`
     },
 
-    // 编辑链接
+    // 编辑此页
     editLink: {
       pattern: ({ filePath }) => {
         return `https://github.com/YuiNijika/Anon/edit/main/vitepress/docs/${filePath}`
@@ -200,37 +216,32 @@ export default defineConfig({
       text: '在 GitHub 上编辑此页面',
     },
 
-    // 翻译
-    // 文章翻页
+    // 文档底部导航
     docFooter: {
       prev: '上一篇',
       next: '下一篇'
     },
 
-    // 外观
+    // 深色模式切换
     darkModeSwitchLabel: '外观',
 
-    // 当前页面
+    // 大纲
     outline: {
       label: '当前页面',
+      level: [2, 3],  // 显示 h2 和 h3 标题
     },
 
     // 返回顶部
     returnToTopLabel: '返回顶部',
 
-    // menu
+    // 侧边栏菜单
     sidebarMenuLabel: '菜单',
 
-    // 搜索
-
-    // 404
+    // 404 页面
     notFound: {
       title: '页面未找到',
       quote: 'HTTP 404 - Page Not Found',
       linkText: '返回首页'
     }
-
-  },
-
-  ignoreDeadLinks: true
+  }
 })
