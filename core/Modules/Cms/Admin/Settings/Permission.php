@@ -97,9 +97,10 @@ class Anon_Cms_Admin_SettingsPermission
             Anon_Cms_Options::set('access_log_enabled', $accessLogEnabled);
             
             /**
-             * 清除选项缓存，确保设置立即生效
+             * 清除选项缓存和 API 前缀缓存，确保设置立即生效
              */
             Anon_Cms_Options::clearCache();
+            Anon_System_ApiPrefix::clearCache();
             
             Anon_Http_Response::success([
                 'allow_register' => $allowRegister === '1',
