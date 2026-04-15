@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fontsource/maple-mono": "^5.2.6",
-    "@theojs/lumen": "^6.4.6"
+    "@theojs/lumen": "^6.4.6",
+    "shiki": "^4.0.2"
   }
 }
