@@ -31,6 +31,7 @@ class Anon_Cms_Admin_SettingsPermission
                 'access_log_enabled' => $toBool(Anon_Cms_Options::get('access_log_enabled', '1')),
                 'api_prefix' => Anon_Cms_Options::get('apiPrefix', '/api'),
                 'api_enabled' => $toBool(Anon_Cms_Options::get('api_enabled', '0')),
+                'restful_api_token_required' => $toBool(Anon_Cms_Options::get('restful_api_token_required', '1')),
             ];
             
             Anon_Http_Response::success($settings, '获取权限设置成功');
@@ -85,6 +86,7 @@ class Anon_Cms_Admin_SettingsPermission
             $apiPrefix = isset($data['api_prefix']) ? trim($data['api_prefix']) : '/api';
             $apiEnabled = isset($data['api_enabled']) ? $toBoolString($data['api_enabled']) : '0';
             $accessLogEnabled = isset($data['access_log_enabled']) ? $toBoolString($data['access_log_enabled']) : '1';
+            $restfulApiTokenRequired = isset($data['restful_api_token_required']) ? $toBoolString($data['restful_api_token_required']) : '1';
 
             if (empty($apiPrefix) || $apiPrefix[0] !== '/') {
                 Anon_Http_Response::error('API 前缀必须以 / 开头', 400);
@@ -95,6 +97,7 @@ class Anon_Cms_Admin_SettingsPermission
             Anon_Cms_Options::set('apiPrefix', $apiPrefix);
             Anon_Cms_Options::set('api_enabled', $apiEnabled);
             Anon_Cms_Options::set('access_log_enabled', $accessLogEnabled);
+            Anon_Cms_Options::set('restful_api_token_required', $restfulApiTokenRequired);
             
             /**
              * 清除选项缓存和 API 前缀缓存，确保设置立即生效
@@ -107,6 +110,7 @@ class Anon_Cms_Admin_SettingsPermission
                 'api_prefix' => $apiPrefix,
                 'api_enabled' => $apiEnabled === '1',
                 'access_log_enabled' => $accessLogEnabled === '1',
+                'restful_api_token_required' => $restfulApiTokenRequired === '1',
             ], '保存权限设置成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);

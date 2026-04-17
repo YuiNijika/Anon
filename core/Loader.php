@@ -39,8 +39,11 @@ class Anon_Loader
         require_once Anon_Main::WIDGETS_DIR . 'Cms/User.php';
         require_once Anon_Main::MODULES_DIR . 'Cms/Admin/Admin.php';
         require_once Anon_Main::MODULES_DIR . 'System/ApiPrefix.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/Services.php';
+        require_once Anon_Main::MODULES_DIR . 'Cms/RESTful.php';
 
         Anon_Cms_Admin::init();
+        Anon_Cms_RESTful::init();
         self::$loadedModules['cms'] = true;
         Anon_System_Hook::add_action('theme_foot', [Anon_Cms::class, 'outputBottomScript']);
     }

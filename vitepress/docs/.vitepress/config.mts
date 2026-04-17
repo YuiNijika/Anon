@@ -191,7 +191,8 @@ export default defineConfig({
           text: 'API 参考',
           items: [
             { text: 'API 参考文档', link: 'reference' },
-            { text: 'API 端点', link: 'endpoints' }
+            { text: 'API 端点', link: 'endpoints' },
+            { text: 'RESTful API', link: 'restful' }
           ]
         }
       ],

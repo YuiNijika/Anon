@@ -97,8 +97,8 @@ class Anon_Cms_Admin_Tags
     public static function get()
     {
         try {
-            $tags = self::getTagList();
-            Anon_Http_Response::success($tags, '获取标签列表成功');
+            $result = Anon_Cms_Services_Tag::getTagList();
+            Anon_Http_Response::success($result['list'], '获取标签列表成功');
         } catch (Exception $e) {
             Anon_Http_Response::handleException($e);
         }
@@ -118,25 +118,10 @@ class Anon_Cms_Admin_Tags
                 return;
             }
             
-            $name = trim($data['name']);
-            $slug = isset($data['slug']) && !empty($data['slug']) ? trim($data['slug']) : $name;
-            
-            $existing = self::checkSlugExists($slug);
-            if ($existing) {
-                Anon_Http_Response::success($existing, '标签已存在');
-                return;
-            }
-            
-            $id = self::createTag($name, $slug);
-            
-            if ($id) {
-                $tag = self::getTagById($id);
-                Anon_Http_Response::success($tag, '创建标签成功');
-            } else {
-                Anon_Http_Response::error('创建标签失败', 500);
-            }
+            $tag = Anon_Cms_Services_Tag::createTag($data);
+            Anon_Http_Response::success($tag, '创建标签成功');
         } catch (Exception $e) {
-            Anon_Http_Response::handleException($e);
+            Anon_Http_Response::error($e->getMessage(), 400);
         }
     }
 
@@ -160,33 +145,10 @@ class Anon_Cms_Admin_Tags
                 return;
             }
             
-            $tag = self::getTagById($id);
-            if (!$tag) {
-                Anon_Http_Response::error('标签不存在', 404);
-                return;
-            }
-            
-            $name = trim($data['name']);
-            $slug = isset($data['slug']) && !empty($data['slug']) ? trim($data['slug']) : $name;
-            
-            if (self::checkSlugExists($slug, $id)) {
-                Anon_Http_Response::error('标签别名已存在', 400);
-                return;
-            }
-            
-            $result = self::updateTag($id, [
-                'name' => $name,
-                'slug' => $slug,
-            ]);
-            
-            if ($result) {
-                $updated = self::getTagById($id);
-                Anon_Http_Response::success($updated, '更新标签成功');
-            } else {
-                Anon_Http_Response::error('更新标签失败', 500);
-            }
+            $tag = Anon_Cms_Services_Tag::updateTag($id, $data);
+            Anon_Http_Response::success($tag, '更新标签成功');
         } catch (Exception $e) {
-            Anon_Http_Response::handleException($e);
+            Anon_Http_Response::error($e->getMessage(), 400);
         }
     }
 
@@ -205,21 +167,10 @@ class Anon_Cms_Admin_Tags
                 return;
             }
             
-            $tag = self::getTagById($id);
-            if (!$tag) {
-                Anon_Http_Response::error('标签不存在', 404);
-                return;
-            }
-            
-            $result = self::deleteTag($id);
-            
-            if ($result) {
-                Anon_Http_Response::success(null, '删除标签成功');
-            } else {
-                Anon_Http_Response::error('删除标签失败', 500);
-            }
+            Anon_Cms_Services_Tag::deleteTag($id);
+            Anon_Http_Response::success(null, '删除标签成功');
         } catch (Exception $e) {
-            Anon_Http_Response::handleException($e);
+            Anon_Http_Response::error($e->getMessage(), 400);
         }
     }
 }

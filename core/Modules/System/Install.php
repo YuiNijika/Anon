@@ -790,6 +790,7 @@ class Anon_System_Install
             'theme' => 'Default',
             'apiPrefix' => '/api',
             'api_enabled' => '0',
+            'restful_api_token_required' => '1',
             'allow_register' => '0',
             'access_log_enabled' => '1',
             'access_log_api' => '0',

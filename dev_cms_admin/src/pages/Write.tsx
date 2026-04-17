@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -144,7 +143,7 @@ const writeSchema = z.object({
   category: z.number().nullable(),
   tags: z.array(z.string()).optional(),
   content: z.string().optional(),
-  comment_status: z.enum(['open', 'closed']).optional().default('open'),
+  comment_status: z.enum(['open', 'closed']),
 }).refine(
   (data) => {
     // 如果是文章且状态为发布，则分类必填
@@ -173,7 +172,7 @@ export default function Write() {
   const [loadingPost, setLoadingPost] = useState(false)
 
   const form = useForm<WriteFormValues>({
-    resolver: zodResolver(writeSchema),
+    resolver: zodResolver(writeSchema) as any,
     defaultValues: {
       title: '',
       slug: '',
@@ -257,9 +256,10 @@ export default function Write() {
         slug: '',
         status: 'publish',
         type: 'post',
-        category: null, // 将在另一个useEffect中设置
+        category: null,
         tags: [],
         content: '',
+        comment_status: 'open',
       })
     }
   }, [searchParams, loadPost, form])
@@ -341,8 +341,7 @@ export default function Write() {
       <div className="flex-1 lg:w-[75%] lg:shrink-0">
         <Card>
           <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -383,7 +382,6 @@ export default function Write() {
                   )}
                 />
               </form>
-            </Form>
           </CardContent>
         </Card>
       </div>
@@ -394,8 +392,6 @@ export default function Write() {
             <CardTitle className="text-base">发布</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="type"
@@ -544,8 +540,6 @@ export default function Write() {
                     </FormItem>
                   )}
                 />
-              </form>
-            </Form>
           </CardContent>
         </Card>
       </div>

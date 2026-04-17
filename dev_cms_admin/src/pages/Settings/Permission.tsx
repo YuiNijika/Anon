@@ -25,6 +25,7 @@ const permissionSchema = z.object({
   access_log_enabled: z.boolean().optional(),
   api_enabled: z.boolean().optional(),
   api_prefix: z.string().min(1, '请输入 API 前缀'),
+  restful_api_token_required: z.boolean().optional(),
 })
 
 type PermissionFormValues = z.infer<typeof permissionSchema>
@@ -40,6 +41,7 @@ export default function SettingsPermission() {
       access_log_enabled: true,
       api_prefix: '/api',
       api_enabled: false,
+      restful_api_token_required: true,
     },
   })
 
@@ -72,9 +74,9 @@ export default function SettingsPermission() {
         access_log_enabled: values.access_log_enabled !== false,
         api_prefix: values.api_prefix || '/api',
         api_enabled: values.api_enabled === true,
+        restful_api_token_required: values.restful_api_token_required !== false,
       }
       await AdminApi.updatePermissionSettings(apiAdmin, submitData)
-      // 清除 API 前缀缓存，强制下次请求时重新获取
       clearApiPrefixCache()
       toast.success('权限设置已保存')
       await loadSettings()
@@ -130,6 +132,21 @@ export default function SettingsPermission() {
                 <div className="space-y-0.5">
                   <FormLabel>启用 API</FormLabel>
                   <FormDescription>启用后，系统将提供 RESTful API 接口</FormDescription>
+                </div>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="restful_api_token_required"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel>RESTful API 需要 Token</FormLabel>
+                  <FormDescription>启用后，GET 请求也需要携带 Token 认证</FormDescription>
                 </div>
                 <FormControl>
                   <Switch checked={field.value} onCheckedChange={field.onChange} />

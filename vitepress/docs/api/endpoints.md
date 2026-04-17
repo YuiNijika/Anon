@@ -4,7 +4,7 @@
 
 系统提供的所有API端点列表。
 
-下文按分区列出：系统与安装、调试为通用；认证与用户为API与CMS共用；CMS管理端点仅限CMS模式。
+下文按分区列出：系统与安装、调试为通用；认证与用户为API与CMS共用；CMS管理端点仅限CMS模式；RESTful API 详见 [RESTful API 文档](./restful.md)。
 
 ## 系统与安装
 
@@ -466,3 +466,44 @@ GET /anon/static/upload/image/a1b2c3d4e5f67890-1760000000/png
 - 支持透明背景，PNG 或 WebP
 
 **静态文件路由注册：** 通过 `Anon_System_Config::addStaticRoute()` 方法注册，支持自动缓存和压缩。详见 [路由处理文档](/guide/api/routing#静态文件路由)。
+
+## RESTful API
+
+RESTful API 提供标准化的 HTTP 接口，支持文章、分类、标签的 CRUD 操作。
+
+### 基础信息
+
+- **基础路径** - `/anon/restful/v1`
+- **认证方式** - Bearer Token（根据配置）
+- **权限控制** - 读取公开，写入需管理员权限
+
+### 资源端点
+
+#### 文章
+
+- `GET /restful/v1/posts` - 获取文章列表
+- `POST /restful/v1/posts` - 创建文章
+- `GET /restful/v1/posts/{id}` - 获取单篇文章
+- `PUT /restful/v1/posts/{id}` - 更新文章
+- `DELETE /restful/v1/posts/{id}` - 删除文章
+- `DELETE /restful/v1/posts/batch` - 批量删除文章
+
+#### 分类
+
+- `GET /restful/v1/categories` - 获取分类列表
+- `POST /restful/v1/categories` - 创建分类
+- `GET /restful/v1/categories/{id}` - 获取单个分类
+- `PUT /restful/v1/categories/{id}` - 更新分类
+- `DELETE /restful/v1/categories/{id}` - 删除分类
+- `DELETE /restful/v1/categories/batch` - 批量删除分类
+
+#### 标签
+
+- `GET /restful/v1/tags` - 获取标签列表
+- `POST /restful/v1/tags` - 创建标签
+- `GET /restful/v1/tags/{id}` - 获取单个标签
+- `PUT /restful/v1/tags/{id}` - 更新标签
+- `DELETE /restful/v1/tags/{id}` - 删除标签
+- `DELETE /restful/v1/tags/batch` - 批量删除标签
+
+详细说明请参考 [RESTful API 完整文档](./restful.md)。

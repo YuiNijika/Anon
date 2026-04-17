@@ -196,6 +196,7 @@ export interface PermissionSettings {
   access_log_enabled: boolean
   api_prefix: string
   api_enabled: boolean
+  restful_api_token_required: boolean
 }
 
 export interface Post {
