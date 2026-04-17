@@ -9,32 +9,22 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
      */
     public function init()
     {
-        $plugin = $this;
-        if (Anon_System_Plugin::isApiMode()) {
-            Anon::route('/hello', function () use ($plugin) {
-                Anon::success([
-                    $plugin->index()
-                ], 'Hello World from Plugin (API Mode)');
-            }, [
-                'header' => true,
-                'requireLogin' => false,
-                'method' => ['GET'],
-                'token' => false,
-                'cache' => ['enabled' => true, 'time' => 3600],
-            ]);
-        } elseif (Anon_System_Plugin::isCmsMode()) {
-            Anon::route('/hello', function () use ($plugin) {
-                Anon::success([
-                    $plugin->index()
-                ], 'Hello World from Plugin (CMS Mode)');
-            }, [
-                'header' => true,
-                'requireLogin' => false,
-                'method' => ['GET'],
-                'token' => false,
-                'cache' => ['enabled' => true, 'time' => 3600],
-            ]);
-        }
+        Anon::route('/hello', function () {
+            $greeting = $this->options()->get('greeting', 'Hello, World!', false, null);
+            $mode = Anon_System_Plugin::isApiMode() ? 'API' : 'CMS';
+            
+            Anon::success([
+                'message' => $greeting,
+                'plugin' => 'HelloWorld',
+                'mode' => $mode
+            ], "Hello World from Plugin ({$mode} Mode)");
+        }, [
+            'header' => true,
+            'requireLogin' => false,
+            'method' => ['GET'],
+            'token' => false,
+            'cache' => ['enabled' => true, 'time' => 3600],
+        ]);
     }
 
     /**
@@ -68,17 +58,5 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
                 'default' => 'Hello, World!',
             ],
         ];
-    }
-
-    /**
-     * 自定义方法，通过选项代理读取插件、主题、系统选项
-     * @return string
-     */
-    public function index()
-    {
-        $proxy = $this->options();
-        return $proxy !== null
-            ? $proxy->get('greeting', 'Hello, World!', false, null)
-            : 'Hello, World!';
     }
 }
