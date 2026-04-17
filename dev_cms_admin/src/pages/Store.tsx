@@ -59,8 +59,7 @@ export function Store() {
     
     try {
       setDownloading(selectedItem.name);
-      // 构建下载 URL
-      const downloadUrl = selectedItem.url.github + '/archive/refs/heads/main.zip';
+      const downloadUrl = `${selectedItem.url.github}/archive/refs/heads/main.zip`;
       
       const result = await downloadItem(selectedItem.name, selectedItem.type, downloadUrl);
       

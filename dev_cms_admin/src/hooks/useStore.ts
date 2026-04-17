@@ -108,12 +108,55 @@ export function useStore() {
             const typeData = await typeResponse.json();
             
             if (typeData.data && Array.isArray(typeData.data)) {
-              // 添加类型和分类字段
-              const itemsWithType = typeData.data.map((item: any) => ({
-                ...item,
-                type,
-                category: typeName,
-              }));
+              // 添加类型和分类字段，并处理 screenshot
+              const itemsWithType = typeData.data.map((item: any) => {
+                // 处理 screenshot：基于主题自己的仓库URL拼接
+                let processedScreenshot = item.screenshot;
+                if (item.screenshot) {
+                  // 判断是否是完整 URL
+                  if (item.screenshot.startsWith('http://') || item.screenshot.startsWith('https://')) {
+                    // 已经是完整 URL，只应用一次镜像
+                    processedScreenshot = applyGithubMirror(item.screenshot, github_mirror, github_raw_mirror);
+                  } else {
+                    // 是文件名，需要基于主题的仓库URL拼接
+                    // 优先使用 github，其次使用 gitee
+                    const repoUrl = item.url?.github || item.url?.gitee;
+                    
+                    if (repoUrl) {
+                      // 将 GitHub/Gitee 仓库 URL 转换为 raw URL
+                      let rawBaseUrl = repoUrl
+                        .replace('https://github.com/', 'https://raw.githubusercontent.com/')
+                        .replace('https://gitee.com/', 'https://gitee.com/')
+                        .replace(/\/$/, '');
+                      
+                      // Gitee 的 raw URL 格式不同
+                      if (repoUrl.includes('gitee.com')) {
+                        rawBaseUrl = `${repoUrl}/raw/master`;
+                      } else {
+                        // GitHub: https://github.com/user/repo -> https://raw.githubusercontent.com/user/repo/main
+                        rawBaseUrl = rawBaseUrl.replace('/blob/main', '/main').replace('/blob/master', '/master');
+                        if (!rawBaseUrl.includes('/main') && !rawBaseUrl.includes('/master')) {
+                          rawBaseUrl += '/main';
+                        }
+                      }
+                      
+                      // 拼接 screenshot
+                      processedScreenshot = `${rawBaseUrl}/${item.screenshot}`;
+                      
+                      // 应用镜像
+                      processedScreenshot = applyGithubMirror(processedScreenshot, github_mirror, github_raw_mirror);
+                    }
+                    // 如果没有仓库URL，保持原样
+                  }
+                }
+                
+                return {
+                  ...item,
+                  screenshot: processedScreenshot,
+                  type,
+                  category: typeName,
+                };
+              });
               
               allItems.push(...itemsWithType);
             }

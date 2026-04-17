@@ -93,12 +93,34 @@ class Anon_Cms_Theme
             }
 
             if ($themeName === null) {
-                $themeName = Anon_System_Env::get('app.cms.theme', 'default');
+                $themeName = Anon_System_Env::get('app.cms.theme', 'Default');
             }
 
+            // 尝试加载指定主题
             $actualThemeDir = self::findThemeDirectory($themeName);
+            
+            // 如果未找到，尝试回退到 Default 主题
+            if ($actualThemeDir === null && $themeName !== 'Default') {
+                Anon_Debug::warn("主题未找到: {$themeName}，尝试回退到 Default 主题");
+                $actualThemeDir = self::findThemeDirectory('Default');
+            }
+            
+            // 如果 Default 也未找到，尝试使用第一个可用主题
             if ($actualThemeDir === null) {
-                throw new RuntimeException("主题目录未找到: {$themeName}");
+                Anon_Debug::warn("Default 主题未找到，尝试使用第一个可用主题");
+                $allThemes = self::getAllThemes();
+                if (!empty($allThemes)) {
+                    $firstTheme = $allThemes[0]['name'] ?? null;
+                    if ($firstTheme) {
+                        $actualThemeDir = self::findThemeDirectory($firstTheme);
+                        Anon_Debug::info("使用主题: {$firstTheme}");
+                    }
+                }
+            }
+            
+            // 如果仍然没有找到任何主题，抛出错误
+            if ($actualThemeDir === null) {
+                throw new RuntimeException("没有可用的主题，请至少安装一个主题");
             }
 
             self::$currentTheme = basename($actualThemeDir);

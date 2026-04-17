@@ -68,21 +68,39 @@ class Anon_Cms_Admin_Store
         $type = $data['type'] ?? 'theme';
         $downloadUrl = $data['url'] ?? '';
 
+        Anon_Debug::info('开始下载项目', [
+            'name' => $itemName,
+            'type' => $type,
+            'original_url' => $downloadUrl
+        ]);
+
         if (empty($itemName) || empty($downloadUrl)) {
+            Anon_Debug::error('下载参数不完整', [
+                'name_empty' => empty($itemName),
+                'url_empty' => empty($downloadUrl)
+            ]);
             Anon_Http_Response::error('项目名称和下载地址不能为空', 400);
             return;
         }
 
         if (!preg_match('/^[a-zA-Z0-9_-]+$/', $itemName)) {
+            Anon_Debug::error('项目名称格式无效', ['name' => $itemName]);
             Anon_Http_Response::error('无效的项目名称', 400);
             return;
         }
 
         try {
             // 应用 GitHub 镜像
+            $originalUrl = $downloadUrl;
             $downloadUrl = self::applyGithubMirror($downloadUrl);
             
+            Anon_Debug::info('URL处理完成', [
+                'original_url' => $originalUrl,
+                'mirrored_url' => $downloadUrl
+            ]);
+            
             $tmpFile = tempnam(sys_get_temp_dir(), 'store_');
+            Anon_Debug::info('创建临时文件', ['tmp_file' => $tmpFile]);
             
             $context = stream_context_create([
                 'http' => [
@@ -93,69 +111,135 @@ class Anon_Cms_Admin_Store
                 ]
             ]);
 
+            Anon_Debug::info('开始下载文件...');
             $zipContent = @file_get_contents($downloadUrl, false, $context);
             
             if ($zipContent === false) {
+                $error = error_get_last();
+                Anon_Debug::error('下载文件失败', [
+                    'url' => $downloadUrl,
+                    'error' => $error ? $error['message'] : '未知错误',
+                    'tmp_file' => $tmpFile
+                ]);
                 @unlink($tmpFile);
-                Anon_Http_Response::error('下载项目失败', 500);
+                Anon_Http_Response::error('下载项目失败：无法连接到下载源', 500);
                 return;
             }
+
+            $fileSize = strlen($zipContent);
+            Anon_Debug::info('文件下载成功', ['size' => $fileSize . ' bytes']);
 
             file_put_contents($tmpFile, $zipContent);
+            Anon_Debug::info('临时文件写入完成');
 
             $zip = new ZipArchive();
-            if ($zip->open($tmpFile) !== true) {
+            $zipResult = $zip->open($tmpFile);
+            
+            if ($zipResult !== true) {
+                Anon_Debug::error('ZIP文件打开失败', [
+                    'tmp_file' => $tmpFile,
+                    'zip_error_code' => $zipResult,
+                    'file_size' => filesize($tmpFile)
+                ]);
                 @unlink($tmpFile);
-                Anon_Http_Response::error('解压项目失败', 500);
+                Anon_Http_Response::error('解压项目失败：无效的ZIP文件', 500);
                 return;
             }
+
+            Anon_Debug::info('ZIP文件打开成功', ['files_count' => $zip->numFiles]);
 
             // 确定目标目录
             $targetDir = $type === 'plugin' ? Anon_Main::APP_DIR . 'Plugin/' : Anon_Main::APP_DIR . 'Theme/';
             $itemDir = $targetDir . $itemName . '/';
 
+            Anon_Debug::info('目标目录', [
+                'target_dir' => $targetDir,
+                'item_dir' => $itemDir,
+                'exists' => is_dir($itemDir)
+            ]);
+
             // 如果已存在则删除
             if (is_dir($itemDir)) {
+                Anon_Debug::info('删除已存在的目录', ['dir' => $itemDir]);
                 self::deleteDirectory($itemDir);
             }
 
             mkdir($itemDir, 0755, true);
+            Anon_Debug::info('创建目标目录成功');
 
             // 解压到临时目录
             $extractDir = sys_get_temp_dir() . '/store_extract_' . uniqid();
             mkdir($extractDir, 0755, true);
+            Anon_Debug::info('创建解压目录', ['extract_dir' => $extractDir]);
             
             $zip->extractTo($extractDir);
             $zip->close();
             @unlink($tmpFile);
+            Anon_Debug::info('文件解压完成');
 
             // 查找实际的项目目录
             $files = scandir($extractDir);
+            Anon_Debug::info('解压后的文件列表', ['files' => $files]);
+            
             $rootDir = null;
             foreach ($files as $file) {
                 if ($file !== '.' && $file !== '..' && is_dir($extractDir . '/' . $file)) {
                     $rootDir = $extractDir . '/' . $file;
+                    Anon_Debug::info('找到根目录', ['root_dir' => $rootDir]);
                     break;
                 }
             }
 
-            if (!$rootDir || !is_dir($rootDir . '/' . $itemName)) {
+            if (!$rootDir) {
+                Anon_Debug::error('未找到项目根目录', ['extract_dir' => $extractDir]);
                 self::deleteDirectory($extractDir);
-                Anon_Http_Response::error('项目文件结构不正确', 500);
+                Anon_Http_Response::error('项目文件结构不正确：未找到根目录', 500);
                 return;
             }
 
+            $expectedPath = $rootDir . '/' . $itemName;
+            if (!is_dir($expectedPath)) {
+                Anon_Debug::error('项目目录不存在', [
+                    'expected_path' => $expectedPath,
+                    'root_dir_contents' => scandir($rootDir)
+                ]);
+                self::deleteDirectory($extractDir);
+                Anon_Http_Response::error("项目文件结构不正确：缺少 {$itemName} 目录", 500);
+                return;
+            }
+
+            Anon_Debug::info('验证项目结构成功');
+
             // 复制项目文件
             $sourceDir = $rootDir . '/' . $itemName;
+            Anon_Debug::info('开始复制文件', [
+                'source' => $sourceDir,
+                'destination' => $itemDir
+            ]);
+            
             self::copyDirectory($sourceDir, $itemDir);
             self::deleteDirectory($extractDir);
+            
+            Anon_Debug::info('文件复制完成，清理临时文件');
 
             Anon_Http_Response::success([
                 'name' => $itemName,
                 'path' => $itemDir,
                 'type' => $type
             ], '安装成功');
+            
+            Anon_Debug::info('项目安装成功', [
+                'name' => $itemName,
+                'type' => $type,
+                'path' => $itemDir
+            ]);
         } catch (Exception $e) {
+            Anon_Debug::error('下载项目异常', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             Anon_Http_Response::error('下载项目失败：' . $e->getMessage(), 500);
         }
     }
