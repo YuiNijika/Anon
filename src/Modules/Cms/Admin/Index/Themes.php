@@ -15,7 +15,6 @@ use Exception;
 use ZipArchive;
 use Index;
 
-use Options;
 use Anon\Modules\Cms\Theme\Theme;
 use Anon\Modules\Cms\Cms;
 use Anon\Modules\Database\Database;

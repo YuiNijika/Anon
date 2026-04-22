@@ -1,13 +1,9 @@
 <?php
 namespace Anon\Widgets\Cms;
 
-
-use Anon\Modules\CmsOptions as CmsOptions;
-
-
+use Anon\Modules\Cms\Options as CmsOptions;
 use Anon\Modules\Cms\Cms;
 use Anon\Modules\Check;
-use Options;
 use Anon\Modules\Cms\Theme\Theme;
 use Anon\Modules\Http\RequestHelper;
 

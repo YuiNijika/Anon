@@ -7,7 +7,6 @@ namespace Anon\Modules\Cms\AdminSettings;
 
 use Exception;
 use Settings;
-use Options;
 use Anon\Modules\Http\RequestHelper;
 use Anon\Modules\Http\ResponseHelper;
 use ApiPrefix;

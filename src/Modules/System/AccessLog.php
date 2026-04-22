@@ -1,14 +1,9 @@
 <?php
 namespace Anon\Modules\System;
 
-use Anon\Modules\CmsOptions as CmsOptions;
-
-
-
+use Anon\Modules\Cms\Theme\Options as CmsOptions;
 use Exception;
-
 use System;
-use Options;
 use Anon\Modules\Common;
 use Anon\Modules\Debug;
 use Anon\Modules\Database\Database;

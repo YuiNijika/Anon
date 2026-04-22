@@ -1,11 +1,8 @@
 <?php
 namespace Anon\Modules\Cms\Theme;
 
-use Anon\Modules\CmsOptions as CmsOptions;
-
-
+use Anon\Modules\Cms\Options as CmsOptions;
 use Anon\Modules\Cms\Theme\Theme;
-use Options;
 use Anon\Modules\Debug;
 use Anon\Modules\System\Plugin;
 
@@ -105,11 +102,16 @@ class OptionsProxy
                     ? $this->themeName
                     : Theme::getCurrentTheme();
                 if ($themeName !== '') {
-                    $all = Options::all($themeName);
+                    $optionName = "theme:{$themeName}";
+                    $all = CmsOptions::get($optionName, []);
+                    if (!is_array($all)) {
+                        $all = [];
+                    }
                     if (Debug::isEnabled()) {
                         Debug::debug('[OptionsProxy] get() 查找主题选项', [
                             'option_name' => $name,
                             'theme_name' => $themeName,
+                            'option_key' => $optionName,
                             'all_options' => array_keys($all),
                             'option_exists' => array_key_exists($name, $all),
                             'option_value' => array_key_exists($name, $all) ? $all[$name] : 'NOT_FOUND',

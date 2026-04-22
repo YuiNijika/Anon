@@ -1,18 +1,13 @@
 <?php
 namespace Anon\Modules\Cms\Theme;
 
-
-
-
-use Anon\Modules\CmsOptions as CmsOptions;
-
+use Anon\Modules\Cms\Options as CmsOptions;
 use Anon\Widgets\CmsUser;
 use Anon\Widgets\CmsThemeHelper;
 use Anon\Modules\Cms\Theme\Theme;
 use Anon\Modules\Debug;
 use Anon\Modules\Check;
 use Anon\Modules\Cms\Cms;
-use Options;
 use Anon\Modules\Database\Database;
 use Anon\Widgets\Cms\User;
 use Anon\Widgets\Cms\ThemeHelper;

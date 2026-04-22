@@ -12,7 +12,6 @@ use RuntimeException;
 use Http;
 use Token;
 use Anon\Modules\Check;
-use Options;
 use Anon\Modules\Common;
 use Anon\Modules\Database\Database;
 use Anon\Modules\System\Env;

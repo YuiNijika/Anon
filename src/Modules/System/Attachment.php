@@ -12,7 +12,7 @@ use Anon\Modules\Anon;
 use Anon\Modules\Database\Database;
 use Anon\Modules\Http\RequestHelper;
 use Anon\Modules\Http\ResponseHelper;
-use StaticResource;
+use Anon\Modules\Http\StaticResource;
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 

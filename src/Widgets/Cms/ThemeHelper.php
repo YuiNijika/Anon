@@ -10,7 +10,7 @@ namespace Anon\Widgets\Cms;
 use Anon\Modules\Cms\Cms;
 use Anon\Modules\Common;
 use Anon\Modules\Debug;
-use Options;
+use Anon\Modules\Cms\Theme\Options;
 use Anon\Modules\Cms\Theme\OptionsProxy;
 use Anon\Modules\Cms\Theme\Theme;
 

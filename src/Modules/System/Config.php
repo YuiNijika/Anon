@@ -28,7 +28,7 @@ use Anon\Modules\Cms\Cms;
 use Anon\Modules\Cms\Theme\Theme;
 use Anon\Modules\Debug;
 use Anon\Modules\Http\ResponseHelper;
-use StaticResource;
+use Anon\Modules\Http\StaticResource;
 use Anon\Modules\System\Hook;
 use Csrf;
 use Admin;
@@ -51,11 +51,11 @@ class Config
     /**
      * 注册路由
      * @param string $path 路由路径
-     * @param callable $handler 处理函数
+     * @param callable|array $handler 处理函数或 [类名, 方法名] 数组
      * @param array $meta 路由元数据
      * @throws RuntimeException
      */
-    public static function addRoute(string $path, callable $handler, array $meta = [])
+    public static function addRoute(string $path, callable|array $handler, array $meta = [])
     {
         $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
 

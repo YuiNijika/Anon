@@ -1,6 +1,7 @@
 <?php
 
-use Anon\ModulesCommon;
+use Anon\Modules\Common;
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $icp = $this->options()->get('icp_code', null, false);

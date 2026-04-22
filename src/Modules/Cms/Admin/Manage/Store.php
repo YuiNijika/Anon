@@ -7,7 +7,6 @@ use Exception;
 use ZipArchive;
 use Manage;
 
-use Options;
 use Anon\Modules\Debug;
 use Anon\Modules\Http\RequestHelper;
 use Anon\Modules\Http\ResponseHelper;

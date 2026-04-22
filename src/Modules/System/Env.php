@@ -1,9 +1,8 @@
 <?php
 namespace Anon\Modules\System;
 
+use Anon\Modules\Cms\Options as CmsOptions;
 
-use System;
-use Options;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 class Env
@@ -64,7 +63,7 @@ class Env
         if (strpos($key, 'app.cms.') === 0) {
             $optionName = str_replace('app.cms.', '', $key);
             if ($optionName === 'routes') {
-                $routes = Options::get('routes', $default);
+                $routes = CmsOptions::get('routes', $default);
                 if (is_string($routes)) {
                     $decoded = json_decode($routes, true);
                     $routes = (json_last_error() === JSON_ERROR_NONE) ? $decoded : $default;
@@ -72,12 +71,12 @@ class Env
                 return $routes ?? $default;
             }
             if ($optionName === 'apiPrefix') {
-                return Options::get('apiPrefix', $default);
+                return CmsOptions::get('apiPrefix', $default);
             }
             if ($optionName === 'theme') {
-                return Options::get('theme', $default);
+                return CmsOptions::get('theme', $default);
             }
-            return Options::get($optionName, $default);
+            return CmsOptions::get($optionName, $default);
         }
 
         if (isset(self::$valueCache[$key])) {

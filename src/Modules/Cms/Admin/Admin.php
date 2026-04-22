@@ -1,17 +1,8 @@
 <?php
 namespace Anon\Modules\Cms\Admin;
 
-
-use Anon\Modules\CmsOptions as CmsOptions;
-
-
-
-
-
-
+use Anon\Modules\Cms\Options as CmsOptions;
 use Exception;
-
-
 use Navbar;
 use Statistics;
 use Basic;
@@ -27,7 +18,6 @@ use Plugins;
 use Store;
 
 use Anon\Modules\Check;
-use Options;
 use Anon\Modules\Database\Database;
 use Anon\Modules\Debug;
 use Anon\Modules\Http\RequestHelper;

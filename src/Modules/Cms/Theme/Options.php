@@ -1,10 +1,8 @@
 <?php
 namespace Anon\Modules\Cms\Theme;
 
-use Anon\Modules\CmsOptions as CmsOptions;
-
+use Anon\Modules\Cms\Options as CmsOptions;
 use Anon\Modules\Cms\Theme\Theme;
-
 use Anon\Modules\Database\Database;
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
