@@ -1,17 +1,5 @@
 <?php
-namespace AnonModules;
-
-
-
-
-
-
-
-
-
-
-
-
+namespace Anon\Modules;
 
 use Modules;
 use Anon\Modules\Debug;

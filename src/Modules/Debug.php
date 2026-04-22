@@ -1,5 +1,5 @@
 <?php
-namespace AnonModules;
+namespace Anon\Modules;
 
 
 

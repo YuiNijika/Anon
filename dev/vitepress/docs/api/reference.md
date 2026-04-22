@@ -489,7 +489,7 @@ Middleware::global(RateLimitMiddleware::make(100, 60));
 
 ```php
 <?php
-use AnonModules\Helper;
+use Anon\Modules\Helper;
 use Anon\Widgets\Utils\Escape;
 
 // 数据清理
