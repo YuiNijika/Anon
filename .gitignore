@@ -1,6 +1,8 @@
 app/Plugin/AppList
 app/Theme/Uika
 
+app/useEnv.php
+
 pnpm-lock.yaml
 
 # env
