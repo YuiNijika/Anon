@@ -1,7 +1,10 @@
 <?php
+
+use Anon\Modules\AuthCaptcha;
+use Anon\Modules\HttpResponseHelper;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -14,17 +17,17 @@ const Anon_RouterMeta = [
 try {
     
     // 生成验证码
-    $result = Anon_Auth_Captcha::generate();
+    $result = Captcha::generate();
     
     // 保存验证码到 session
-    Anon_Auth_Captcha::saveToSession($result['code']);
+    Captcha::saveToSession($result['code']);
     
     // 返回验证码图片
-    Anon_Http_Response::success([
+    ResponseHelper::success([
         'image' => $result['image']
     ], '获取验证码成功');
     
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '生成验证码时发生错误');
+    ResponseHelper::handleException($e, '生成验证码时发生错误');
 }
 

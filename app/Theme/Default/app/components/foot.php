@@ -1,4 +1,6 @@
 <?php
+
+use Anon\ModulesCommon;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 $icp = $this->options()->get('icp_code', null, false);
@@ -8,7 +10,7 @@ $icp = $this->options()->get('icp_code', null, false);
 <footer class="border-t border-base-300 bg-base-100 mt-auto">
   <div class="container mx-auto max-w-4xl px-4 py-6">
     <div class="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-base-content/60">
-      <p>Powered by <?php echo Anon_Common::NAME; ?> v<?php echo Anon_Common::VERSION; ?></p>
+      <p>Powered by <?php echo Common::NAME; ?> v<?php echo Common::VERSION; ?></p>
       <p>
         &copy; <?php echo date('Y'); ?> <?php $this->options()->get('title', true); ?>
         <?php if (!empty($icp)) { ?> · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="text-base-content/60"><?php echo $icp; ?></a><?php } ?>

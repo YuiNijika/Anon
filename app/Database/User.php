@@ -1,7 +1,14 @@
 <?php
+
+use Anon\WidgetsConnection;
+use Anon\Modules\SystemHook;
+use Anon\ModulesCommon;
+use Anon\ModulesDebug;
+use Anon\Modules\SystemEnv;
+
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Database_UserRepository extends Anon_Database_Connection
+class Anon_Database_UserRepository extends Connection
 {
     public function __construct()
     {
@@ -15,7 +22,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function getUserInfo($uid)
     {
-        Anon_System_Hook::do_action('user_before_get_info', $uid);
+        Hook::do_action('user_before_get_info', $uid);
 
         $row = $this->db('users')
             ->select(['uid', 'name', 'display_name', 'email', 'avatar', '`group`'])
@@ -23,7 +30,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->first();
 
         if (!$row) {
-            Anon_System_Hook::do_action('user_not_found', $uid);
+            Hook::do_action('user_not_found', $uid);
             return null;
         }
 
@@ -38,8 +45,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             'group' => $row['group'],
         ];
 
-        $userInfo = Anon_System_Hook::apply_filters('user_info', $userInfo, $uid);
-        Anon_System_Hook::do_action('user_after_get_info', $userInfo, $uid);
+        $userInfo = Hook::apply_filters('user_info', $userInfo, $uid);
+        Hook::do_action('user_after_get_info', $userInfo, $uid);
 
         return $userInfo;
     }
@@ -126,7 +133,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function getUserInfoByName($name)
     {
-        Anon_System_Hook::do_action('user_before_get_info_by_name', $name);
+        Hook::do_action('user_before_get_info_by_name', $name);
 
         $row = $this->db('users')
             ->select(['uid', 'name', 'display_name', 'password', 'email', 'avatar', '`group`'])
@@ -134,7 +141,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->first();
 
         if (!$row) {
-            Anon_System_Hook::do_action('user_not_found_by_name', $name);
+            Hook::do_action('user_not_found_by_name', $name);
             return false;
         }
 
@@ -150,8 +157,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             'group' => $row['group']
         ];
 
-        $userInfo = Anon_System_Hook::apply_filters('user_info_by_name', $userInfo, $name);
-        Anon_System_Hook::do_action('user_after_get_info_by_name', $userInfo, $name);
+        $userInfo = Hook::apply_filters('user_info_by_name', $userInfo, $name);
+        Hook::do_action('user_after_get_info_by_name', $userInfo, $name);
 
         return $userInfo;
     }
@@ -163,7 +170,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function getUserInfoByEmail($email)
     {
-        Anon_System_Hook::do_action('user_before_get_info_by_email', $email);
+        Hook::do_action('user_before_get_info_by_email', $email);
 
         $row = $this->db('users')
             ->select(['uid', 'name', 'display_name', 'password', 'email', 'avatar', '`group`'])
@@ -171,7 +178,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             ->first();
 
         if (!$row) {
-            Anon_System_Hook::do_action('user_not_found_by_email', $email);
+            Hook::do_action('user_not_found_by_email', $email);
             return false;
         }
 
@@ -187,8 +194,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             'group' => $row['group']
         ];
 
-        $userInfo = Anon_System_Hook::apply_filters('user_info_by_email', $userInfo, $email);
-        Anon_System_Hook::do_action('user_after_get_info_by_email', $userInfo, $email);
+        $userInfo = Hook::apply_filters('user_info_by_email', $userInfo, $email);
+        Hook::do_action('user_after_get_info_by_email', $userInfo, $email);
 
         return $userInfo;
     }
@@ -205,17 +212,17 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
      */
     public function addUser($name, $email, $password, $group = 'user', $displayName = null, $avatar = null)
     {
-        Anon_System_Hook::do_action('user_before_add', $name, $email, $group);
+        Hook::do_action('user_before_add', $name, $email, $group);
 
         $validGroups = ['admin', 'author', 'user'];
         if (!in_array($group, $validGroups)) {
             throw new Exception('无效的用户组');
         }
 
-        $name = Anon_System_Hook::apply_filters('user_name_before_add', $name);
-        $email = Anon_System_Hook::apply_filters('user_email_before_add', $email);
-        $password = Anon_System_Hook::apply_filters('user_password_before_add', $password);
-        $group = Anon_System_Hook::apply_filters('user_group_before_add', $group);
+        $name = Hook::apply_filters('user_name_before_add', $name);
+        $email = Hook::apply_filters('user_email_before_add', $email);
+        $password = Hook::apply_filters('user_password_before_add', $password);
+        $group = Hook::apply_filters('user_group_before_add', $group);
 
         $this->conn->begin_transaction();
         try {
@@ -242,13 +249,13 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             $this->conn->commit();
 
             if ($success) {
-                Anon_System_Hook::do_action('user_after_add', $id, $name, $email, $group);
+                Hook::do_action('user_after_add', $id, $name, $email, $group);
             }
 
             return $success ? $id : false;
         } catch (Exception $e) {
             $this->conn->rollback();
-            Anon_System_Hook::do_action('user_add_failed', $name, $email, $e);
+            Hook::do_action('user_add_failed', $name, $email, $e);
             throw $e;
         }
     }
@@ -296,14 +303,14 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     public function updateUserGroup($uid, $group)
     {
         $oldGroup = $this->getUserInfo($uid)['group'] ?? null;
-        Anon_System_Hook::do_action('user_before_update_group', $uid, $oldGroup, $group);
+        Hook::do_action('user_before_update_group', $uid, $oldGroup, $group);
 
         $validGroups = ['admin', 'author', 'user'];
         if (!in_array($group, $validGroups)) {
             throw new Exception('无效的用户组');
         }
 
-        $group = Anon_System_Hook::apply_filters('user_group_before_update', $group, $uid);
+        $group = Hook::apply_filters('user_group_before_update', $group, $uid);
 
         $this->conn->begin_transaction();
         try {
@@ -313,13 +320,13 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
             $this->conn->commit();
 
             if ($affected > 0) {
-                Anon_System_Hook::do_action('user_after_update_group', $uid, $oldGroup ?? null, $group);
+                Hook::do_action('user_after_update_group', $uid, $oldGroup ?? null, $group);
             }
 
             return $affected > 0;
         } catch (Exception $e) {
             $this->conn->rollback();
-            Anon_System_Hook::do_action('user_update_group_failed', $uid, $group, $e);
+            Hook::do_action('user_update_group_failed', $uid, $group, $e);
             throw $e;
         }
     }
@@ -354,7 +361,7 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
                 }
             }
 
-            $ip = Anon_Common::GetClientIp() ?? '0.0.0.0';
+            $ip = Common::GetClientIp() ?? '0.0.0.0';
             if (!filter_var($ip, FILTER_VALIDATE_IP)) {
                 $ip = '0.0.0.0';
             }
@@ -389,8 +396,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
             return $id > 0;
         } catch (Exception $e) {
-            if (Anon_Debug::isEnabled()) {
-                Anon_Debug::error("Failed to log login: " . $e->getMessage());
+            if (Debug::isEnabled()) {
+                Debug::error("Failed to log login: " . $e->getMessage());
             }
             return false;
         }
@@ -484,8 +491,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
 
             return $affected;
         } catch (Exception $e) {
-            if (Anon_Debug::isEnabled()) {
-                Anon_Debug::error("Failed to clean expired login logs: " . $e->getMessage());
+            if (Debug::isEnabled()) {
+                Debug::error("Failed to clean expired login logs: " . $e->getMessage());
             }
             return 0;
         }
@@ -653,8 +660,8 @@ class Anon_Database_UserRepository extends Anon_Database_Connection
     private function buildAvatar($email = null, $size = 640)
     {
         $avatarUrl = 'https://www.cravatar.cn/avatar';
-        if (Anon_System_Env::isInitialized()) {
-            $avatarUrl = Anon_System_Env::get('app.avatar', $avatarUrl);
+        if (Env::isInitialized()) {
+            $avatarUrl = Env::get('app.avatar', $avatarUrl);
         }
 
         if (!$email) {

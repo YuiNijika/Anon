@@ -1,0 +1,518 @@
+<?php
+namespace Anon\Modules\System;
+
+
+
+
+
+
+
+
+
+
+
+
+use ReflectionClass;
+use RuntimeException;
+
+
+
+
+use System;
+use Captcha;
+use Token;
+use Attachment;
+use Install;
+use Anon\Modules\Common;
+use Anon\Modules\Cms\Cms;
+use Anon\Modules\Cms\Theme\Theme;
+use Anon\Modules\Debug;
+use Anon\Modules\Http\ResponseHelper;
+use StaticResource;
+use Anon\Modules\System\Hook;
+use Csrf;
+use Admin;
+use Anon\Modules\System\Cache\Cache;
+use Redis;
+
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+class Config
+{
+    /**
+     * @var array 路由配置
+     */
+    private static $routerConfig = [
+        'routes' => [],
+        'route_meta' => [],
+        'error_handlers' => []
+    ];
+
+    /**
+     * 注册路由
+     * @param string $path 路由路径
+     * @param callable $handler 处理函数
+     * @param array $meta 路由元数据
+     * @throws RuntimeException
+     */
+    public static function addRoute(string $path, callable $handler, array $meta = [])
+    {
+        $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
+
+        if (isset(self::$routerConfig['routes'][$normalized])) {
+            $existingHandler = self::$routerConfig['routes'][$normalized];
+            $conflictInfo = self::detectRouteConflict($normalized, $handler, $existingHandler);
+        
+            if ($conflictInfo['conflict']) {
+                $message = "路由冲突: {$normalized}";
+                if (defined('ANON_DEBUG') && ANON_DEBUG) {
+                    $message .= " - " . $conflictInfo['details'];
+                }
+                throw new RuntimeException($message);
+            }
+        }
+
+        self::$routerConfig['routes'][$normalized] = $handler;
+
+        if (!empty($meta)) {
+            $defaultMeta = [
+                'header' => true,
+                'requireLogin' => false,
+                'method' => null,
+                'cache' => [
+                    'enabled' => false,
+                    'time' => 0,
+                ],
+            ];
+
+            $allowedKeys = ['header', 'requireLogin', 'requireAdmin', 'method', 'cors', 'response', 'code', 'token', 'middleware', 'cache'];
+            $meta = array_intersect_key($meta, array_flip($allowedKeys));
+
+            if (isset($meta['cache']) && is_array($meta['cache'])) {
+                $cacheAllowedKeys = ['enabled', 'time'];
+                $meta['cache'] = array_intersect_key($meta['cache'], array_flip($cacheAllowedKeys));
+
+                if (isset($meta['cache']['enabled']) && !is_bool($meta['cache']['enabled'])) {
+                    unset($meta['cache']['enabled']);
+                }
+                if (isset($meta['cache']['time']) && (!is_int($meta['cache']['time']) || $meta['cache']['time'] < 0)) {
+                    unset($meta['cache']['time']);
+                }
+            }
+
+            self::$routerConfig['route_meta'][$normalized] = array_merge($defaultMeta, $meta);
+        }
+    }
+
+    /**
+     * 获取路由元数据
+     * @param string $path 路由路径
+     * @return array|null
+     */
+    public static function getRouteMeta(string $path): ?array
+    {
+        $normalized = (strpos($path, '/') === 0) ? $path : '/' . $path;
+        return self::$routerConfig['route_meta'][$normalized] ?? null;
+    }
+
+    /**
+     * 注册错误处理器
+     * @param int $code HTTP状态码
+     * @param callable $handler 处理函数
+     */
+    public static function addErrorHandler(int $code, callable $handler)
+    {
+        self::$routerConfig['error_handlers'][$code] = $handler;
+    }
+
+    /**
+     * 注册静态文件路由
+     * @param string $route 路由路径
+     * @param string|callable $filePath 文件路径或回调函数
+     * @param string|callable $mimeType MIME类型或回调函数
+     * @param int $cacheTime 缓存时间
+     * @param bool $compress 是否启用压缩
+     */
+    public static function addStaticRoute(string $route, $filePath, $mimeType = 'application/octet-stream', int $cacheTime = 31536000, bool $compress = true, array $meta = [])
+    {
+        // 使用高性能静态资源服务
+        StaticResource::registerRoute($route, $filePath, $mimeType, $cacheTime, $meta);
+    }
+
+    /**
+     * 获取路由配置
+     * @return array
+     */
+    public static function getRouterConfig(): array
+    {
+        return self::$routerConfig;
+    }
+
+    /**
+     * 检查安装状态
+     * @return bool
+     */
+    public static function isInstalled(): bool
+    {
+        return defined('ANON_INSTALLED') && ANON_INSTALLED;
+    }
+
+    /**
+     * 获取全局配置信息
+     * @return array
+     */
+    public static function getConfig(): array
+    {
+        $config = [
+            'token' => Token::isEnabled(),
+            'captcha' => Captcha::isEnabled(),
+            // 'csrfToken' => Csrf::generateToken() ?: ''
+        ];
+
+        $config = Hook::apply_filters('config', $config);
+
+        return $config;
+    }
+
+    /**
+     * 初始化系统路由
+     */
+    public static function initSystemRoutes()
+    {
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            Debug::debug("Registering system routes");
+        }
+
+        self::addRoute('/anon/common/license', function () {
+            Common::Header();
+            ResponseHelper::success(Common::LICENSE_TEXT(), '获取许可证信息成功');
+        });
+        self::addRoute('/anon/common/system', function () {
+            Common::Header();
+            ResponseHelper::success(Common::SystemInfo(), '获取系统信息成功');
+        });
+        self::addRoute('/anon/common/client-ip', function () {
+            Common::Header();
+            $ip = Common::GetClientIp() ?? '0.0.0.0';
+            ResponseHelper::success(['ip' => $ip], '获取客户端IP成功');
+        });
+        self::addRoute('/anon/ciallo', function () {
+            Common::Header();
+            ResponseHelper::success(Common::Ciallo(), '恰喽~');
+        });
+
+        $staticDir = __DIR__ . '/../../Static/';
+
+        $debugCacheEnabled = Env::get('app.debug.cache.enabled', false);
+        $debugCacheTime = Env::get('app.debug.cache.time', 0);
+        $debugCacheTime = $debugCacheEnabled ? $debugCacheTime : 0;
+
+        if (Env::get('app.mode') === 'cms' && class_exists(Attachment::class)) {
+            self::addRoute('/anon/attachment/{filetype}/{filename}/{imgtype}', [Attachment::class, 'index'], [
+                'header' => false,
+                'requireLogin' => false,
+                'requireAdmin' => false,
+                'method' => 'GET',
+                'token' => false,
+            ]);
+            
+            self::addRoute('/anon/attachment/{filetype}/{filename}', [Attachment::class, 'index'], [
+                'header' => false,
+                'requireLogin' => false,
+                'requireAdmin' => false,
+                'method' => 'GET',
+                'token' => false,
+            ]);
+        }
+        
+        self::addStaticRoute('/anon/static/vue', $staticDir . 'vue.global.prod.js', 'application/javascript', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/css', $staticDir . 'install.css', 'text/css', 31536000, true, ['token' => false]);
+        self::addStaticRoute('/anon/static/install/js', $staticDir . 'install.js', 'application/javascript', 31536000, true, ['token' => false]);
+        
+        if (Env::get('app.mode') === 'cms') {
+            // 注册分页路由
+            self::addRoute('/page/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/page/(\d+)#', $path, $matches)) {
+                    $_GET['page'] = (int)$matches[1];
+                }
+                Theme::render('index');
+            });
+            self::addRoute('/category/{slug}/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/category/([^/]+)/(\d+)#', $path, $matches)) {
+                    $_GET['slug'] = urldecode($matches[1]);
+                    $_GET['page'] = (int)$matches[2];
+                }
+                $template = Theme::findTemplate('category') ? 'category' : 'index';
+                Theme::render($template);
+            });
+            self::addRoute('/tag/{slug}/{page}', function () {
+                $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+                if (preg_match('#/tag/([^/]+)/(\d+)#', $path, $matches)) {
+                    $_GET['slug'] = urldecode($matches[1]);
+                    $_GET['page'] = (int)$matches[2];
+                }
+                $template = Theme::findTemplate('tag') ? 'tag' : 'index';
+                Theme::render($template);
+            });
+
+            self::addRoute('/anon/cms/api-prefix', function () {
+                Common::Header();
+                // 使用统一的 API前缀管理
+                $apiPrefix = ApiPrefix::get();
+                ResponseHelper::success(['apiPrefix' => $apiPrefix], '获取 API前缀成功');
+            });
+            self::addRoute('/anon/cms/comments', [Cms::class, 'handleCommentsRequest'], ['method' => 'GET,POST', 'token' => false]);
+            self::addRoute('/admin', function () {
+                Common::Header(200, false, false);
+                header('Content-Type: text/html; charset=utf-8');
+                try {
+                    Common::Components('Admin/Console');
+                } catch (RuntimeException $e) {
+                    Common::Header(500);
+                    ResponseHelper::serverError('控制台页面文件不存在: ' . $e->getMessage());
+                }
+                exit;
+            });
+            self::addStaticRoute('/anon/static/admin/css', $staticDir . 'admin/index.css', 'text/css', 31536000, true, ['token' => false]);
+            self::addStaticRoute('/anon/static/admin/js', $staticDir . 'admin/index.js', 'application/javascript', 31536000, true, ['token' => false]);
+            self::addStaticRoute('/anon/static/comments', $staticDir . 'comments.js', 'application/javascript', 31536000, true, ['token' => false]);
+        }
+
+        if (Debug::isEnabled()) {
+            self::addStaticRoute('/anon/static/debug/css', $staticDir . 'debug.css', 'text/css', $debugCacheTime, true, ['token' => false]);
+            self::addStaticRoute('/anon/static/debug/js', $staticDir . 'debug.js', 'application/javascript', $debugCacheTime, true, ['token' => false]);
+        }
+
+        self::addRoute('/anon/install', [Install::class, 'index']);
+        self::addRoute('/anon/install/api/token', [Install::class, 'apiGetToken']);
+        self::addRoute('/anon/install/api/mode', [Install::class, 'apiSelectMode']);
+        self::addRoute('/anon/install/api/get-mode', [Install::class, 'apiGetMode']);
+        self::addRoute('/anon/install/api/database', [Install::class, 'apiDatabaseConfig']);
+        self::addRoute('/anon/install/api/site', [Install::class, 'apiSiteConfig']);
+        self::addRoute('/anon/install/api/back', [Install::class, 'apiBack']);
+        self::addRoute('/anon/install/api/install', [Install::class, 'apiInstall']);
+        self::addRoute('/anon/install/api/confirm-overwrite', [Install::class, 'apiConfirmOverwrite']);
+        self::addRoute('/anon', function () {
+            if (self::isInstalled()) {
+                Common::Header(403);
+                echo json_encode([
+                    'code' => 403,
+                    'message' => 'Forbidden'
+                ]);
+                exit;
+            } else {
+                Install::index();
+            }
+        });
+
+        Debug::info("Registered system routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
+    }
+
+    /**
+     * 初始化应用路由
+     */
+    public static function initAppRoutes()
+    {
+        Debug::debug("Registering app routes");
+
+        if (Env::get('app.mode') === 'cms' && class_exists(Admin::class)) {
+            Admin::init();
+        }
+
+        if (Debug::isEnabled()) {
+            self::addRoute('/anon/debug/api/info', [Debug::class, 'debugInfo']);
+            self::addRoute('/anon/debug/api/performance', [Debug::class, 'performanceApi']);
+            self::addRoute('/anon/debug/api/logs', [Debug::class, 'logs']);
+            self::addRoute('/anon/debug/api/errors', [Debug::class, 'errors']);
+            self::addRoute('/anon/debug/api/hooks', [Debug::class, 'hooks']);
+            self::addRoute('/anon/debug/api/tools', [Debug::class, 'tools']);
+            self::addRoute('/anon/debug/api/clear', [Debug::class, 'clearData']);
+            self::addRoute('/anon/debug/login', [Debug::class, 'login']);
+            self::addRoute('/anon/debug/console', [Debug::class, 'console']);
+            
+            // 缓存状态诊断路由
+            self::addRoute('/anon/cache/status', function() {
+                if (!Env::get('app.debug.global', false)) {
+                    ResponseHelper::forbidden('仅在调试模式下可用');
+                    return;
+                }
+                
+                try {
+                    $cache = Cache::getInstance();
+                    $driver = get_class($cache);
+                    
+                    $stats = [];
+                    if ($cache instanceof Redis) {
+                        $redis = $cache->getRedis();
+                        $info = $redis->info();
+                        $stats = [
+                            'connected' => true,
+                            'redis_version' => $info['redis_version'] ?? 'unknown',
+                            'used_memory' => $info['used_memory_human'] ?? 'unknown',
+                            'total_keys' => $redis->dbSize(),
+                            'prefix' => $cache->getPrefix(),
+                        ];
+                    }
+                    
+                    ResponseHelper::success([
+                        'driver' => $driver,
+                        'enabled' => Env::get('app.base.cache.enabled', false),
+                        'config' => [
+                            'driver' => Env::get('app.base.cache.driver', 'file'),
+                            'prefix' => Env::get('app.base.cache.redis.prefix', 'anon:'),
+                            'database' => Env::get('app.base.cache.redis.database', 0),
+                        ],
+                        'stats' => $stats,
+                    ], '缓存状态获取成功');
+                } catch (Throwable $e) {
+                    ResponseHelper::error('获取缓存状态失败：' . $e->getMessage());
+                }
+            });
+        }
+
+        Debug::info("Registered app routes", ['routes' => array_keys(self::$routerConfig['routes'])]);
+    }
+
+    /**
+     * 检测路由冲突
+     * @param string $path 路由路径
+     * @param callable $newHandler 新处理函数
+     * @param callable $existingHandler 现有处理函数
+     * @return array
+     */
+    private static function detectRouteConflict(string $path, callable $newHandler, callable $existingHandler): array
+    {
+        if ($newHandler === $existingHandler) {
+            return ['conflict' => false, 'details' => ''];
+        }
+
+        $newReflection = self::getCallableReflection($newHandler);
+        $existingReflection = self::getCallableReflection($existingHandler);
+
+        if ($newReflection && $existingReflection) {
+            $newInfo = $newReflection['file'] . ':' . $newReflection['line'];
+            $existingInfo = $existingReflection['file'] . ':' . $existingReflection['line'];
+
+            if ($newInfo === $existingInfo) {
+                return ['conflict' => false, 'details' => ''];
+            }
+        }
+
+        $newInfo = self::formatHandlerInfo($newHandler);
+        $existingInfo = self::formatHandlerInfo($existingHandler);
+
+        return [
+            'conflict' => true,
+            'details' => "新处理函数 {$newInfo}, 已存在 {$existingInfo}"
+        ];
+    }
+
+    /**
+     * 获取反射信息
+     * @param callable $handler 处理函数
+     * @return array|null
+     */
+    private static function getCallableReflection(callable $handler): ?array
+    {
+        try {
+            if (is_string($handler) && function_exists($handler)) {
+                $reflection = new ReflectionFunction($handler);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            } elseif (is_array($handler) && count($handler) === 2) {
+                $reflection = new ReflectionMethod($handler[0], $handler[1]);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            } elseif ($handler instanceof Closure) {
+                $reflection = new ReflectionFunction($handler);
+                return [
+                    'file' => $reflection->getFileName(),
+                    'line' => $reflection->getStartLine()
+                ];
+            }
+        } catch (Exception $e) {
+        }
+
+        return null;
+    }
+
+    /**
+     * 格式化处理函数信息
+     * @param callable $handler 处理函数
+     * @return string
+     */
+    private static function formatHandlerInfo(callable $handler): string
+    {
+        if (is_string($handler)) {
+            return "function:{$handler}";
+        } elseif (is_array($handler) && count($handler) === 2) {
+            $class = is_object($handler[0]) ? get_class($handler[0]) : $handler[0];
+            return "method:{$class}::{$handler[1]}";
+        } elseif ($handler instanceof Closure) {
+            return "closure";
+        }
+
+        return "unknown";
+    }
+
+    /**
+     * 获取路由列表
+     * @return array
+     */
+    public static function getRoutesList(): array
+    {
+        $routes = [];
+        $conflicts = [];
+
+        foreach (self::$routerConfig['routes'] as $path => $handler) {
+            $handlerInfo = self::formatHandlerInfo($handler);
+            $reflection = self::getCallableReflection($handler);
+
+            $routeInfo = [
+                'path' => $path,
+                'handler' => $handlerInfo,
+                'meta' => self::$routerConfig['route_meta'][$path] ?? [],
+                'conflict' => false
+            ];
+
+            if ($reflection) {
+                $routeInfo['file'] = $reflection['file'];
+                $routeInfo['line'] = $reflection['line'];
+            }
+
+            $routes[] = $routeInfo;
+        }
+
+        $pathCounts = [];
+        foreach (self::$routerConfig['routes'] as $path => $handler) {
+            if (!isset($pathCounts[$path])) {
+                $pathCounts[$path] = [];
+            }
+            $pathCounts[$path][] = $handler;
+        }
+
+        foreach ($pathCounts as $path => $handlers) {
+            if (count($handlers) > 1) {
+                $conflicts[$path] = count($handlers);
+                foreach ($routes as &$route) {
+                    if ($route['path'] === $path) {
+                        $route['conflict'] = true;
+                    }
+                }
+            }
+        }
+
+        return [
+            'routes' => $routes,
+            'conflicts' => $conflicts,
+            'total' => count($routes)
+        ];
+    }
+}
+

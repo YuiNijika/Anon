@@ -1,7 +1,10 @@
 <?php
+
+use Anon\Modules\SystemConfig;
+use Anon\Modules\HttpResponseHelper;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -9,8 +12,8 @@ const Anon_RouterMeta = [
 ];
 
 try {
-    $config = Anon_System_Config::getConfig();
-    Anon_Http_Response::success($config, '获取配置信息成功');
+    $config = Config::getConfig();
+    ResponseHelper::success($config, '获取配置信息成功');
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e);
+    ResponseHelper::handleException($e);
 }

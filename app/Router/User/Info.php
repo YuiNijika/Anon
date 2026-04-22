@@ -1,17 +1,20 @@
 <?php
+
+use Anon\Modules\HttpRequestHelper;
+use Anon\Modules\HttpResponseHelper;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => true,
     'method' => 'GET',
 ];
 
 try {
-    $userInfo = Anon_Http_Request::requireAuth();
+    $userInfo = RequestHelper::requireAuth();
     
-    Anon_Http_Response::success($userInfo, '获取用户信息成功');
+    ResponseHelper::success($userInfo, '获取用户信息成功');
     
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '获取用户信息发生错误');
+    ResponseHelper::handleException($e, '获取用户信息发生错误');
 }

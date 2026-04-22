@@ -1,7 +1,10 @@
 <?php
+
+use Anon\ModulesCheck;
+use Anon\Modules\HttpResponseHelper;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'GET',
@@ -9,14 +12,14 @@ const Anon_RouterMeta = [
 
 try {
     
-    $isLoggedIn = Anon_Check::isLoggedIn();
+    $isLoggedIn = Check::isLoggedIn();
     $message = $isLoggedIn ? '用户已登录' : '用户未登录';
     
-    Anon_Http_Response::success([
+    ResponseHelper::success([
         'loggedIn' => $isLoggedIn,
         'logged_in' => $isLoggedIn,
     ], $message);
     
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '检查登录状态时发生错误');
+    ResponseHelper::handleException($e, '检查登录状态时发生错误');
 }

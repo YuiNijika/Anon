@@ -1,7 +1,11 @@
 <?php
+
+use Anon\Modules\System\PluginBase;
+use Anon\Modules\SystemPlugin;
+use Anon\ModulesDebug;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
+class Anon_Plugin_HelloWorld extends Base
 {
     /**
      * 插件初始化，可在内部使用 $this->options()->get() 读取选项
@@ -11,7 +15,7 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
     {
         Anon::route('/hello', function () {
             $greeting = $this->options()->get('greeting', 'Hello, World!', false, null);
-            $mode = Anon_System_Plugin::isApiMode() ? 'API' : 'CMS';
+            $mode = Plugin::isApiMode() ? 'API' : 'CMS';
             
             Anon::success([
                 'message' => $greeting,
@@ -33,7 +37,7 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
      */
     public static function activate()
     {
-        Anon_Debug::info('HelloWorld 插件已激活');
+        Debug::info('HelloWorld 插件已激活');
     }
 
     /**
@@ -42,7 +46,7 @@ class Anon_Plugin_HelloWorld extends Anon_Plugin_Base
      */
     public static function deactivate()
     {
-        Anon_Debug::info('HelloWorld 插件已停用');
+        Debug::info('HelloWorld 插件已停用');
     }
 
     /**

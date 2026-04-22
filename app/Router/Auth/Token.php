@@ -1,7 +1,11 @@
 <?php
+
+use Anon\ModulesCheck;
+use Anon\Modules\HttpRequestHelper;
+use Anon\Modules\HttpResponseHelper;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => '请先登录以获取 Token',
     'method' => 'GET',
@@ -9,23 +13,23 @@ const Anon_RouterMeta = [
 
 try {
     
-    $isLoggedIn = Anon_Check::isLoggedIn();
+    $isLoggedIn = Check::isLoggedIn();
     $token = '';
     
     if ($isLoggedIn) {
-        $userId = Anon_Http_Request::getUserId();
+        $userId = RequestHelper::getUserId();
         $username = $_SESSION['username'] ?? '';
         if ($userId && $username) {
-            $token = Anon_Http_Request::getUserToken($userId, $username);
+            $token = RequestHelper::getUserToken($userId, $username);
         }
     }
     
     $message = $token ? '获取 Token 成功' : '用户未登录，无法获取 Token';
     
-    Anon_Http_Response::success([
+    ResponseHelper::success([
         'token' => $token,
     ], $message);
     
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '获取 Token 时发生错误');
+    ResponseHelper::handleException($e, '获取 Token 时发生错误');
 }

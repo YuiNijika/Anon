@@ -5,6 +5,7 @@
   "author": "YuiNijika",
   "url": "https://github.com/YuiNijika",
   "anon": {
-    "mode": "auto"
+    "mode": "auto",
+    "class": "Anon\\\\App\\\\Plugin\\\\HelloWorld\\\\HelloWorld"
   }
 }

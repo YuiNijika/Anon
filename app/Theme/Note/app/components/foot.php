@@ -1,4 +1,6 @@
 <?php
+
+use Anon\ModulesCommon;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 ?>
 </main>
@@ -7,7 +9,7 @@ if (!defined('ANON_ALLOWED_ACCESS')) exit;
   <div class="container mx-auto max-w-3xl px-4 py-6">
     <div class="flex flex-col items-center justify-center gap-2 text-sm text-base-content/60">
       <p>&copy; <?php echo date('Y'); ?> <?php $this->options()->get('title', true); ?></p>
-      <p>Powered by <?php echo Anon_Common::NAME; ?> v<?php echo Anon_Common::VERSION; ?></p>
+      <p>Powered by <?php echo Common::NAME; ?> v<?php echo Common::VERSION; ?></p>
       
       <?php 
       // 显示备案信息

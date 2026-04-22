@@ -1,0 +1,104 @@
+# 路由与页面
+
+本节说明CMS模式下路由的配置方式、基本/参数/嵌套路由及与模板的对应关系，仅适用于CMS模式。
+
+CMS路由决定URL与主题模板的映射，配置存储在数据库options表的routes字段，或使用安装、初始化时的默认配置，格式为JSON。
+
+## 配置存储
+
+- 通过 `Options::get('routes', '[]')` 读取  
+- 通过 `Options::set('routes', json_encode($routes, JSON_UNESCAPED_UNICODE))` 写入  
+- 路由配置存储在数据库 `options` 表的 `routes` 字段中  
+
+## 基本路由
+
+```php
+<?php
+use Anon\Modules\Cms\Theme\Options;
+
+Options::set('routes', json_encode([
+    '/' => 'index',           // 首页
+    '/about' => 'about',      // 关于页
+    '/contact' => 'contact',  // 联系页
+], JSON_UNESCAPED_UNICODE));
+```
+
+路径对应主题下的模板文件名，例如 index.php、about.php。
+
+## 参数路由
+
+支持动态参数，参数会传入模板：
+
+```php
+<?php
+use Anon\Modules\Cms\Theme\Options;
+
+Options::set('routes', json_encode([
+    '/post/{id}' => 'post',
+    '/category/{slug}' => 'category',
+    '/user/{id}/profile' => 'profile',
+], JSON_UNESCAPED_UNICODE));
+```
+
+模板中通过变量访问，例如：
+
+```php
+<!-- app/Theme/default/post.php -->
+<h1>文章 ID: <?php echo htmlspecialchars($id ?? ''); ?></h1>
+```
+
+## 嵌套路由
+
+```php
+<?php
+use Anon\Modules\Cms\Theme\Options;
+
+Options::set('routes', json_encode([
+    'blog' => [
+        'index' => 'blog/index',
+        'post' => [
+            '{id}' => 'blog/post',
+        ],
+    ],
+], JSON_UNESCAPED_UNICODE));
+```
+
+生成：
+
+- `/blog/index` → 模板 `blog/index.php`  
+- `/blog/post/{id}` → 模板 `blog/post.php`  
+
+## 响应头与路由元数据
+
+CMS 模式下默认输出 HTML，系统会设置 `Content-Type: text/html; charset=utf-8`。若请求头带 `Accept: application/json`，可仍返回 JSON。
+
+在模板文件顶部可使用 `RouterMeta` 配置元数据：
+
+```php
+<?php
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
+
+const RouterMeta = [
+    'header' => true,        // CMS 下为 HTML 响应头
+    'requireLogin' => false,
+    'method' => 'GET',
+    'cache' => ['enabled' => true, 'time' => 3600],
+];
+?>
+```
+
+## 错误处理
+
+- **404**：CMS 模式下返回 HTML 404 页，可通过 `router_no_match` 钩子自定义：
+
+```php
+<?php
+use Anon\Modules\System\Hook;
+use Anon\Modules\Cms\Theme\Theme;
+
+Hook::add_action('router_no_match', function($path) {
+    Theme::render('404', ['path' => $path]);
+});
+```
+
+主题基础与模板渲染细节见 [CMS 模式概述](./overview.md) 与 [主题系统与开发](./theme-system.md)。

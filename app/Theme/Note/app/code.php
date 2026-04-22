@@ -1,5 +1,7 @@
 <?php
 
+
+use Anon\Modules\SystemHook;
 /**
  * 主题自定义代码
  *
@@ -14,12 +16,12 @@ $customCodeHead = $this->options('custom_code_head', '', false);
 $customCodeFoot = $this->options('custom_code_foot', '', false);
 
 if ($customCodeHead) {
-    Anon_Hook::add_action('theme_head', function () use ($customCodeHead) {
+    Hook::add_action('theme_head', function () use ($customCodeHead) {
         echo $customCodeHead;
     });
 }
 if ($customCodeFoot) {
-    Anon_Hook::add_action('theme_foot', function () use ($customCodeFoot) {
+    Hook::add_action('theme_foot', function () use ($customCodeFoot) {
         echo $customCodeFoot;
     });
 }

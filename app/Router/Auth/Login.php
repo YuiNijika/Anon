@@ -1,7 +1,15 @@
 <?php
+
+use Anon\Modules\HttpRequestHelper;
+use Anon\Modules\AuthCaptcha;
+use Anon\Modules\HttpResponseHelper;
+use Anon\ModulesCheck;
+use Anon\Modules\DatabaseDatabase;
+use Anon\ModulesCommon;
+use Anon\Modules\System\CacheCache;
 if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
-const Anon_RouterMeta = [
+const RouterMeta = [
     'header' => true,
     'requireLogin' => false,
     'method' => 'POST',
@@ -9,36 +17,36 @@ const Anon_RouterMeta = [
 
 try {
     
-    $data = Anon_Http_Request::validate([
+    $data = RequestHelper::validate([
         'username' => '用户名不能为空',
         'password' => '密码不能为空'
     ]);
     
-    $inputData = Anon_Http_Request::getInput();
+    $inputData = RequestHelper::getInput();
     
-    if (Anon_Auth_Captcha::isEnabled()) {
+    if (Captcha::isEnabled()) {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         
         if (empty($inputData['captcha'] ?? '')) {
-            Anon_Http_Response::error('验证码不能为空', [], 400);
+            ResponseHelper::error('验证码不能为空', [], 400);
         }
         
-        if (!Anon_Auth_Captcha::verify($inputData['captcha'] ?? '')) {
-            Anon_Http_Response::error('验证码错误', [], 400);
+        if (!Captcha::verify($inputData['captcha'] ?? '')) {
+            ResponseHelper::error('验证码错误', [], 400);
         }
         
-        Anon_Auth_Captcha::clear();
+        Captcha::clear();
     }
     
-    Anon_Check::startSessionIfNotStarted();
+    Check::startSessionIfNotStarted();
     
     $username = $data['username'];
     $password = $data['password'];
     $rememberMe = filter_var($inputData['rememberMe'] ?? false, FILTER_VALIDATE_BOOLEAN);
     
-    $db = Anon_Database::getInstance();
+    $db = Database::getInstance();
     $user = $db->getUserInfoByName($username);
     
     // 始终验证密码避免时序攻击
@@ -54,21 +62,21 @@ try {
         $db->logLogin(null, $username, false, '用户名或密码错误');
         
         // 检查登录失败次数限制
-        $cacheKey = 'login_fail_' . Anon_Common::GetClientIp();
-        $failCount = Anon_Cache::get($cacheKey) ?? 0;
+        $cacheKey = 'login_fail_' . Common::GetClientIp();
+        $failCount = Cache::get($cacheKey) ?? 0;
         $failCount++;
-        Anon_Cache::set($cacheKey, $failCount, 900); // 15分钟
+        Cache::set($cacheKey, $failCount, 900); // 15分钟
         
         if ($failCount >= 5) {
-            Anon_Http_Response::error('登录失败次数过多，请15分钟后重试', [], 429);
+            ResponseHelper::error('登录失败次数过多，请15分钟后重试', [], 429);
         }
         
-        Anon_Http_Response::unauthorized('用户名或密码错误');
+        ResponseHelper::unauthorized('用户名或密码错误');
     }
     
     // 登录成功清除失败计数
-    $cacheKey = 'login_fail_' . Anon_Common::GetClientIp();
-    Anon_Cache::delete($cacheKey);
+    $cacheKey = 'login_fail_' . Common::GetClientIp();
+    Cache::delete($cacheKey);
     
     session_regenerate_id(true);
     
@@ -76,9 +84,9 @@ try {
     $_SESSION['user_id'] = $userId;
     $_SESSION['username'] = $user['name'];
     
-    Anon_Check::setAuthCookies($userId, $user['name'], $rememberMe);
+    Check::setAuthCookies($userId, $user['name'], $rememberMe);
     
-    $token = Anon_Http_Request::generateUserToken($userId, $user['name'], $rememberMe);
+    $token = RequestHelper::generateUserToken($userId, $user['name'], $rememberMe);
     
     // 记录登录成功
     $db->logLogin($userId, $user['name'], true, '登录成功');
@@ -94,8 +102,8 @@ try {
         ],
     ];
     
-    Anon_Http_Response::success($userData, '登录成功');
+    ResponseHelper::success($userData, '登录成功');
     
 } catch (Exception $e) {
-    Anon_Http_Response::handleException($e, '登录处理过程中发生错误');
+    ResponseHelper::handleException($e, '登录处理过程中发生错误');
 }
