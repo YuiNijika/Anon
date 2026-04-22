@@ -1,4 +1,4 @@
-# Anon Framework
+# Anon Framework Next
 
 > 一个简洁优雅的 PHP `API&CMS` 开发框架
 >
