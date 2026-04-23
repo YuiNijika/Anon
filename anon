@@ -1,0 +1,168 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Anon Framework 命令行工具
+ * 用法: php anon <command> [options]
+ */
+
+// 定义访问权限
+define('ANON_ALLOWED_ACCESS', true);
+
+// 加载自动加载器
+require __DIR__ . '/vendor/autoload.php';
+
+use Anon\Main;
+
+// 获取命令参数
+$argv = $_SERVER['argv'] ?? [];
+$command = $argv[1] ?? null;
+
+// 显示帮助信息
+if (!$command || in_array($command, ['-h', '--help', 'help'])) {
+    showHelp();
+    exit(0);
+}
+
+// 处理命令
+switch ($command) {
+    case 'run':
+        handleRunCommand($argv);
+        break;
+    
+    case 'version':
+    case '-v':
+    case '--version':
+        showVersion();
+        break;
+    
+    default:
+        echo "错误: 未知命令 '{$command}'" . PHP_EOL;
+        echo "使用 'php anon help' 查看可用命令" . PHP_EOL;
+        exit(1);
+}
+
+/**
+ * 显示帮助信息
+ */
+function showHelp(): void
+{
+    echo <<<HELP
+
+Anon Framework 命令行工具
+
+用法:
+  php anon <command> [options]
+
+可用命令:
+  run               启动内置开发服务器
+  version, -v       显示版本信息
+  help, -h          显示此帮助信息
+
+运行命令示例:
+  php anon run                      # 使用默认配置启动 (localhost:8000)
+  php anon run --host=0.0.0.0      # 指定主机
+  php anon run --port=8080         # 指定端口
+  php anon run --host=0.0.0.0 --port=8080  # 同时指定主机和端口
+
+HELP;
+}
+
+/**
+ * 显示版本信息
+ */
+function showVersion(): void
+{
+    echo "Anon Framework " . \Anon\Modules\Common::VERSION . PHP_EOL;
+}
+
+/**
+ * 处理 run 命令
+ */
+function handleRunCommand(array $argv): void
+{
+    // 解析参数
+    $options = parseRunOptions($argv);
+    
+    $host = $options['host'];
+    $port = $options['port'];
+    $root = $options['root'];
+    
+    echo "========================================" . PHP_EOL;
+    echo "  Anon Framework 开发服务器" . PHP_EOL;
+    echo "========================================" . PHP_EOL;
+    echo PHP_EOL;
+    echo "服务器信息:" . PHP_EOL;
+    echo "  主机: {$host}" . PHP_EOL;
+    echo "  端口: {$port}" . PHP_EOL;
+    echo "  根目录: {$root}" . PHP_EOL;
+    echo PHP_EOL;
+    echo "访问地址:" . PHP_EOL;
+    echo "  http://{$host}:{$port}" . PHP_EOL;
+    echo PHP_EOL;
+    echo "按 Ctrl+C 停止服务器" . PHP_EOL;
+    echo "========================================" . PHP_EOL;
+    echo PHP_EOL;
+    
+    // 启动内置服务器
+    startServer($host, $port, $root);
+}
+
+/**
+ * 解析 run 命令的选项
+ */
+function parseRunOptions(array $argv): array
+{
+    $options = [
+        'host' => 'localhost',
+        'port' => 8000,
+        'root' => __DIR__ . '/run',
+    ];
+    
+    foreach ($argv as $arg) {
+        if (strpos($arg, '--host=') === 0) {
+            $options['host'] = substr($arg, 7);
+        } elseif (strpos($arg, '--port=') === 0) {
+            $options['port'] = intval(substr($arg, 7));
+        } elseif (strpos($arg, '--root=') === 0) {
+            $options['root'] = substr($arg, 7);
+        }
+    }
+    
+    return $options;
+}
+
+/**
+ * 启动内置服务器
+ */
+function startServer(string $host, int $port, string $root): void
+{
+    // 检查根目录是否存在
+    if (!is_dir($root)) {
+        echo "错误: 根目录不存在: {$root}" . PHP_EOL;
+        exit(1);
+    }
+    
+    // 检查入口文件是否存在
+    $indexFile = $root . '/index.php';
+    if (!file_exists($indexFile)) {
+        echo "错误: 入口文件不存在: {$indexFile}" . PHP_EOL;
+        exit(1);
+    }
+    
+    // 构建命令
+    $cmd = sprintf(
+        'php -S %s:%d -t %s %s',
+        escapeshellarg($host),
+        $port,
+        escapeshellarg($root),
+        escapeshellarg($indexFile)
+    );
+    
+    // 执行命令
+    passthru($cmd, $returnCode);
+    
+    if ($returnCode !== 0) {
+        echo PHP_EOL . "错误: 服务器启动失败 (退出码: {$returnCode})" . PHP_EOL;
+        exit(1);
+    }
+}

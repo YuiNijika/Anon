@@ -224,14 +224,38 @@ class Main
      */
     private static function handleError($e)
     {
-        $id = bin2hex(random_bytes(8));
-        $isDebug = (defined('ANON_DEBUG') && ANON_DEBUG);
-        if (!$isDebug && class_exists(Env::class) && Env::isInitialized()) {
-            $isDebug = (bool) Env::get('app.debug.global', false);
+        // 生成错误 ID 并记录日志
+        $errorId = bin2hex(random_bytes(8));
+        self::logFatalError($e, $errorId);
+
+        // 处理连接异常(数据库/Redis)
+        if (self::isConnectionError($e)) {
+            self::handleConnectionError($e, $errorId);
         }
 
+        // 根据模式和调试状态输出错误
+        $mode = Env::get('app.mode', 'api');
+        $isDebug = self::isDebugEnabled();
+        
+        if ($isDebug && $mode === 'cms') {
+            self::outputHtmlError($e, $errorId);
+        } else {
+            self::outputJsonError($e, $errorId, $isDebug);
+        }
+        
+        exit(1);
+    }
+
+    /**
+     * 记录致命错误日志
+     * @param \Throwable $e 异常对象
+     * @param string $errorId 错误 ID
+     * @return void
+     */
+    private static function logFatalError($e, string $errorId): void
+    {
         $payload = [
-            'id' => $id,
+            'id' => $errorId,
             'type' => 'exception',
             'message' => method_exists($e, 'getMessage') ? $e->getMessage() : (string) $e,
             'file' => method_exists($e, 'getFile') ? $e->getFile() : null,
@@ -243,23 +267,93 @@ class Main
             'time' => date('c'),
         ];
         self::writeFatalLog($payload);
+    }
 
-        if ($isDebug) {
-            http_response_code(500);
-            header('Content-Type: text/html; charset=utf-8');
-            echo "<pre>";
-            echo "ErrorId: " . $id . "\n\n";
-            echo "Error: " . $e->getMessage() . "\n";
-            echo "File: " . $e->getFile() . "\n";
-            echo "Line: " . $e->getLine() . "\n";
-            echo "Trace: " . $e->getTraceAsString() . "\n";
-            echo "</pre>";
-        } else {
-            // 生产环境只显示简单错误
-            http_response_code(500);
-            echo "Internal Server Error (ErrorId: {$id})";
+    /**
+     * 检查是否为连接异常
+     * @param \Throwable $e 异常对象
+     * @return bool
+     */
+    private static function isConnectionError($e): bool
+    {
+        return (
+            $e instanceof \Anon\Modules\Database\ConnectionException ||
+            ($e instanceof \RuntimeException && strpos($e->getMessage(), 'Redis') !== false)
+        );
+    }
+
+    /**
+     * 处理连接异常
+     * @param \Throwable $e 异常对象
+     * @param string $errorId 错误 ID
+     * @return void
+     */
+    private static function handleConnectionError($e, string $errorId): void
+    {
+        $message = ($e instanceof \Anon\Modules\Database\ConnectionException)
+            ? '数据库连接失败'
+            : 'Redis 连接失败';
+
+        \Anon\Modules\Http\ResponseHelper::error($message, ['error_id' => $errorId], 503);
+    }
+
+    /**
+     * 检查是否开启调试模式
+     * @return bool
+     */
+    private static function isDebugEnabled(): bool
+    {
+        if (defined('ANON_DEBUG') && ANON_DEBUG) {
+            return true;
         }
-        exit(1);
+        
+        if (class_exists(Env::class) && Env::isInitialized()) {
+            return (bool) Env::get('app.debug.global', false);
+        }
+        
+        return false;
+    }
+
+    /**
+     * 输出 HTML 格式错误(CMS + Debug)
+     * @param \Throwable $e 异常对象
+     * @param string $errorId 错误 ID
+     * @return void
+     */
+    private static function outputHtmlError($e, string $errorId): void
+    {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=utf-8');
+        
+        echo "<pre>";
+        echo "ErrorId: {$errorId}\n\n";
+        echo "Error: " . $e->getMessage() . "\n";
+        echo "File: " . $e->getFile() . "\n";
+        echo "Line: " . $e->getLine() . "\n";
+        echo "Trace: " . $e->getTraceAsString() . "\n";
+        echo "</pre>";
+    }
+
+    /**
+     * 输出 JSON 格式错误(API 模式或非 Debug)
+     * @param \Throwable $e 异常对象
+     * @param string $errorId 错误 ID
+     * @param bool $isDebug 是否调试模式
+     * @return void
+     */
+    private static function outputJsonError($e, string $errorId, bool $isDebug): void
+    {
+        $data = [];
+        
+        if ($isDebug) {
+            $data = [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ];
+        }
+        
+        \Anon\Modules\Http\ResponseHelper::error($e->getMessage(), $data, 500);
     }
 
     /**

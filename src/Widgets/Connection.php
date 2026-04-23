@@ -2,6 +2,7 @@
 
 namespace Anon\Widgets;
 
+use Anon\Modules\Database\ConnectionException;
 use Anon\Modules\Database\QueryBuilder;
 use Anon\Modules\Debug;
 use Anon\Modules\System\Env;
@@ -48,17 +49,44 @@ class Connection
     protected function __construct()
     {
         if (self::$connInstance === null) {
-            self::$connInstance = new mysqli(
-                ANON_DB_HOST,
-                ANON_DB_USER,
-                ANON_DB_PASSWORD,
-                ANON_DB_DATABASE,
-                ANON_DB_PORT
-            );
+            try {
+                self::$connInstance = new mysqli(
+                    ANON_DB_HOST,
+                    ANON_DB_USER,
+                    ANON_DB_PASSWORD,
+                    ANON_DB_DATABASE,
+                    ANON_DB_PORT
+                );
+            } catch (\Throwable $e) {
+                Debug::error("数据库连接失败", [
+                    'host' => ANON_DB_HOST,
+                    'port' => ANON_DB_PORT,
+                    'database' => ANON_DB_DATABASE,
+                    'error' => $e->getMessage()
+                ]);
+                throw new ConnectionException(
+                    "无法连接到数据库服务器: " . $e->getMessage(),
+                    ANON_DB_HOST,
+                    ANON_DB_PORT,
+                    ANON_DB_DATABASE,
+                    0,
+                    $e
+                );
+            }
 
             if (self::$connInstance->connect_error) {
-                Debug::error("数据库连接失败", ['error' => self::$connInstance->connect_error]);
-                throw new RuntimeException("数据库连接失败");
+                Debug::error("数据库连接失败", [
+                    'host' => ANON_DB_HOST,
+                    'port' => ANON_DB_PORT,
+                    'database' => ANON_DB_DATABASE,
+                    'error' => self::$connInstance->connect_error
+                ]);
+                throw new ConnectionException(
+                    "数据库连接失败: " . self::$connInstance->connect_error,
+                    ANON_DB_HOST,
+                    ANON_DB_PORT,
+                    ANON_DB_DATABASE
+                );
             }
 
             self::$connInstance->set_charset(ANON_DB_CHARSET);

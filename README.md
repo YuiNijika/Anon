@@ -10,6 +10,49 @@
 
 [快速开始](https://yuinijika.github.io/Anon/)
 
+## 快速启动
+
+### 使用内置开发服务器
+
+```bash
+# 启动开发服务器 (默认 localhost:8000)
+php anon run
+
+# 指定端口
+php anon run --port=8080
+
+# 指定主机和端口
+php anon run --host=0.0.0.0 --port=8080
+
+# Windows 用户可以直接使用
+anon run
+```
+
+### 其他命令
+
+```bash
+# 查看版本
+php anon version
+
+# 查看帮助
+php anon help
+```
+
+### 使用 Composer 脚本
+
+```bash
+# 启动开发服务器
+composer serve
+
+# 启动开发服务器 (监听所有接口)
+composer serve:dev
+
+# 查看版本
+composer anon:version
+```
+
+📚 **更多详细信息请查看**：[CLI 命令行系统文档](https://yuinijika.github.io/Anon/guide/cli-system.html)
+
 ## PHP 版本要求
 
 PHP 7.4 - 8+

@@ -1,36 +1,268 @@
 # CLI 命令行系统
 
-CLI（Command Line Interface）命令行系统允许开发者通过终端运行自定义命令，执行批处理任务、维护操作等。
-
-::: tip 代码示例说明
-本文档中的代码示例使用了简化的类名。在实际使用时，需要在文件顶部添加相应的 `use` 语句：
-
-```php
-use Anon\Modules\System\Console;
-use Anon\Modules\Database\Database;
-use Anon\Modules\System\Debug;
-```
-:::
+CLI（Command Line Interface）命令行系统提供了便捷的开发工具和命令执行功能，包括内置开发服务器、版本查看等。
 
 ## 快速开始
 
-### 注册第一个命令
-
-```php
-<?php
-use Anon\Modules\System\Console;
-
-Console::command('hello', function($args) {
-    Console::info('Hello, World!');
-    return 0;
-}, '输出问候语');
-```
-
-### 运行命令
+### 启动开发服务器
 
 ```bash
-php index.php hello
+# 基本用法 (localhost:8000)
+php anon run
+
+# 指定端口
+php anon run --port=8080
+
+# 指定主机和端口
+php anon run --host=0.0.0.0 --port=8080
+
+# Windows 用户可以直接使用
+anon run
 ```
+
+### 其他命令
+
+```bash
+# 查看版本
+php anon version
+
+# 查看帮助
+php anon help
+```
+
+### 使用 Composer 脚本
+
+```bash
+# 启动开发服务器
+composer serve
+
+# 启动开发服务器 (监听所有接口)
+composer serve:dev
+
+# 查看版本
+composer anon:version
+```
+
+::: tip 提示
+本文档介绍的是 Anon Framework 的命令行工具。如果你需要自定义 CLI 命令，请参考下方的「自定义命令」章节。
+:::
+
+## 开发服务器
+
+### 基本用法
+
+最简单的启动方式：
+
+```bash
+php anon run
+```
+
+这将在 `localhost:8000` 启动开发服务器。
+
+### 自定义配置
+
+#### 指定端口
+
+```bash
+php anon run --port=8080
+```
+
+#### 监听所有接口（局域网访问）
+
+```bash
+php anon run --host=0.0.0.0 --port=8080
+```
+
+其他设备可以通过你的 IP 地址访问，例如：`http://192.168.1.100:8080`
+
+#### 自定义根目录
+
+```bash
+php anon run --root=./public
+```
+
+### 停止服务器
+
+按 `Ctrl+C` 即可停止服务器。
+
+### 使用场景
+
+#### 本地开发
+
+```bash
+php anon run
+# 访问: http://localhost:8000
+```
+
+#### 局域网测试
+
+```bash
+php anon run --host=0.0.0.0 --port=8080
+# 其他设备可通过你的 IP 访问
+```
+
+#### 多项目同时运行
+
+```bash
+# 项目 1
+php anon run --port=8000
+
+# 项目 2
+php anon run --port=8001
+```
+
+## 命令参考
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `run` | 启动内置开发服务器 | `php anon run` |
+| `version` | 显示版本信息 | `php anon version` |
+| `help` | 显示帮助信息 | `php anon help` |
+
+## 运行选项
+
+`run` 命令支持以下选项：
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `--host=<hostname>` | 指定服务器主机 | `localhost` |
+| `--port=<port>` | 指定服务器端口 | `8000` |
+| `--root=<path>` | 指定网站根目录 | `./run` |
+
+## 注意事项
+
+### PHP 版本要求
+
+确保你的 PHP 版本 >= 7.4：
+
+```bash
+php -v
+```
+
+### 内置服务器限制
+
+`php anon run` 使用的是 PHP 内置的发展服务器，它有以下特点：
+
+- ✅ 适合本地开发和测试
+- ✅ 支持热重载（修改代码后刷新即可）
+- ❌ **不适合生产环境**
+- ❌ 单线程，不支持高并发
+- ❌ 性能不如 Nginx/Apache
+
+**生产环境请使用专业的 Web 服务器（Nginx 或 Apache）**。
+
+### 端口占用
+
+如果端口已被占用，你会看到类似这样的错误：
+
+```
+Address already in use
+```
+
+解决方法：更换端口
+
+```bash
+php anon run --port=8081
+```
+
+### 权限问题
+
+在 Linux/Mac 上，如果使用 1024 以下的端口可能需要 root 权限：
+
+```bash
+sudo php anon run --port=80
+```
+
+### 防火墙设置
+
+如果需要从其他设备访问，请确保防火墙允许该端口的连接：
+
+```bash
+# Linux (ufw)
+sudo ufw allow 8080/tcp
+
+# Windows
+# 在 Windows 防火墙中添加入站规则
+```
+
+## 故障排除
+
+### 找不到命令
+
+**问题**: 执行 `php anon run` 时提示找不到文件
+
+**解决**: 确保在项目根目录下执行命令
+
+```bash
+cd /path/to/your/project
+php anon run
+```
+
+### PHP 不在 PATH 中
+
+**问题**: 提示 `php` 不是内部或外部命令
+
+**解决**: 
+- Windows: 将 PHP 安装目录添加到系统 PATH
+- Linux/Mac: 确保 PHP 已正确安装
+
+验证 PHP 是否可用：
+
+```bash
+php -v
+```
+
+### 服务器启动后立即退出
+
+**问题**: 服务器启动后立即退出，没有错误信息
+
+**解决**: 检查端口是否被占用
+
+```bash
+# Windows
+netstat -ano | findstr :8000
+
+# Linux/Mac
+lsof -i :8000
+```
+
+### 访问返回 500 错误
+
+**问题**: 浏览器访问显示 500 Internal Server Error
+
+**解决**: 
+1. 检查日志文件 `logs/php_error.log`
+2. 确认数据库配置正确
+3. 确认所有依赖已安装
+
+```bash
+# 查看最新日志
+tail -f logs/php_error.log
+```
+
+### Composer 脚本不工作
+
+**问题**: 执行 `composer serve` 无响应
+
+**解决**: 确保在项目根目录下，并且 `composer.json` 存在
+
+```bash
+# 检查 composer.json 是否存在
+ls composer.json
+
+# 重新安装依赖
+composer install
+```
+
+---
+
+# 高级用法：自定义 CLI 命令
+
+::: warning 注意
+以下章节介绍如何创建自定义的 CLI 命令，这与 `php anon run` 开发服务器是不同的功能。
+:::
+
+CLI 命令行系统允许开发者通过终端运行自定义命令，执行批处理任务、维护操作等。
 
 ## 命令注册
 

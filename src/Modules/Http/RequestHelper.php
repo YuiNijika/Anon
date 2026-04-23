@@ -10,7 +10,7 @@ namespace Anon\Modules\Http;
 
 use RuntimeException;
 use Http;
-use Token;
+use Anon\Modules\Auth\Token;
 use Anon\Modules\Check;
 use Anon\Modules\Common;
 use Anon\Modules\Database\Database;

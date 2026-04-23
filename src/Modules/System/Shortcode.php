@@ -1,9 +1,9 @@
 <?php
 namespace Anon\Modules\System;
 
+use System;
 
-
-use System;if (!defined('ANON_ALLOWED_ACCESS')) exit;
+if (!defined('ANON_ALLOWED_ACCESS')) exit;
 
 /**
  * 短代码系统

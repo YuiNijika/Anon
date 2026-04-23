@@ -2,6 +2,7 @@
 namespace Anon\Modules\Cms;
 
 use Anon\Modules\Database\Database;
+use Anon\Modules\Debug;
 use Exception;
 
 if (!defined('ANON_ALLOWED_ACCESS')) exit;

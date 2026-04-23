@@ -3,7 +3,7 @@ namespace Anon\Modules\Http;
 
 
 
-use Anon\Modules\SystemException as SystemException;
+use Anon\Modules\System\Exception as SystemException;
 
 use Throwable;
 use Http;
@@ -242,14 +242,40 @@ class ResponseHelper
      */
     public static function handleException(Throwable $exception, ?string $customMessage = null): void
     {
-        $message = $customMessage ?: $exception->getMessage();
-
-        // 记录异常
+        // 记录异常到 debug log (始终记录)
         Debug::error('Exception handled', [
+            'type' => get_class($exception),
             'message' => $exception->getMessage(),
             'file' => $exception->getFile(),
             'line' => $exception->getLine()
         ]);
+
+        // 检查是否为连接异常(数据库/Redis)
+        $isConnectionError = (
+            $exception instanceof \Anon\Modules\Database\ConnectionException ||
+            ($exception instanceof \RuntimeException && strpos($exception->getMessage(), 'Redis') !== false)
+        );
+
+        if ($isConnectionError) {
+            // 连接异常：生成 ErrorId 并使用 error() 方法
+            $errorId = bin2hex(random_bytes(8));
+            
+            if ($exception instanceof \Anon\Modules\Database\ConnectionException) {
+                $message = '数据库连接失败';
+            } else {
+                $message = 'Redis 连接失败';
+            }
+
+            self::error($message, ['error_id' => $errorId], 503);
+        }
+
+        // 其他异常：正常处理
+        // 为数据库连接异常提供友好消息
+        if ($exception instanceof \Anon\Modules\Database\ConnectionException) {
+            $message = $customMessage ?: $exception->getFriendlyMessage();
+        } else {
+            $message = $customMessage ?: $exception->getMessage();
+        }
 
         // 设置状态码
         $httpCode = 500;

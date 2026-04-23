@@ -1404,20 +1404,22 @@ class Router
      */
     private static function matchParameterRoute(string $requestPath): ?array
     {
-        foreach (self::$routes['parameter'] as $routePattern => $route) {
+        foreach (self::$routes as $routePattern => $route) {
+            // 跳过没有参数的路由
             if (strpos($routePattern, '{') === false) {
                 continue; 
             }
+            
+            // 将路由模式转换为正则表达式
+            // 例如: /page/{page} -> /^\/page\/([^\/]+)$/
             $pattern = preg_quote($routePattern, '/');
+            $pattern = preg_replace('#\\\\\{[^}]+\\\\\}#', '([^/]+)', $pattern);
             $pattern = '/^' . $pattern . '$/';
 
             if (preg_match($pattern, $requestPath, $matches)) {
-                /**
-     * 匹配参数路由
-     * @param string $requestPath 请求路径
-     * @return array|null
-     */
-                $paramNames = $paramNames[1];
+                // 提取参数名
+                preg_match_all('#\{([^}]+)\}#', $routePattern, $paramNamesMatch);
+                $paramNames = $paramNamesMatch[1];
 
                 $params = [];
                 for ($i = 0; $i < count($paramNames); $i++) {

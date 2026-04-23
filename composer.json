@@ -10,5 +10,11 @@
         "psr-4": {
             "Anon\\": "src/"
         }
+    },
+    "scripts": {
+        "serve": "php anon run",
+        "serve:dev": "php anon run --host=0.0.0.0 --port=8000",
+        "anon:version": "php anon version",
+        "anon:help": "php anon help"
     }
 }

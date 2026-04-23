@@ -1,6 +1,6 @@
 <?php
 /**
- * Anon Framework
+ * Anon Framework Next
  * @author YuiNijika
  * @license MIT
  * @copyright 2025 YuiNijika
