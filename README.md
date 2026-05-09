@@ -1,69 +1,79 @@
-# Anon Framework Next
+# Anon Framework Next Skeleton
 
-> 一个简洁优雅的 PHP `API&CMS` 开发框架
->
-> 当然你也可以直接安装`CMS`模式把它当作博客系统来使用。
+**Anon Framework Next** 是一个现代化的 PHP 后端 API 框架。本仓库是该框架的应用骨架（Skeleton），为开发者提供了一个开箱即用的目录结构和基础配置，让你能够以最快的速度启动一个新的 API 项目。
 
-大家好我是YuiNijika，这个框架的作者。
+## 核心架构设计
 
-起初框架的定位为`一个简单快速的 PHP API 开发框架`，后面感觉有必要就扩展了`CMS系统`。一些地方还是下了些功夫的！在开发时借鉴了Nuxtjs&Typecho的一些思路所以开发体验和其他框架可能略有不同~
+框架采用了分离式架构：
+- **Skeleton** (本仓库)：应用模板，包含控制器、模型、路由定义、中间件以及 `.env` 配置文件等业务代码的存放地。
+- **Core** (`yuinijika/anon-core`)：框架的核心逻辑引擎（容器、路由解析、ORM、JWT 等），被安装在 `vendor/` 目录下。
 
-[快速开始](https://yuinijika.github.io/Anon/)
+## 目录结构
 
-## 快速启动
-
-### 使用内置开发服务器
-
-```bash
-# 启动开发服务器 (默认 localhost:8000)
-php anon run
-
-# 指定端口
-php anon run --port=8080
-
-# 指定主机和端口
-php anon run --host=0.0.0.0 --port=8080
-
-# Windows 用户可以直接使用
-anon run
+```text
+/
+├── app/                  # 应用程序核心代码目录
+│   ├── controller/       # 控制器
+│   ├── middleware/       # 自定义中间件
+│   ├── model/            # 数据模型 (ORM)
+│   ├── route/            # 路由定义 (默认入口: main.php)
+│   └── hook.php          # 注册系统生命周期钩子
+├── run/                  # 运行时与 Web 根目录
+│   ├── index.php         # 框架单一入口文件
+│   └── storage/          # 本地文件存储目录
+├── runtime/              # 框架生成的运行时文件 (日志、缓存等)
+├── .env.example          # 环境变量示例文件
+├── anon                  # CLI 命令行入口工具
+└── composer.json         # 项目依赖配置
 ```
 
-### 其他命令
+## 快速开始
+
+### 1. 创建项目
 
 ```bash
-# 查看版本
-php anon version
-
-# 查看帮助
-php anon help
+composer create-project yuinijika/anon my-app
+cd my-app
 ```
 
-### 使用 Composer 脚本
+### 2. 环境配置
+
+复制环境配置文件并根据你的需求进行修改：
 
 ```bash
-# 启动开发服务器
-composer serve
-
-# 启动开发服务器 (监听所有接口)
-composer serve:dev
-
-# 查看版本
-composer anon:version
+cp .env.example .env
 ```
 
-📚 **更多详细信息请查看**：[CLI 命令行系统文档](https://yuinijika.github.io/Anon/guide/cli-system.html)
+确保 `.env` 中的 `DATABASE_*` 和 `JWT_SECRET` 配置正确。
 
-## PHP 版本要求
+### 3. 启动开发服务器
 
-PHP 7.4 - 8+
+框架内置了轻量的 CLI 工具，你可以直接启动一个本地开发服务器：
 
-> **注意**：当前分支代码为开发版，生产环境请使用[稳定版](https://github.com/YuiNijika/Anon/releases)
+```bash
+php anon dev
+```
+服务器将默认监听在 `http://127.0.0.1:8000`。你可以通过访问 `http://127.0.0.1:8000/` 来查看默认的欢迎路由。
 
----
+## 常用命令
 
-## 📄 许可证
+`anon` 命令行工具提供了一些实用的代码生成器，帮助你快速搭建业务骨架：
 
-MIT License
+```bash
+# 生成控制器
+php anon make:controller UserController
 
-Copyright (c) 2024-2026 鼠子(YuiNijika)
+# 生成模型
+php anon make:model User
 
+# 生成中间件
+php anon make:middleware AuthMiddleware
+```
+
+## 官方文档
+
+详细的框架使用指南（包括容器、路由、中间件、数据库等），请查看我们在仓库中附带的 `vitepress/docs`，或者访问官方在线文档站点。
+
+## 许可证 (License)
+
+本项目遵循 [MIT 许可证](LICENSE)。

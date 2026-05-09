@@ -1,20 +1,21 @@
 {
     "name": "yuinijika/anon",
-    "description": "Anon Framework - A PHP backend API framework",
+    "description": "Anon Framework Next - A PHP backend API framework",
     "type": "library",
     "license": "MIT",
-    "require": {
-        "php": ">=7.4"
-    },
     "autoload": {
         "psr-4": {
-            "Anon\\": "src/"
+            "Anon\\": "app/"
         }
     },
-    "scripts": {
-        "serve": "php anon run",
-        "serve:dev": "php anon run --host=0.0.0.0 --port=8000",
-        "anon:version": "php anon version",
-        "anon:help": "php anon help"
-    }
+    "require": {
+        "yuinijika/anon-core": "*"
+    },
+    "authors": [
+        {
+            "name": "鼠子(YuiNijika)",
+            "email": "Tomori@miomoe.cn"
+        }
+    ],
+    "minimum-stability": "dev"
 }

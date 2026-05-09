@@ -6,5 +6,6 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Anon\\' => array($baseDir . '/src'),
+    'Anon\\Core\\' => array($vendorDir . '/yuinijika/anon-core/src'),
+    'Anon\\' => array($baseDir . '/app'),
 );

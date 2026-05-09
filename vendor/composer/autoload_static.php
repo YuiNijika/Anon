@@ -4,19 +4,24 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit10b8dcf9d7bd21a2e58e0628f769a1fd
+class ComposerStaticInitfd02a2b1cae38a0586641d1a6c4bf98b
 {
     public static $prefixLengthsPsr4 = array (
         'A' =>
         array (
+            'Anon\\Core\\' => 10,
             'Anon\\' => 5,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'Anon\\Core\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/yuinijika/anon-core/src',
+        ),
         'Anon\\' =>
         array (
-            0 => __DIR__ . '/../..' . '/src',
+            0 => __DIR__ . '/../..' . '/app',
         ),
     );
 
@@ -27,9 +32,9 @@ class ComposerStaticInit10b8dcf9d7bd21a2e58e0628f769a1fd
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit10b8dcf9d7bd21a2e58e0628f769a1fd::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit10b8dcf9d7bd21a2e58e0628f769a1fd::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit10b8dcf9d7bd21a2e58e0628f769a1fd::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitfd02a2b1cae38a0586641d1a6c4bf98b::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitfd02a2b1cae38a0586641d1a6c4bf98b::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInitfd02a2b1cae38a0586641d1a6c4bf98b::$classMap;
 
         }, null, ClassLoader::class);
     }

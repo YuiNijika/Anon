@@ -1,0 +1,51 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "546af72eb06e291b8254098496aa24ee",
+    "packages": [
+        {
+            "name": "yuinijika/anon-core",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../core",
+                "reference": "6e4525d1c2291d6270e871951d62c39929291704"
+            },
+            "require": {
+                "php": ">=8.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Anon\\Core\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "鼠子",
+                    "email": "Tomori@miomoe.cn"
+                }
+            ],
+            "description": "Anon Framework Core",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}
