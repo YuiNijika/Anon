@@ -11,6 +11,10 @@
     "require": {
         "yuinijika/anon-core": "*"
     },
+   {
+       "minimum-stability": "alpha",
+       "prefer-stable": true
+   },
     "authors": [
         {
             "name": "鼠子(YuiNijika)",
