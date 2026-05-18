@@ -27,5 +27,5 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use Anon\Core\Foundation\App;
 
-// 运行核心应用
+// 运行应用
 App::run(dirname(__DIR__));
