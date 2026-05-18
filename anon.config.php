@@ -1,53 +1,19 @@
 <?php
 
-return [
-    'app' => [
-        'name' => 'Anon Framework Next',
-        'env' => 'local',
-        'debug' => true,
-        'url' => 'http://127.0.0.1:8000',
-    ],
+use Anon\Core\Support\Config;
 
-    'database' => [
-        'type' => getenv('DATABASE_TYPE') ?: 'mysql',
-        'host' => getenv('DATABASE_URL') ?: '127.0.0.1',
-        'port' => (int) (getenv('DATABASE_PORT') ?: 3306),
-        'database' => getenv('DATABASE_NAME') ?: 'anon',
-        'username' => getenv('DATABASE_USER') ?: 'root',
-        'password' => getenv('DATABASE_PASSWORD') ?: '',
-        'charset' => getenv('DATABASE_CHARSET') ?: 'utf8mb4',
-        'prefix' => getenv('DATABASE_PREFIX') ?: '',
-    ],
+/**
+ * Anon Framework Next 核心配置文件
+ *
+ * 框架内建了极为完善的默认配置，所有敏感信息均可通过 `.env` 环境变量配置。
+ * 你可以像使用 `vite.config.ts` 一样，在这里仅写入你想要覆盖或自定义的配置项。
+ * 
+ * @see https://anon.miomoe.cn/guide/architecture/configuration
+ */
 
-    'cache' => [
-        'default' => 'file',
-        'path' => __DIR__ . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'cache',
-        'prefix' => 'anon:cache:',
-        'redis' => [
-            'host' => '127.0.0.1',
-            'port' => 6379,
-            'password' => '',
-            'database' => 0,
-        ],
-    ],
-
-    'session' => [
-        'driver' => 'file',
-        'lifetime' => 86400,
-        'path' => '/',
-        'domain' => '',
-        'secure' => false,
-        'httponly' => true,
-        'samesite' => 'Lax',
-        'prefix' => 'anon:session:',
-        'path_storage' => __DIR__ . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'session',
-    ],
-
-    'upload' => [
-        'path' => __DIR__ . DIRECTORY_SEPARATOR . 'run' . DIRECTORY_SEPARATOR . 'storage',
-    ],
-
-    'auth' => [
-        'jwt_secret' => getenv('JWT_SECRET') ?: 'anon_secret_key',
-    ],
-];
+return Config::define([
+    // 例如：你可以取消注释来修改默认的应用名称
+    // 'app' => [
+    //     'name' => 'Anon Framework Next'
+    // ]
+]);
