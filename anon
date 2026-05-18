@@ -24,7 +24,7 @@ if (php_sapi_name() === 'cli-server') {
         default => "\033[35m{$method}\033[0m"// 紫色
     };
     
-    // 写入控制台 (STDERR，不污染 HTTP 响应)
+    // 写入控制台 STDERR
     error_log("[{$time}] {$colorMethod} {$uri}");
 
     // 将请求重写给 run/index.php
