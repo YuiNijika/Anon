@@ -1,6 +1,38 @@
 #!/usr/bin/env php
 <?php
 
+// 当作为 PHP 内置服务器路由器使用时 (php -S localhost:8000 anon)
+if (php_sapi_name() === 'cli-server') {
+    $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+    $file = __DIR__ . '/run' . $uri;
+
+    // 静态文件如果存在，直接交由内置服务器处理
+    if ($uri !== '/' && file_exists($file) && is_file($file)) {
+        return false;
+    }
+
+    // 拦截请求并输出带颜色的终端日志
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $time = date('H:i:s');
+    
+    // 终端颜色控制代码
+    $colorMethod = match($method) {
+        'GET' => "\033[32mGET\033[0m",       // 绿色
+        'POST' => "\033[33mPOST\033[0m",     // 黄色
+        'PUT' => "\033[34mPUT\033[0m",       // 蓝色
+        'DELETE' => "\033[31mDELETE\033[0m", // 红色
+        default => "\033[35m{$method}\033[0m"// 紫色
+    };
+    
+    // 写入控制台 (STDERR，不污染 HTTP 响应)
+    error_log("[{$time}] {$colorMethod} {$uri}");
+
+    // 将请求重写给 run/index.php
+    $_SERVER['SCRIPT_NAME'] = '/index.php';
+    require __DIR__ . '/run/index.php';
+    return true;
+}
+
 // 加载 Composer 自动加载
 require __DIR__ . '/vendor/autoload.php';
 
